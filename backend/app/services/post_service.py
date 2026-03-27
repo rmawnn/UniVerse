@@ -1,0 +1,166 @@
+import math
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import Forbidden, NotFound
+from app.models.post import Post
+from app.models.user import User
+from app.repositories.community_repository import CommunityRepository
+from app.repositories.post_like_repository import PostLikeRepository
+from app.repositories.post_repository import PostRepository
+from app.repositories.user_repository import UserRepository
+from app.schemas.common import PaginatedResponse
+from app.schemas.post import PostAuthorSummary, PostCreateRequest, PostResponse
+
+
+async def create_post(
+    db: AsyncSession,
+    community_id: UUID,
+    current_user: User,
+    data: PostCreateRequest,
+) -> PostResponse:
+    """
+    Create a post inside a community.
+
+    Rules:
+      - Community must exist
+      - User must be a member of the community
+    """
+    community_repo = CommunityRepository(db)
+
+    community = await community_repo.get_by_id(community_id)
+    if not community:
+        raise NotFound("Community")
+
+    if not await community_repo.is_member(community_id, current_user.id):
+        raise Forbidden("You must be a member of this community to post")
+
+    post = Post(
+        community_id=community_id,
+        author_id=current_user.id,
+        content=data.content,
+        image_url=data.image_url,
+    )
+    post_repo = PostRepository(db)
+    post = await post_repo.create(post)
+
+    # New post has 0 likes, and the author hasn't liked it yet
+    return _build_response(post, current_user, like_count=0, liked_by_me=False)
+
+
+async def get_post(
+    db: AsyncSession,
+    post_id: UUID,
+    current_user: User | None = None,
+) -> PostResponse:
+    """Get a single post by ID with like context."""
+    post_repo = PostRepository(db)
+    post = await post_repo.get_by_id(post_id)
+
+    if not post:
+        raise NotFound("Post")
+
+    user_repo = UserRepository(db)
+    author = await user_repo.get_by_id(post.author_id)
+
+    like_repo = PostLikeRepository(db)
+    like_count = await like_repo.count_by_post(post_id)
+    liked_by_me = False
+    if current_user:
+        liked_by_me = await like_repo.get_like(post_id, current_user.id) is not None
+
+    return _build_response(post, author, like_count=like_count, liked_by_me=liked_by_me)
+
+
+async def list_posts(
+    db: AsyncSession,
+    community_id: UUID,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User | None = None,
+) -> PaginatedResponse[PostResponse]:
+    """List posts for a community, newest first, with like counts."""
+    community_repo = CommunityRepository(db)
+    if not await community_repo.get_by_id(community_id):
+        raise NotFound("Community")
+
+    post_repo = PostRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await post_repo.count_by_community(community_id)
+    posts = await post_repo.list_by_community(community_id, skip=skip, limit=page_size)
+
+    if not posts:
+        return PaginatedResponse(
+            items=[], total=total, page=page, page_size=page_size,
+            total_pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    # Batch-load authors
+    user_repo = UserRepository(db)
+    author_ids = {p.author_id for p in posts}
+    authors: dict[UUID, User] = {}
+    for aid in author_ids:
+        user = await user_repo.get_by_id(aid)
+        if user:
+            authors[aid] = user
+
+    # Batch-load like counts and user's likes
+    post_ids = [p.id for p in posts]
+    like_repo = PostLikeRepository(db)
+    like_counts = await like_repo.count_by_posts(post_ids)
+    liked_set: set[UUID] = set()
+    if current_user:
+        liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
+
+    items = [
+        _build_response(
+            p, authors.get(p.author_id),
+            like_count=like_counts.get(p.id, 0),
+            liked_by_me=p.id in liked_set,
+        )
+        for p in posts
+    ]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+def _build_response(
+    post: Post,
+    author: User | None,
+    *,
+    like_count: int = 0,
+    liked_by_me: bool = False,
+) -> PostResponse:
+    """Build a PostResponse with embedded author summary and like data."""
+    author_summary = PostAuthorSummary(
+        id=author.id,
+        username=author.username,
+        full_name=author.full_name,
+        profile_image_url=author.profile_image_url,
+    ) if author else PostAuthorSummary(
+        id=post.author_id,
+        username="[deleted]",
+        full_name="Deleted User",
+        profile_image_url=None,
+    )
+
+    return PostResponse(
+        id=post.id,
+        community_id=post.community_id,
+        author=author_summary,
+        content=post.content,
+        image_url=post.image_url,
+        like_count=like_count,
+        liked_by_me=liked_by_me,
+        created_at=post.created_at,
+        updated_at=post.updated_at,
+    )

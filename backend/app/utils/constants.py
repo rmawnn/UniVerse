@@ -10,7 +10,13 @@ class UserRole(str, Enum):
 class VerificationStatus(str, Enum):
     PENDING = "pending"
     VERIFIED = "verified"
-    REJECTED = "rejected"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+class CommunityRole(str, Enum):
+    ADMIN = "admin"
+    MEMBER = "member"
 
 
 class PostType(str, Enum):

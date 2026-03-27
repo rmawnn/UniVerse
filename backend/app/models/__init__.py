@@ -9,10 +9,10 @@
 
 from app.models.university import University  # noqa: F401
 from app.models.user import User  # noqa: F401
-
-# from app.models.verification import VerificationToken
-# from app.models.community import Community, CommunityMember
-# from app.models.post import Post, Reaction
-# from app.models.comment import Comment
+from app.models.verification_request import VerificationRequest  # noqa: F401
+from app.models.community import Community, CommunityMember  # noqa: F401
+from app.models.post import Post  # noqa: F401
+from app.models.comment import Comment  # noqa: F401
+from app.models.post_like import PostLike  # noqa: F401
 # from app.models.message import Conversation, Message
 # from app.models.notification import Notification

@@ -11,6 +11,7 @@ from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 async def get_current_user(
@@ -42,6 +43,35 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated",
         )
+    return user
+
+
+async def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Return the authenticated user if a valid token is present, else None.
+
+    Unlike get_current_user, this never raises — unauthenticated callers
+    simply get None. Use this for public endpoints that enrich the response
+    when the caller happens to be logged in.
+    """
+    if token is None:
+        return None
+    try:
+        payload = decode_token(token)
+        user_id_str: str | None = payload.get("sub")
+        if user_id_str is None:
+            return None
+        user_id = UUID(user_id_str)
+    except (JWTError, ValueError):
+        return None
+
+    repo = UserRepository(db)
+    user = await repo.get_by_id(user_id)
+
+    if user is None or not user.is_active:
+        return None
     return user
 
 
