@@ -13,6 +13,7 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.comment import CommentCreateRequest, CommentResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostAuthorSummary
+from app.services import notification_service
 
 
 async def create_comment(
@@ -44,6 +45,16 @@ async def create_comment(
     )
     comment_repo = CommentRepository(db)
     comment = await comment_repo.create(comment)
+
+    # Notify post author (don't notify yourself)
+    if post.author_id != current_user.id:
+        await notification_service.notify(
+            db,
+            user_id=post.author_id,
+            type="comment",
+            reference_id=post_id,
+            content=f"{current_user.username} commented on your post",
+        )
 
     return _build_response(comment, current_user)
 

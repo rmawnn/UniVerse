@@ -48,6 +48,20 @@ class ChangePasswordRequest(BaseModel):
         return self
 
 
+class UserSearchResponse(BaseModel):
+    """Lightweight user representation for search results.
+    Does not expose email, role, or sensitive flags."""
+
+    id: uuid.UUID
+    username: str
+    full_name: str
+    profile_image_url: str | None = None
+    university_id: uuid.UUID | None = None
+    is_verified_student: bool
+
+    model_config = {"from_attributes": True}
+
+
 class UserStatusResponse(BaseModel):
     """Lightweight auth-status payload for quick checks."""
 

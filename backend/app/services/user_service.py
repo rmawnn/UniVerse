@@ -1,10 +1,13 @@
+import math
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequest, Unauthorized
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.user import ChangePasswordRequest, UserUpdateRequest, UserResponse
+from app.schemas.common import PaginatedResponse
+from app.schemas.user import ChangePasswordRequest, UserSearchResponse, UserUpdateRequest, UserResponse
 
 
 async def change_password(
@@ -43,3 +46,37 @@ async def update_profile(
     repo = UserRepository(db)
     user = await repo.update(current_user, **fields)
     return UserResponse.model_validate(user)
+
+
+async def search_users(
+    db: AsyncSession,
+    current_user: User,
+    query: str,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+) -> PaginatedResponse[UserSearchResponse]:
+    """Search users by username or full_name.
+
+    Excludes the current user from results.
+    Rejects queries shorter than 2 characters.
+    """
+    query = query.strip()
+    if len(query) < 2:
+        raise BadRequest("Search query must be at least 2 characters")
+
+    repo = UserRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await repo.count_search(query, exclude_user_id=current_user.id)
+    users = await repo.search(query, exclude_user_id=current_user.id, skip=skip, limit=page_size)
+
+    items = [UserSearchResponse.model_validate(u) for u in users]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )

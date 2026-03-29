@@ -8,6 +8,7 @@ from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
 from app.schemas.post_like import PostLikeToggleResponse
+from app.services import notification_service
 
 
 async def toggle_like(
@@ -42,6 +43,16 @@ async def toggle_like(
     else:
         await like_repo.create_like(post_id, current_user.id)
         liked = True
+
+        # Notify post author (don't notify yourself)
+        if post.author_id != current_user.id:
+            await notification_service.notify(
+                db,
+                user_id=post.author_id,
+                type="like",
+                reference_id=post_id,
+                content=f"{current_user.username} liked your post",
+            )
 
     count = await like_repo.count_by_post(post_id)
 

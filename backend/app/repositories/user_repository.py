@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func, case, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -48,3 +48,77 @@ class UserRepository:
         await self.db.flush()
         await self.db.refresh(user)
         return user
+
+    async def search(
+        self,
+        query: str,
+        *,
+        exclude_user_id: UUID | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[User]:
+        """
+        Search users by username or full_name (case-insensitive ILIKE).
+
+        Ordering: exact username match first, then verified users,
+        then alphabetically by username.
+        """
+        pattern = f"%{query}%"
+
+        stmt = (
+            select(User)
+            .where(
+                User.is_active == True,  # noqa: E712
+                or_(
+                    User.username.ilike(pattern),
+                    User.full_name.ilike(pattern),
+                ),
+            )
+            .order_by(
+                # Exact username match first (0 sorts before 1)
+                case(
+                    (func.lower(User.username) == query.lower(), 0),
+                    else_=1,
+                ),
+                # Verified users next
+                case(
+                    (User.is_verified_student == True, 0),  # noqa: E712
+                    else_=1,
+                ),
+                User.username.asc(),
+            )
+            .offset(skip)
+            .limit(limit)
+        )
+
+        if exclude_user_id is not None:
+            stmt = stmt.where(User.id != exclude_user_id)
+
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_search(
+        self,
+        query: str,
+        *,
+        exclude_user_id: UUID | None = None,
+    ) -> int:
+        pattern = f"%{query}%"
+
+        stmt = (
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.is_active == True,  # noqa: E712
+                or_(
+                    User.username.ilike(pattern),
+                    User.full_name.ilike(pattern),
+                ),
+            )
+        )
+
+        if exclude_user_id is not None:
+            stmt = stmt.where(User.id != exclude_user_id)
+
+        result = await self.db.execute(stmt)
+        return result.scalar_one()

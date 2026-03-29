@@ -1,19 +1,34 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.common import SuccessResponse
+from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.schemas.user import (
     ChangePasswordRequest,
     UserResponse,
+    UserSearchResponse,
     UserStatusResponse,
     UserUpdateRequest,
 )
 from app.services import user_service
 
 router = APIRouter()
+
+
+@router.get("/search", response_model=PaginatedResponse[UserSearchResponse])
+async def search_users(
+    q: str = Query(..., min_length=2, max_length=100),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search users by username or full name. Excludes current user."""
+    return await user_service.search_users(
+        db, current_user, q, page=page, page_size=page_size,
+    )
 
 
 @router.get("/me", response_model=UserResponse)

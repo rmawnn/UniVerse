@@ -14,5 +14,7 @@ from app.models.community import Community, CommunityMember  # noqa: F401
 from app.models.post import Post  # noqa: F401
 from app.models.comment import Comment  # noqa: F401
 from app.models.post_like import PostLike  # noqa: F401
-# from app.models.message import Conversation, Message
-# from app.models.notification import Notification
+from app.models.conversation import Conversation  # noqa: F401
+from app.models.conversation_participant import ConversationParticipant  # noqa: F401
+from app.models.message import Message  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
