@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,6 +9,7 @@ from app.models.user import User
 from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.schemas.user import (
     ChangePasswordRequest,
+    PublicUserProfileResponse,
     UserResponse,
     UserSearchResponse,
     UserStatusResponse,
@@ -62,3 +65,13 @@ async def change_my_password(
 async def get_my_status(current_user: User = Depends(get_current_user)):
     """Lightweight check — returns auth status, role, and verification state."""
     return current_user
+
+
+@router.get("/{user_id}", response_model=PublicUserProfileResponse)
+async def get_user_profile(
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """View another user's public profile. Requires authentication."""
+    return await user_service.get_public_profile(db, user_id)

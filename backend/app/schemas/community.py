@@ -26,6 +26,12 @@ class CommunityResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CommunitySearchResponse(CommunityResponse):
+    """Community card for search/discovery results.
+    Includes is_member when the caller is authenticated."""
+    is_member: bool | None = None
+
+
 class CommunityDetailResponse(CommunityResponse):
     """Extended response that includes the caller's membership status."""
     is_member: bool = False

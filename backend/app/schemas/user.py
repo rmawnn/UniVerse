@@ -48,6 +48,30 @@ class ChangePasswordRequest(BaseModel):
         return self
 
 
+class CommunitySummary(BaseModel):
+    """Lightweight community info for profile views."""
+    id: uuid.UUID
+    name: str
+
+
+class PublicUserProfileResponse(BaseModel):
+    """Public profile visible to other authenticated users.
+    Does not expose email, password_hash, role, or is_active."""
+
+    id: uuid.UUID
+    username: str
+    full_name: str
+    profile_image_url: str | None = None
+    bio: str | None = None
+    department: str | None = None
+    academic_year: int | None = None
+    university_id: uuid.UUID | None = None
+    university_name: str | None = None
+    is_verified_student: bool
+    communities: list[CommunitySummary] = []
+    created_at: datetime
+
+
 class UserSearchResponse(BaseModel):
     """Lightweight user representation for search results.
     Does not expose email, role, or sensitive flags."""

@@ -44,3 +44,37 @@ class PostRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def list_by_communities(
+        self, community_ids: list[UUID], *, skip: int = 0, limit: int = 20,
+    ) -> list[Post]:
+        """Fetch posts from multiple communities, newest first (for feed)."""
+        if not community_ids:
+            return []
+        stmt = (
+            select(Post)
+            .where(
+                Post.community_id.in_(community_ids),
+                Post.is_deleted == False,  # noqa: E712
+            )
+            .order_by(Post.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_by_communities(self, community_ids: list[UUID]) -> int:
+        """Count non-deleted posts across multiple communities."""
+        if not community_ids:
+            return 0
+        stmt = (
+            select(func.count())
+            .select_from(Post)
+            .where(
+                Post.community_id.in_(community_ids),
+                Post.is_deleted == False,  # noqa: E712
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()

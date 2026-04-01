@@ -1,13 +1,23 @@
 import math
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequest, Unauthorized
+from app.core.exceptions import BadRequest, NotFound, Unauthorized
 from app.core.security import hash_password, verify_password
 from app.models.user import User
+from app.repositories.community_repository import CommunityRepository
+from app.repositories.university_repository import UniversityRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
-from app.schemas.user import ChangePasswordRequest, UserSearchResponse, UserUpdateRequest, UserResponse
+from app.schemas.user import (
+    ChangePasswordRequest,
+    CommunitySummary,
+    PublicUserProfileResponse,
+    UserSearchResponse,
+    UserUpdateRequest,
+    UserResponse,
+)
 
 
 async def change_password(
@@ -79,4 +89,49 @@ async def search_users(
         page=page,
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+async def get_public_profile(
+    db: AsyncSession,
+    target_user_id: UUID,
+) -> PublicUserProfileResponse:
+    """Fetch a user's public profile with university name and communities.
+
+    Only active users are visible. Inactive or non-existent users return 404.
+    """
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(target_user_id)
+
+    if not user or not user.is_active:
+        raise NotFound("User")
+
+    # Resolve university name
+    university_name: str | None = None
+    if user.university_id:
+        uni_repo = UniversityRepository(db)
+        university = await uni_repo.get_by_id(user.university_id)
+        if university:
+            university_name = university.name
+
+    # Resolve communities
+    community_repo = CommunityRepository(db)
+    communities = await community_repo.list_by_user(target_user_id)
+    community_summaries = [
+        CommunitySummary(id=c.id, name=c.name) for c in communities
+    ]
+
+    return PublicUserProfileResponse(
+        id=user.id,
+        username=user.username,
+        full_name=user.full_name,
+        profile_image_url=user.profile_image_url,
+        bio=user.bio,
+        department=user.department,
+        academic_year=user.academic_year,
+        university_id=user.university_id,
+        university_name=university_name,
+        is_verified_student=user.is_verified_student,
+        communities=community_summaries,
+        created_at=user.created_at,
     )
