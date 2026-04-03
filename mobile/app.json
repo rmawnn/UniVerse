@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "UniVerse",
+    "slug": "universe-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#6C63FF"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.universe.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6C63FF"
+      },
+      "package": "com.universe.mobile"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}
