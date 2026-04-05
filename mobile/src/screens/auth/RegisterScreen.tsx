@@ -5,27 +5,37 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { AuthStackParamList } from "../../navigation/types";
 import { useAuthStore } from "../../store/authStore";
 
-type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
+type Props = StackScreenProps<AuthStackParamList, "Register">;
 
 export default function RegisterScreen({ navigation }: Props) {
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const { register, isLoading } = useAuthStore();
 
   const handleRegister = async () => {
+    setError("");
     if (!fullName.trim() || !username.trim() || !email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+      setError("Please fill in all fields");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+      setError("Username can only contain letters, numbers, and underscores");
       return;
     }
     try {
@@ -35,8 +45,9 @@ export default function RegisterScreen({ navigation }: Props) {
         email: email.trim().toLowerCase(),
         password,
       });
-    } catch (error: any) {
-      Alert.alert("Registration failed", error.message ?? "Please try again");
+      // On success, authStore sets user → RootNavigator switches to MainTabs
+    } catch (err: any) {
+      setError(err.message ?? "Registration failed. Please try again.");
     }
   };
 
@@ -49,40 +60,46 @@ export default function RegisterScreen({ navigation }: Props) {
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Join your university community</Text>
 
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <TextInput
           style={styles.input}
           placeholder="Full Name"
           value={fullName}
-          onChangeText={setFullName}
+          onChangeText={(t) => { setFullName(t); setError(""); }}
           textContentType="name"
+          editable={!isLoading}
         />
 
         <TextInput
           style={styles.input}
           placeholder="Username"
           value={username}
-          onChangeText={setUsername}
+          onChangeText={(t) => { setUsername(t); setError(""); }}
           autoCapitalize="none"
           textContentType="username"
+          editable={!isLoading}
         />
 
         <TextInput
           style={styles.input}
           placeholder="Email"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(t) => { setEmail(t); setError(""); }}
           autoCapitalize="none"
           keyboardType="email-address"
           textContentType="emailAddress"
+          editable={!isLoading}
         />
 
         <TextInput
           style={styles.input}
           placeholder="Password (min 8 characters)"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(t) => { setPassword(t); setError(""); }}
           secureTextEntry
           textContentType="newPassword"
+          editable={!isLoading}
         />
 
         <TouchableOpacity
@@ -90,12 +107,14 @@ export default function RegisterScreen({ navigation }: Props) {
           onPress={handleRegister}
           disabled={isLoading}
         >
-          <Text style={styles.buttonText}>
-            {isLoading ? "Creating account..." : "Create Account"}
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.buttonText}>Create Account</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <TouchableOpacity onPress={() => navigation.navigate("Login")} disabled={isLoading}>
           <Text style={styles.link}>Already have an account? Sign in</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -108,6 +127,10 @@ const styles = StyleSheet.create({
   inner: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 },
   title: { fontSize: 28, fontWeight: "700", textAlign: "center", color: "#6C63FF" },
   subtitle: { fontSize: 16, textAlign: "center", color: "#666", marginBottom: 32, marginTop: 8 },
+  error: {
+    color: "#e74c3c", fontSize: 14, textAlign: "center",
+    marginBottom: 16, backgroundColor: "#fdeaea", padding: 12, borderRadius: 8,
+  },
   input: {
     borderWidth: 1, borderColor: "#ddd", borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 14,

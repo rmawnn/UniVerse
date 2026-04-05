@@ -13,10 +13,10 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listMessages, sendMessage } from "../../api/messaging";
 import { useAuthStore } from "../../store/authStore";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { MessagesStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<MessagesStackParamList, "Chat">;
+type Props = StackScreenProps<MessagesStackParamList, "Chat">;
 
 export default function ChatScreen({ route }: Props) {
   const { conversationId, participantName } = route.params;

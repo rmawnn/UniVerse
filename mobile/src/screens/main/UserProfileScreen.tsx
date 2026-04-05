@@ -2,10 +2,10 @@ import React from "react";
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { getUserProfile } from "../../api/users";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { FeedStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<FeedStackParamList, "UserProfile">;
+type Props = StackScreenProps<FeedStackParamList, "UserProfile">;
 
 export default function UserProfileScreen({ route }: Props) {
   const { userId } = route.params;

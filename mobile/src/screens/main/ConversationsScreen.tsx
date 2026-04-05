@@ -3,10 +3,10 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator }
 import { useQuery } from "@tanstack/react-query";
 import { listConversations } from "../../api/messaging";
 import { useAuthStore } from "../../store/authStore";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { MessagesStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<MessagesStackParamList, "ConversationsList">;
+type Props = StackScreenProps<MessagesStackParamList, "ConversationsList">;
 
 export default function ConversationsScreen({ navigation }: Props) {
   const me = useAuthStore((s) => s.user);

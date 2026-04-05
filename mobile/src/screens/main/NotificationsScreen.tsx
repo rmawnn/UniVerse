@@ -2,10 +2,10 @@ import React from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listNotifications, markAsRead, markAllAsRead } from "../../api/notifications";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { NotificationsStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<NotificationsStackParamList, "NotificationsList">;
+type Props = StackScreenProps<NotificationsStackParamList, "NotificationsList">;
 
 export default function NotificationsScreen({ navigation }: Props) {
   const queryClient = useQueryClient();

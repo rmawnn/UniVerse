@@ -1,13 +1,13 @@
 import React, { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import type { RootStackParamList } from "./types";
 import { useAuthStore } from "../store/authStore";
 import AuthStack from "./AuthStack";
 import MainTabs from "./MainTabs";
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { user, isReady, hydrate } = useAuthStore();

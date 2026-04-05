@@ -7,15 +7,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  SegmentedControlIOSComponent,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { searchUsers } from "../../api/users";
 import { searchCommunities } from "../../api/communities";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { SearchStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<SearchStackParamList, "Search">;
+type Props = StackScreenProps<SearchStackParamList, "Search">;
 type Tab = "users" | "communities";
 
 export default function SearchScreen({ navigation }: Props) {

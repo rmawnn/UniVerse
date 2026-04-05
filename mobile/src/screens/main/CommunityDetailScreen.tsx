@@ -1,17 +1,21 @@
-import React from "react";
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import React, { useState } from "react";
+import {
+  View, Text, TouchableOpacity, FlatList,
+  StyleSheet, ActivityIndicator, RefreshControl,
+} from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCommunity, joinCommunity } from "../../api/communities";
 import { listPosts } from "../../api/posts";
 import PostCard from "../../components/post/PostCard";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { CommunitiesStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<CommunitiesStackParamList, "CommunityDetail">;
+type Props = StackScreenProps<CommunitiesStackParamList, "CommunityDetail">;
 
 export default function CommunityDetailScreen({ route, navigation }: Props) {
   const { communityId } = route.params;
   const queryClient = useQueryClient();
+  const [error, setError] = useState("");
 
   const communityQuery = useQuery({
     queryKey: ["community", communityId],
@@ -26,9 +30,11 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
   const joinMutation = useMutation({
     mutationFn: () => joinCommunity(communityId),
     onSuccess: () => {
+      setError("");
       queryClient.invalidateQueries({ queryKey: ["community", communityId] });
+      queryClient.invalidateQueries({ queryKey: ["communities"] });
     },
-    onError: (err: any) => Alert.alert("Error", err.message),
+    onError: (err: any) => setError(err.message ?? "Could not join community"),
   });
 
   const community = communityQuery.data;
@@ -41,6 +47,11 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
     );
   }
 
+  const onRefresh = () => {
+    communityQuery.refetch();
+    postsQuery.refetch();
+  };
+
   return (
     <FlatList
       style={styles.list}
@@ -48,19 +59,35 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
         community ? (
           <View style={styles.header}>
             <Text style={styles.name}>{community.name}</Text>
-            <Text style={styles.desc}>{community.description}</Text>
+            {community.description ? (
+              <Text style={styles.desc}>{community.description}</Text>
+            ) : null}
             <Text style={styles.meta}>{community.member_count} members</Text>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
             {!community.is_member ? (
-              <TouchableOpacity style={styles.joinBtn} onPress={() => joinMutation.mutate()}>
-                <Text style={styles.joinText}>Join Community</Text>
+              <TouchableOpacity
+                style={[styles.joinBtn, joinMutation.isPending && styles.disabled]}
+                onPress={() => joinMutation.mutate()}
+                disabled={joinMutation.isPending}
+              >
+                <Text style={styles.btnText}>
+                  {joinMutation.isPending ? "Joining..." : "Join Community"}
+                </Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={styles.postBtn}
-                onPress={() => navigation.navigate("CreatePost", { communityId })}
-              >
-                <Text style={styles.joinText}>Create Post</Text>
-              </TouchableOpacity>
+              <View style={styles.memberActions}>
+                <View style={styles.memberBadge}>
+                  <Text style={styles.memberBadgeText}>Member</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.createBtn}
+                  onPress={() => navigation.navigate("CreatePost", { communityId })}
+                >
+                  <Text style={styles.btnText}>Create Post</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         ) : null
@@ -74,6 +101,24 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
           onAuthorPress={() => navigation.navigate("UserProfile", { userId: item.author.id })}
         />
       )}
+      refreshControl={
+        <RefreshControl
+          refreshing={communityQuery.isRefetching || postsQuery.isRefetching}
+          onRefresh={onRefresh}
+          tintColor="#6C63FF"
+        />
+      }
+      ListEmptyComponent={
+        community?.is_member ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No posts yet. Be the first!</Text>
+          </View>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Join to see and create posts</Text>
+          </View>
+        )
+      }
     />
   );
 }
@@ -83,9 +128,28 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: { backgroundColor: "#fff", padding: 20, marginBottom: 8 },
   name: { fontSize: 22, fontWeight: "700", marginBottom: 6 },
-  desc: { color: "#555", fontSize: 15, marginBottom: 8 },
+  desc: { color: "#555", fontSize: 15, lineHeight: 22, marginBottom: 8 },
   meta: { color: "#999", fontSize: 13, marginBottom: 14 },
-  joinBtn: { backgroundColor: "#6C63FF", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
-  postBtn: { backgroundColor: "#4CAF50", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
-  joinText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  error: {
+    color: "#e74c3c", fontSize: 14, backgroundColor: "#fdeaea",
+    padding: 10, borderRadius: 8, marginBottom: 12, textAlign: "center",
+  },
+  joinBtn: {
+    backgroundColor: "#6C63FF", borderRadius: 10,
+    paddingVertical: 12, alignItems: "center",
+  },
+  disabled: { opacity: 0.5 },
+  btnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  memberActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  memberBadge: {
+    backgroundColor: "#E8F5E9", paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10,
+  },
+  memberBadgeText: { color: "#4CAF50", fontWeight: "600", fontSize: 14 },
+  createBtn: {
+    flex: 1, backgroundColor: "#6C63FF", borderRadius: 10,
+    paddingVertical: 12, alignItems: "center",
+  },
+  emptyContainer: { padding: 40, alignItems: "center" },
+  emptyText: { color: "#999", fontSize: 15, textAlign: "center" },
 });

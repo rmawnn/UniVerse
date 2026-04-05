@@ -1,6 +1,6 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import type {
   MainTabParamList,
   FeedStackParamList,
@@ -26,7 +26,7 @@ import UserProfileScreen from "../screens/main/UserProfileScreen";
 
 // ── Feed Stack ──────────────────────────────────────────────
 
-const FeedNav = createNativeStackNavigator<FeedStackParamList>();
+const FeedNav = createStackNavigator<FeedStackParamList>();
 function FeedStack() {
   return (
     <FeedNav.Navigator>
@@ -40,7 +40,7 @@ function FeedStack() {
 
 // ── Communities Stack ───────────────────────────────────────
 
-const CommNav = createNativeStackNavigator<CommunitiesStackParamList>();
+const CommNav = createStackNavigator<CommunitiesStackParamList>();
 function CommunitiesStack() {
   return (
     <CommNav.Navigator>
@@ -55,7 +55,7 @@ function CommunitiesStack() {
 
 // ── Search Stack ────────────────────────────────────────────
 
-const SearchNav = createNativeStackNavigator<SearchStackParamList>();
+const SearchNav = createStackNavigator<SearchStackParamList>();
 function SearchStack() {
   return (
     <SearchNav.Navigator>
@@ -68,7 +68,7 @@ function SearchStack() {
 
 // ── Notifications Stack ─────────────────────────────────────
 
-const NotifNav = createNativeStackNavigator<NotificationsStackParamList>();
+const NotifNav = createStackNavigator<NotificationsStackParamList>();
 function NotificationsStack() {
   return (
     <NotifNav.Navigator>
@@ -81,7 +81,7 @@ function NotificationsStack() {
 
 // ── Messages Stack ──────────────────────────────────────────
 
-const MsgNav = createNativeStackNavigator<MessagesStackParamList>();
+const MsgNav = createStackNavigator<MessagesStackParamList>();
 function MessagesStack() {
   return (
     <MsgNav.Navigator>
@@ -93,7 +93,7 @@ function MessagesStack() {
 
 // ── Profile Stack ───────────────────────────────────────────
 
-const ProfNav = createNativeStackNavigator<ProfileStackParamList>();
+const ProfNav = createStackNavigator<ProfileStackParamList>();
 function ProfileStack() {
   return (
     <ProfNav.Navigator>
