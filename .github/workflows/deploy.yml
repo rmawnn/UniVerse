@@ -1,0 +1,87 @@
+name: Deploy
+
+# Runs only on pushes to main, after CI has passed.
+# Fill in the real deployment steps for your hosting provider when ready.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy-web:
+    name: Deploy Web (placeholder)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+      # ─── Replace the block below with your real deploy step ──
+      # Examples:
+      #
+      #  Vercel:
+      #    - run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+      #
+      #  Netlify:
+      #    - uses: netlify/actions/cli@master
+      #      with:
+      #        args: deploy --prod --dir=web/.next
+      #      env:
+      #        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      #        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      #
+      #  Docker + server (rsync/ssh):
+      #    - uses: appleboy/ssh-action@v1
+      #      with:
+      #        host: ${{ secrets.SSH_HOST }}
+      #        username: ${{ secrets.SSH_USER }}
+      #        key: ${{ secrets.SSH_KEY }}
+      #        script: cd /srv/universe && git pull && docker compose up -d --build
+      - name: Deploy placeholder
+        run: echo "Add your real web deploy command here."
+
+  deploy-backend:
+    name: Deploy Backend (placeholder)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ─── Replace with your real backend deploy step ───────────
+      # Examples:
+      #
+      #  Fly.io:
+      #    - uses: superfly/flyctl-actions/setup-flyctl@master
+      #    - run: flyctl deploy --remote-only
+      #      working-directory: backend
+      #      env:
+      #        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      #
+      #  Railway:
+      #    - uses: bervProject/railway-deploy@main
+      #      with:
+      #        railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      #        service: universe-backend
+      #
+      #  Render (via deploy hook):
+      #    - run: curl -fsSL "${{ secrets.RENDER_DEPLOY_HOOK }}"
+      - name: Deploy placeholder
+        run: echo "Add your real backend deploy command here."
