@@ -18,6 +18,151 @@ a {
 }
 
 input,
-button {
+button,
+textarea {
   font-family: inherit;
+}
+
+/* ── Skeleton shimmer ─────────────────────────────── */
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    #eeeeee 0%,
+    #f5f5f5 50%,
+    #eeeeee 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── App shell (sidebar + content) ─────────────────── */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  background: #fff;
+  border-right: 1px solid #eee;
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow: hidden auto;
+  padding: 0 12px;
+}
+
+.content-area {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.mobile-topbar {
+  display: none;
+  position: sticky;
+  top: 0;
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 0 16px;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 60;
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 45;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    width: 240px;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop.open {
+    display: block;
+  }
+  .mobile-topbar {
+    display: flex;
+  }
+  .content-area {
+    padding: 16px;
+  }
+}
+
+/* ── FAB ──────────────────────────────────────────── */
+.fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  font-size: 28px;
+  font-weight: 300;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(108, 99, 255, 0.4);
+  z-index: 40;
+}
+.fab:hover {
+  background: #5a52e0;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  padding: 16px;
+}
+
+.modal-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
 }

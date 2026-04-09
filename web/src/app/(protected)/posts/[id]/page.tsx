@@ -1,10 +1,24 @@
 "use client";
 
-import { useState, use } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, use, useMemo } from "react";
+import {
+  useQuery,
+  useMutation,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { getPost, listComments, createComment } from "@/api/posts";
 import PostCard from "@/components/post/PostCard";
 import CommentItem from "@/components/post/CommentItem";
+import {
+  PostSkeleton,
+  CommentSkeleton,
+  SkeletonList,
+} from "@/components/skeletons/Skeletons";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import type { PaginatedResponse, CommentResponse } from "@/types/api";
+
+const PAGE_SIZE = 20;
 
 export default function PostDetailPage({
   params,
@@ -22,10 +36,28 @@ export default function PostDetailPage({
     queryFn: () => getPost(id),
   });
 
-  const commentsQuery = useQuery({
-    queryKey: commentsKey,
-    queryFn: () => listComments(id, { page_size: 50 }),
+  const commentsQuery = useInfiniteQuery<PaginatedResponse<CommentResponse>>({
+    queryKey: [...commentsKey],
+    queryFn: ({ pageParam = 1 }) =>
+      listComments(id, { page: pageParam as number, page_size: PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
   });
+
+  const comments = useMemo(
+    () => commentsQuery.data?.pages.flatMap((p) => p.items) ?? [],
+    [commentsQuery.data]
+  );
+
+  const sentinelRef = useInfiniteScroll(
+    () => {
+      if (commentsQuery.hasNextPage && !commentsQuery.isFetchingNextPage) {
+        commentsQuery.fetchNextPage();
+      }
+    },
+    !!commentsQuery.hasNextPage && !commentsQuery.isFetchingNextPage
+  );
 
   const [draft, setDraft] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -35,7 +67,7 @@ export default function PostDetailPage({
     onSuccess: () => {
       setDraft("");
       setFormError(null);
-      qc.invalidateQueries({ queryKey: commentsKey });
+      qc.invalidateQueries({ queryKey: [...commentsKey] });
     },
     onError: (err: { message?: string }) => {
       setFormError(err?.message ?? "Failed to post comment");
@@ -52,11 +84,8 @@ export default function PostDetailPage({
     <div>
       <h2 style={styles.heading}>Post</h2>
 
-      {postQuery.isLoading && <p style={styles.muted}>Loading post...</p>}
-      {postQuery.isError && (
-        <p style={styles.error}>Could not load this post.</p>
-      )}
-
+      {postQuery.isLoading && <PostSkeleton />}
+      {postQuery.isError && <p style={styles.error}>Could not load this post.</p>}
       {postQuery.data && (
         <PostCard
           post={postQuery.data}
@@ -91,21 +120,27 @@ export default function PostDetailPage({
       </form>
 
       {commentsQuery.isLoading && (
-        <p style={styles.muted}>Loading comments...</p>
+        <SkeletonList count={3} Component={CommentSkeleton} />
       )}
       {commentsQuery.isError && (
         <p style={styles.error}>Could not load comments.</p>
       )}
 
-      {commentsQuery.data && commentsQuery.data.items.length === 0 && (
+      {!commentsQuery.isLoading && comments.length === 0 && (
         <p style={styles.muted}>No comments yet. Be the first.</p>
       )}
 
       <div>
-        {commentsQuery.data?.items.map((c) => (
+        {comments.map((c) => (
           <CommentItem key={c.id} comment={c} />
         ))}
       </div>
+
+      {commentsQuery.hasNextPage && (
+        <div ref={sentinelRef} style={{ minHeight: 20, marginTop: 12 }}>
+          {commentsQuery.isFetchingNextPage && <CommentSkeleton />}
+        </div>
+      )}
     </div>
   );
 }
@@ -132,11 +167,7 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
   },
   formError: { color: "#c53030", fontSize: 13, margin: "8px 0 0" },
-  formFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: 8,
-  },
+  formFooter: { display: "flex", justifyContent: "flex-end", marginTop: 8 },
   submitBtn: {
     background: "#6C63FF",
     color: "#fff",

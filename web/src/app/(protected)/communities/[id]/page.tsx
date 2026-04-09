@@ -1,10 +1,20 @@
 "use client";
 
-import { useState, use } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, use, useMemo } from "react";
+import {
+  useQuery,
+  useMutation,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { getCommunity, joinCommunity } from "@/api/communities";
 import { listCommunityPosts, createPost } from "@/api/posts";
 import PostCard from "@/components/post/PostCard";
+import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import type { PaginatedResponse, PostResponse } from "@/types/api";
+
+const PAGE_SIZE = 15;
 
 export default function CommunityDetailPage({
   params,
@@ -22,10 +32,31 @@ export default function CommunityDetailPage({
     queryFn: () => getCommunity(id),
   });
 
-  const postsQuery = useQuery({
-    queryKey: postsKey,
-    queryFn: () => listCommunityPosts(id, { page_size: 20 }),
+  const postsQuery = useInfiniteQuery<PaginatedResponse<PostResponse>>({
+    queryKey: [...postsKey],
+    queryFn: ({ pageParam = 1 }) =>
+      listCommunityPosts(id, {
+        page: pageParam as number,
+        page_size: PAGE_SIZE,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
   });
+
+  const posts = useMemo(
+    () => postsQuery.data?.pages.flatMap((p) => p.items) ?? [],
+    [postsQuery.data]
+  );
+
+  const sentinelRef = useInfiniteScroll(
+    () => {
+      if (postsQuery.hasNextPage && !postsQuery.isFetchingNextPage) {
+        postsQuery.fetchNextPage();
+      }
+    },
+    !!postsQuery.hasNextPage && !postsQuery.isFetchingNextPage
+  );
 
   const joinMutation = useMutation({
     mutationFn: () => joinCommunity(id),
@@ -35,7 +66,6 @@ export default function CommunityDetailPage({
     },
   });
 
-  // ── Create post form ───────────────────────────────────────
   const [showComposer, setShowComposer] = useState(false);
   const [draft, setDraft] = useState("");
   const [composeError, setComposeError] = useState<string | null>(null);
@@ -46,7 +76,7 @@ export default function CommunityDetailPage({
       setDraft("");
       setShowComposer(false);
       setComposeError(null);
-      qc.invalidateQueries({ queryKey: postsKey });
+      qc.invalidateQueries({ queryKey: [...postsKey] });
       qc.invalidateQueries({ queryKey: ["feed"] });
     },
     onError: (err: { message?: string }) => {
@@ -71,7 +101,6 @@ export default function CommunityDetailPage({
 
   return (
     <div>
-      {/* Header */}
       <section style={styles.header}>
         <div style={styles.headerTop}>
           <div>
@@ -101,7 +130,6 @@ export default function CommunityDetailPage({
         )}
       </section>
 
-      {/* Create Post */}
       {community.is_member && (
         <section style={styles.composerSection}>
           {!showComposer ? (
@@ -123,9 +151,7 @@ export default function CommunityDetailPage({
                 disabled={createPostMutation.isPending}
                 autoFocus
               />
-              {composeError && (
-                <p style={styles.formError}>{composeError}</p>
-              )}
+              {composeError && <p style={styles.formError}>{composeError}</p>}
               <div style={styles.composerFooter}>
                 <button
                   type="button"
@@ -156,17 +182,18 @@ export default function CommunityDetailPage({
         </section>
       )}
 
-      {/* Posts */}
       <h3 style={styles.subheading}>Posts</h3>
 
-      {postsQuery.isLoading && <p style={styles.muted}>Loading posts...</p>}
+      {postsQuery.isLoading && (
+        <SkeletonList count={3} Component={PostSkeleton} />
+      )}
       {postsQuery.isError && <p style={styles.error}>Could not load posts.</p>}
-      {postsQuery.data && postsQuery.data.items.length === 0 && (
+      {!postsQuery.isLoading && posts.length === 0 && (
         <p style={styles.muted}>No posts yet.</p>
       )}
 
       <div style={styles.list}>
-        {postsQuery.data?.items.map((post) => (
+        {posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
@@ -174,6 +201,12 @@ export default function CommunityDetailPage({
           />
         ))}
       </div>
+
+      {postsQuery.hasNextPage && (
+        <div ref={sentinelRef} style={{ marginTop: 12 }}>
+          {postsQuery.isFetchingNextPage && <PostSkeleton />}
+        </div>
+      )}
     </div>
   );
 }

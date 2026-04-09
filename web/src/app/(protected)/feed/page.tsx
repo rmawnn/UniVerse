@@ -1,22 +1,51 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { getHomeFeed } from "@/api/feed";
 import PostCard from "@/components/post/PostCard";
+import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import type { PaginatedResponse, PostResponse } from "@/types/api";
 
 const FEED_KEY = ["feed"] as const;
+const PAGE_SIZE = 15;
 
 export default function FeedPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: FEED_KEY,
-    queryFn: () => getHomeFeed({ page_size: 20 }),
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<PaginatedResponse<PostResponse>>({
+    queryKey: [...FEED_KEY],
+    queryFn: ({ pageParam = 1 }) =>
+      getHomeFeed({ page: pageParam as number, page_size: PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
   });
+
+  const posts = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data]
+  );
+
+  const sentinelRef = useInfiniteScroll(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+    },
+    !!hasNextPage && !isFetchingNextPage
+  );
 
   return (
     <div>
       <h2 style={styles.heading}>Feed</h2>
 
-      {isLoading && <p style={styles.muted}>Loading feed...</p>}
+      {isLoading && <SkeletonList count={4} Component={PostSkeleton} />}
 
       {isError && (
         <div style={styles.error}>
@@ -27,14 +56,14 @@ export default function FeedPage() {
         </div>
       )}
 
-      {!isLoading && !isError && (data?.items.length ?? 0) === 0 && (
+      {!isLoading && !isError && posts.length === 0 && (
         <p style={styles.muted}>
           Your feed is empty. Join some communities first.
         </p>
       )}
 
       <div style={styles.list}>
-        {data?.items.map((post) => (
+        {posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
@@ -42,6 +71,16 @@ export default function FeedPage() {
           />
         ))}
       </div>
+
+      {hasNextPage && (
+        <div ref={sentinelRef} style={styles.sentinel}>
+          {isFetchingNextPage && <PostSkeleton />}
+        </div>
+      )}
+
+      {!hasNextPage && posts.length > 0 && (
+        <p style={styles.end}>You&apos;re all caught up</p>
+      )}
     </div>
   );
 }
@@ -50,6 +89,13 @@ const styles: Record<string, React.CSSProperties> = {
   heading: { fontSize: 22, fontWeight: 700, marginBottom: 16 },
   muted: { color: "#999", fontSize: 15 },
   list: { display: "flex", flexDirection: "column", gap: 12 },
+  sentinel: { marginTop: 12, minHeight: 40 },
+  end: {
+    textAlign: "center",
+    color: "#bbb",
+    fontSize: 13,
+    padding: "16px 0",
+  },
   error: {
     background: "#fff5f5",
     border: "1px solid #fed7d7",

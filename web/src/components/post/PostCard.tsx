@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +14,7 @@ interface Props {
   invalidateKeys?: readonly unknown[][];
 }
 
-export default function PostCard({ post, invalidateKeys = [] }: Props) {
+function PostCardInner({ post, invalidateKeys = [] }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -38,26 +39,40 @@ export default function PostCard({ post, invalidateKeys = [] }: Props) {
         snapshots.push({ key: [...key], data: prev });
 
         qc.setQueryData(key, (old: unknown) => {
-          if (!old) return old;
-          // Paginated list
+          if (!old || typeof old !== "object") return old;
+
+          // Infinite-query shape: { pages: [{ items: [...] }], pageParams: [...] }
           if (
-            typeof old === "object" &&
-            old !== null &&
+            "pages" in old &&
+            Array.isArray((old as { pages: unknown[] }).pages)
+          ) {
+            const inf = old as {
+              pages: { items: PostResponse[] }[];
+              pageParams: unknown[];
+            };
+            return {
+              ...inf,
+              pages: inf.pages.map((p) => ({
+                ...p,
+                items: p.items.map(patchPost),
+              })),
+            };
+          }
+
+          // Plain paginated list
+          if (
             "items" in old &&
             Array.isArray((old as { items: unknown[] }).items)
           ) {
             const list = old as { items: PostResponse[] };
             return { ...list, items: list.items.map(patchPost) };
           }
+
           // Single post
-          if (
-            typeof old === "object" &&
-            old !== null &&
-            "id" in old &&
-            (old as PostResponse).id === post.id
-          ) {
+          if ("id" in old && (old as PostResponse).id === post.id) {
             return patchPost(old as PostResponse);
           }
+
           return old;
         });
       }
@@ -87,7 +102,7 @@ export default function PostCard({ post, invalidateKeys = [] }: Props) {
         <div>
           <strong style={styles.name}>{post.author.full_name}</strong>
           <Link
-            href={`/profile/${post.author.username}`}
+            href={`/profile/${post.author.id}`}
             onClick={(e) => e.stopPropagation()}
             style={styles.username}
           >
@@ -115,6 +130,20 @@ export default function PostCard({ post, invalidateKeys = [] }: Props) {
     </article>
   );
 }
+
+const PostCard = memo(PostCardInner, (prev, next) => {
+  const a = prev.post;
+  const b = next.post;
+  return (
+    a.id === b.id &&
+    a.liked_by_me === b.liked_by_me &&
+    a.like_count === b.like_count &&
+    a.content === b.content &&
+    a.updated_at === b.updated_at
+  );
+});
+PostCard.displayName = "PostCard";
+export default PostCard;
 
 const styles: Record<string, React.CSSProperties> = {
   card: {

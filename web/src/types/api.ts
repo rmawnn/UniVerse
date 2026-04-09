@@ -147,9 +147,54 @@ export interface MessageSummary {
   created_at: string;
 }
 
+export interface MessageResponse {
+  id: string;
+  conversation_id: string;
+  sender: AuthorSummary;
+  content: string;
+  created_at: string;
+}
+
 export interface ConversationResponse {
   id: string;
   participants: AuthorSummary[];
   last_message: MessageSummary | null;
+  created_at: string;
+}
+
+export interface CreateConversationRequest {
+  participant_id: string;
+}
+
+export interface SendMessageRequest {
+  content: string;
+}
+
+// ── Notifications ───────────────────────────────────────────
+
+export interface MarkReadResponse {
+  success: boolean;
+  unread_count: number;
+}
+
+// ── Public profiles ─────────────────────────────────────────
+
+export interface CommunitySummary {
+  id: string;
+  name: string;
+}
+
+export interface PublicUserProfile {
+  id: string;
+  username: string;
+  full_name: string;
+  profile_image_url: string | null;
+  bio: string | null;
+  department: string | null;
+  academic_year: number | null;
+  university_id: string | null;
+  university_name: string | null;
+  is_verified_student: boolean;
+  communities: CommunitySummary[];
   created_at: string;
 }

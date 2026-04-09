@@ -1,5 +1,10 @@
 import api from "@/lib/api-client";
-import type { PaginatedResponse, PaginationParams, UserSearchResult } from "@/types/api";
+import type {
+  PaginatedResponse,
+  PaginationParams,
+  UserSearchResult,
+  PublicUserProfile,
+} from "@/types/api";
 
 export async function searchUsers(
   q: string,
@@ -9,5 +14,12 @@ export async function searchUsers(
     "/users/search",
     { params: { q, ...params } }
   );
+  return data;
+}
+
+export async function getUserProfile(
+  userId: string
+): Promise<PublicUserProfile> {
+  const { data } = await api.get<PublicUserProfile>(`/users/${userId}`);
   return data;
 }

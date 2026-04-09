@@ -4,6 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth-store";
 import { listCommunities } from "@/api/communities";
 import CommunityCard from "@/components/community/CommunityCard";
+import {
+  CommunitySkeleton,
+  SkeletonList,
+} from "@/components/skeletons/Skeletons";
 
 export default function CommunitiesPage() {
   const user = useAuthStore((s) => s.user);
@@ -29,7 +33,7 @@ export default function CommunitiesPage() {
     <div>
       <h2 style={styles.heading}>Communities</h2>
 
-      {isLoading && <p style={styles.empty}>Loading communities...</p>}
+      {isLoading && <SkeletonList count={4} Component={CommunitySkeleton} />}
 
       {isError && (
         <div style={styles.errorBox}>

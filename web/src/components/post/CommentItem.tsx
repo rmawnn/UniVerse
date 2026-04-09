@@ -1,9 +1,10 @@
 "use client";
 
+import { memo } from "react";
 import { formatRelativeTime } from "@/lib/format";
 import type { CommentResponse } from "@/types/api";
 
-export default function CommentItem({ comment }: { comment: CommentResponse }) {
+function CommentItemInner({ comment }: { comment: CommentResponse }) {
   return (
     <div style={styles.item}>
       <div style={styles.header}>
@@ -15,6 +16,13 @@ export default function CommentItem({ comment }: { comment: CommentResponse }) {
     </div>
   );
 }
+
+const CommentItem = memo(
+  CommentItemInner,
+  (prev, next) => prev.comment.id === next.comment.id
+);
+CommentItem.displayName = "CommentItem";
+export default CommentItem;
 
 const styles: Record<string, React.CSSProperties> = {
   item: {
