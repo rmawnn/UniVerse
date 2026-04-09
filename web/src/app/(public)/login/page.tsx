@@ -23,8 +23,9 @@ export default function LoginPage() {
     try {
       await login({ email: email.trim(), password });
       router.replace("/feed");
-    } catch (err: any) {
-      setError(err.message ?? "Login failed");
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? "Login failed";
+      setError(msg);
     }
   };
 

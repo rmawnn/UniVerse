@@ -34,8 +34,9 @@ export default function RegisterPage() {
         password,
       });
       router.replace("/feed");
-    } catch (err: any) {
-      setError(err.message ?? "Registration failed");
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? "Registration failed";
+      setError(msg);
     }
   };
 
