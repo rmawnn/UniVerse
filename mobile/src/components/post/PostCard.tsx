@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toggleLike } from "../../api/posts";
@@ -10,15 +10,13 @@ interface Props {
   onAuthorPress: () => void;
 }
 
-export default function PostCard({ post, onPress, onAuthorPress }: Props) {
+function PostCard({ post, onPress, onAuthorPress }: Props) {
   const queryClient = useQueryClient();
   const isMutating = useRef(false);
 
-  // Optimistic state — mirrors server but updates instantly on tap
   const [optimisticLiked, setOptimisticLiked] = useState(post.liked_by_me);
   const [optimisticCount, setOptimisticCount] = useState(post.like_count);
 
-  // Sync from server when not mid-mutation
   useEffect(() => {
     if (!isMutating.current) {
       setOptimisticLiked(post.liked_by_me);
@@ -42,12 +40,15 @@ export default function PostCard({ post, onPress, onAuthorPress }: Props) {
       queryClient.invalidateQueries({ queryKey: ["post", post.id] });
     },
     onError: () => {
-      // Rollback
       setOptimisticLiked(post.liked_by_me);
       setOptimisticCount(post.like_count);
       isMutating.current = false;
     },
   });
+
+  const handleLike = useCallback(() => {
+    likeMutation.mutate();
+  }, [likeMutation]);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -69,7 +70,7 @@ export default function PostCard({ post, onPress, onAuthorPress }: Props) {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          onPress={() => likeMutation.mutate()}
+          onPress={handleLike}
           style={styles.likeBtn}
           disabled={likeMutation.isPending}
         >
@@ -83,6 +84,17 @@ export default function PostCard({ post, onPress, onAuthorPress }: Props) {
     </TouchableOpacity>
   );
 }
+
+// React.memo with custom comparator — skip re-render if post data unchanged
+export default React.memo(PostCard, (prev, next) => {
+  return (
+    prev.post.id === next.post.id &&
+    prev.post.liked_by_me === next.post.liked_by_me &&
+    prev.post.like_count === next.post.like_count &&
+    prev.post.content === next.post.content &&
+    prev.post.updated_at === next.post.updated_at
+  );
+});
 
 function formatTimeAgo(dateStr: string): string {
   const diffSec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);

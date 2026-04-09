@@ -1,15 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, ActivityIndicator, RefreshControl,
+  StyleSheet, RefreshControl,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { searchCommunities, listCommunities } from "../../api/communities";
 import { useAuthStore } from "../../store/authStore";
+import ErrorBanner from "../../components/common/ErrorBanner";
+import { CommunitySkeleton } from "../../components/common/SkeletonLoader";
 import type { StackScreenProps } from "@react-navigation/stack";
 import type { CommunitiesStackParamList } from "../../navigation/types";
+import type { CommunityResponse, CommunitySearchResult } from "../../types/api";
 
 type Props = StackScreenProps<CommunitiesStackParamList, "CommunitiesList">;
+
+const FLATLIST_OPTS = {
+  removeClippedSubviews: true,
+  initialNumToRender: 10,
+  maxToRenderPerBatch: 8,
+  windowSize: 7,
+} as const;
 
 export default function CommunitiesListScreen({ navigation }: Props) {
   const [search, setSearch] = useState("");
@@ -17,8 +27,6 @@ export default function CommunitiesListScreen({ navigation }: Props) {
   const trimmed = search.trim();
   const isSearching = trimmed.length >= 2;
 
-  // When searching: use search endpoint
-  // When browsing: list by user's university
   const searchQuery = useQuery({
     queryKey: ["communities", "search", trimmed],
     queryFn: () => searchCommunities(trimmed, { page_size: 50 }),
@@ -29,64 +37,75 @@ export default function CommunitiesListScreen({ navigation }: Props) {
     queryKey: ["communities", "browse", user?.university_id],
     queryFn: () => listCommunities(user!.university_id!, { page_size: 50 }),
     enabled: !isSearching && !!user?.university_id,
+    staleTime: 60_000, // Community list is stable — fresh for 60s
   });
 
   const activeQuery = isSearching ? searchQuery : browseQuery;
   const items = activeQuery.data?.items ?? [];
+
+  const renderItem = useCallback(
+    ({ item }: { item: CommunityResponse | CommunitySearchResult }) => (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate("CommunityDetail", { communityId: item.id })}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+          {"is_member" in item && item.is_member && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>Joined</Text>
+            </View>
+          )}
+        </View>
+        {item.description ? (
+          <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>
+        ) : null}
+        <Text style={styles.meta}>{item.member_count} members</Text>
+      </TouchableOpacity>
+    ),
+    [navigation]
+  );
+
+  const keyExtractor = useCallback((item: CommunityResponse | CommunitySearchResult) => item.id, []);
+
+  if (activeQuery.isLoading) return <CommunitySkeleton />;
+
+  if (activeQuery.isError) {
+    return (
+      <ErrorBanner
+        message="Could not load communities"
+        onRetry={() => activeQuery.refetch()}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.searchBar}
         placeholder="Search communities..."
+        placeholderTextColor="#aaa"
         value={search}
         onChangeText={setSearch}
         autoCapitalize="none"
       />
 
-      {activeQuery.isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#6C63FF" />
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate("CommunityDetail", { communityId: item.id })}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.name}>{item.name}</Text>
-                {"is_member" in item && item.is_member && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Joined</Text>
-                  </View>
-                )}
-              </View>
-              {item.description ? (
-                <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>
-              ) : null}
-              <Text style={styles.meta}>{item.member_count} members</Text>
-            </TouchableOpacity>
-          )}
-          refreshControl={
-            <RefreshControl
-              refreshing={activeQuery.isRefetching}
-              onRefresh={() => activeQuery.refetch()}
-              tintColor="#6C63FF"
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.empty}>
-                {isSearching ? "No communities found" : "No communities yet"}
-              </Text>
-            </View>
-          }
-        />
-      )}
+      <FlatList
+        data={items}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={activeQuery.isRefetching}
+            onRefresh={() => activeQuery.refetch()}
+            tintColor="#6C63FF"
+          />
+        }
+        ListEmptyComponent={emptyComponent}
+        keyboardShouldPersistTaps="handled"
+        {...FLATLIST_OPTS}
+      />
     </View>
   );
 }
@@ -110,3 +129,9 @@ const styles = StyleSheet.create({
   meta: { color: "#999", fontSize: 13 },
   empty: { color: "#999", fontSize: 16, textAlign: "center" },
 });
+
+const emptyComponent = (
+  <View style={styles.center}>
+    <Text style={styles.empty}>No communities found</Text>
+  </View>
+);

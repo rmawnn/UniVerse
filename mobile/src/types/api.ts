@@ -117,6 +117,19 @@ export interface ConfirmVerificationRequest {
   verification_code: string;
 }
 
+export interface VerificationSendResponse {
+  message: string;
+  status: string;
+  expires_at: string;
+  debug_code?: string | null;
+}
+
+export interface VerificationConfirmResponse {
+  message: string;
+  status: string;
+  university_name: string;
+}
+
 // ── Community ───────────────────────────────────────────────
 
 export interface CommunityResponse {

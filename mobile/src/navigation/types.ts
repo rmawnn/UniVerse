@@ -43,6 +43,7 @@ export type MessagesStackParamList = {
 export type ProfileStackParamList = {
   MyProfile: undefined;
   EditProfile: undefined;
+  Verification: undefined;
   UserProfile: { userId: string };
 };
 

@@ -1,14 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPost, listComments, createComment, toggleLike } from "../../api/posts";
+import ErrorBanner from "../../components/common/ErrorBanner";
 import type { StackScreenProps } from "@react-navigation/stack";
 import type { FeedStackParamList } from "../../navigation/types";
+import type { CommentResponse } from "../../types/api";
 
 type Props = StackScreenProps<FeedStackParamList, "PostDetail">;
+
+const FLATLIST_OPTS = {
+  removeClippedSubviews: true,
+  initialNumToRender: 15,
+  maxToRenderPerBatch: 10,
+  windowSize: 7,
+} as const;
+
+// ── Memoized comment row ─────────────────────────────────────
+
+const CommentRow = React.memo(
+  function CommentRow({ item }: { item: CommentResponse }) {
+    return (
+      <View style={styles.comment}>
+        <View style={styles.commentAuthorRow}>
+          <Text style={styles.commentAuthor}>{item.author.full_name}</Text>
+          <Text style={styles.commentUsername}> @{item.author.username}</Text>
+        </View>
+        <Text style={styles.commentContent}>{item.content}</Text>
+      </View>
+    );
+  },
+  (prev, next) => prev.item.id === next.item.id
+);
+
+// ── Main Screen ──────────────────────────────────────────────
 
 export default function PostDetailScreen({ route, navigation }: Props) {
   const { postId } = route.params;
@@ -18,11 +46,13 @@ export default function PostDetailScreen({ route, navigation }: Props) {
   const postQuery = useQuery({
     queryKey: ["post", postId],
     queryFn: () => getPost(postId),
+    staleTime: 15_000,
   });
 
   const commentsQuery = useQuery({
     queryKey: ["comments", postId],
     queryFn: () => listComments(postId),
+    staleTime: 10_000,
   });
 
   const likeMutation = useMutation({
@@ -41,12 +71,31 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     },
   });
 
+  const handleLike = useCallback(() => {
+    likeMutation.mutate();
+  }, [likeMutation]);
+
+  const handleSendComment = useCallback(() => {
+    commentMutation.mutate();
+  }, [commentMutation]);
+
+  const renderComment = useCallback(
+    ({ item }: { item: CommentResponse }) => <CommentRow item={item} />,
+    []
+  );
+
+  const keyExtractor = useCallback((item: CommentResponse) => item.id, []);
+
   if (postQuery.isLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#6C63FF" />
       </View>
     );
+  }
+
+  if (postQuery.isError) {
+    return <ErrorBanner message="Could not load post" onRetry={() => postQuery.refetch()} />;
   }
 
   const post = postQuery.data;
@@ -81,10 +130,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
               <Text style={styles.content}>{post.content}</Text>
 
               <View style={styles.metaRow}>
-                <TouchableOpacity
-                  onPress={() => likeMutation.mutate()}
-                  disabled={likeMutation.isPending}
-                >
+                <TouchableOpacity onPress={handleLike} disabled={likeMutation.isPending}>
                   <Text style={post.liked_by_me ? styles.liked : styles.notLiked}>
                     {post.liked_by_me ? "\u2764" : "\u2661"} {post.like_count}
                   </Text>
@@ -103,28 +149,21 @@ export default function PostDetailScreen({ route, navigation }: Props) {
           ) : null
         }
         data={commentsQuery.data?.items ?? []}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.comment}>
-            <View style={styles.commentAuthorRow}>
-              <Text style={styles.commentAuthor}>{item.author.full_name}</Text>
-              <Text style={styles.commentUsername}> @{item.author.username}</Text>
-            </View>
-            <Text style={styles.commentContent}>{item.content}</Text>
-          </View>
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderComment}
         ListEmptyComponent={
           !commentsQuery.isLoading ? (
             <Text style={styles.emptyComments}>No comments yet</Text>
           ) : null
         }
+        {...FLATLIST_OPTS}
       />
 
-      {/* Comment input bar */}
       <View style={styles.inputBar}>
         <TextInput
           style={styles.commentInput}
           placeholder="Write a comment..."
+          placeholderTextColor="#aaa"
           value={commentText}
           onChangeText={setCommentText}
           multiline
@@ -132,7 +171,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
         />
         <TouchableOpacity
           style={[styles.sendBtn, (!commentText.trim() || commentMutation.isPending) && styles.sendBtnDisabled]}
-          onPress={() => commentMutation.mutate()}
+          onPress={handleSendComment}
           disabled={!commentText.trim() || commentMutation.isPending}
         >
           <Text style={styles.sendText}>
@@ -171,14 +210,12 @@ const styles = StyleSheet.create({
   commentContent: { fontSize: 14, lineHeight: 20, color: "#333" },
   emptyComments: { textAlign: "center", color: "#999", padding: 20, fontSize: 14 },
   inputBar: {
-    flexDirection: "row", alignItems: "flex-end",
-    backgroundColor: "#fff", padding: 10,
-    borderTopWidth: 1, borderTopColor: "#eee",
+    flexDirection: "row", alignItems: "flex-end", backgroundColor: "#fff",
+    padding: 10, borderTopWidth: 1, borderTopColor: "#eee",
   },
   commentInput: {
     flex: 1, backgroundColor: "#f5f5f5", borderRadius: 20,
-    paddingHorizontal: 16, paddingVertical: 10,
-    fontSize: 15, maxHeight: 100,
+    paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, maxHeight: 100,
   },
   sendBtn: {
     backgroundColor: "#6C63FF", borderRadius: 20,

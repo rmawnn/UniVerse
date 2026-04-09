@@ -1,6 +1,10 @@
 import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
+import { useQuery } from "@tanstack/react-query";
+import { listNotifications } from "../api/notifications";
+import { useAuthStore } from "../store/authStore";
 import type {
   MainTabParamList,
   FeedStackParamList,
@@ -22,6 +26,7 @@ import NotificationsScreen from "../screens/main/NotificationsScreen";
 import ConversationsScreen from "../screens/main/ConversationsScreen";
 import ChatScreen from "../screens/main/ChatScreen";
 import MyProfileScreen from "../screens/main/MyProfileScreen";
+import VerificationScreen from "../screens/main/VerificationScreen";
 import UserProfileScreen from "../screens/main/UserProfileScreen";
 
 // ── Feed Stack ──────────────────────────────────────────────
@@ -98,9 +103,54 @@ function ProfileStack() {
   return (
     <ProfNav.Navigator>
       <ProfNav.Screen name="MyProfile" component={MyProfileScreen} />
+      <ProfNav.Screen name="Verification" component={VerificationScreen} />
       <ProfNav.Screen name="UserProfile" component={UserProfileScreen} />
     </ProfNav.Navigator>
   );
+}
+
+// ── Badge Component ─────────────────────────────────────────
+
+function TabBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const label = count > 99 ? "99+" : String(count);
+  return (
+    <View style={badgeStyles.badge}>
+      <Text style={badgeStyles.text}>{label}</Text>
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -12,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#e74c3c",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  text: { color: "#fff", fontSize: 10, fontWeight: "700" },
+});
+
+// ── Hook: unread notification count ─────────────────────────
+
+function useUnreadCount(): number {
+  const token = useAuthStore((s) => s.token);
+
+  const { data } = useQuery({
+    queryKey: ["notifications", "badge"],
+    queryFn: () => listNotifications({ page_size: 50 }),
+    refetchInterval: 15000, // Poll every 15s for badge
+    enabled: !!token,
+  });
+
+  if (!data?.items) return 0;
+  return data.items.filter((n) => !n.is_read).length;
 }
 
 // ── Tab Navigator ───────────────────────────────────────────
@@ -108,6 +158,8 @@ function ProfileStack() {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabs() {
+  const unreadCount = useUnreadCount();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -134,7 +186,19 @@ export default function MainTabs() {
       <Tab.Screen
         name="NotificationsTab"
         component={NotificationsStack}
-        options={{ tabBarLabel: "Alerts" }}
+        options={{
+          tabBarLabel: "Alerts",
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#e74c3c",
+            fontSize: 10,
+            fontWeight: "700",
+            minWidth: 18,
+            height: 18,
+            lineHeight: 18,
+            borderRadius: 9,
+          },
+        }}
       />
       <Tab.Screen
         name="MessagesTab"

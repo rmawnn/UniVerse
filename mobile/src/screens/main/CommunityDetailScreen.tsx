@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, TouchableOpacity, FlatList,
   StyleSheet, ActivityIndicator, RefreshControl,
@@ -7,10 +7,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCommunity, joinCommunity } from "../../api/communities";
 import { listPosts } from "../../api/posts";
 import PostCard from "../../components/post/PostCard";
+import ErrorBanner from "../../components/common/ErrorBanner";
 import type { StackScreenProps } from "@react-navigation/stack";
 import type { CommunitiesStackParamList } from "../../navigation/types";
+import type { PostResponse } from "../../types/api";
 
 type Props = StackScreenProps<CommunitiesStackParamList, "CommunityDetail">;
+
+const FLATLIST_OPTS = {
+  removeClippedSubviews: true,
+  initialNumToRender: 8,
+  maxToRenderPerBatch: 6,
+  windowSize: 7,
+} as const;
 
 export default function CommunityDetailScreen({ route, navigation }: Props) {
   const { communityId } = route.params;
@@ -20,11 +29,13 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
   const communityQuery = useQuery({
     queryKey: ["community", communityId],
     queryFn: () => getCommunity(communityId),
+    staleTime: 30_000,
   });
 
   const postsQuery = useQuery({
     queryKey: ["communityPosts", communityId],
     queryFn: () => listPosts(communityId),
+    staleTime: 15_000,
   });
 
   const joinMutation = useMutation({
@@ -39,6 +50,28 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
 
   const community = communityQuery.data;
 
+  const onRefresh = useCallback(() => {
+    communityQuery.refetch();
+    postsQuery.refetch();
+  }, [communityQuery, postsQuery]);
+
+  const handleJoin = useCallback(() => {
+    joinMutation.mutate();
+  }, [joinMutation]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: PostResponse }) => (
+      <PostCard
+        post={item}
+        onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
+        onAuthorPress={() => navigation.navigate("UserProfile", { userId: item.author.id })}
+      />
+    ),
+    [navigation]
+  );
+
+  const keyExtractor = useCallback((item: PostResponse) => item.id, []);
+
   if (communityQuery.isLoading) {
     return (
       <View style={styles.center}>
@@ -47,10 +80,9 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  const onRefresh = () => {
-    communityQuery.refetch();
-    postsQuery.refetch();
-  };
+  if (communityQuery.isError) {
+    return <ErrorBanner message="Could not load community" onRetry={() => communityQuery.refetch()} />;
+  }
 
   return (
     <FlatList
@@ -69,7 +101,7 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
             {!community.is_member ? (
               <TouchableOpacity
                 style={[styles.joinBtn, joinMutation.isPending && styles.disabled]}
-                onPress={() => joinMutation.mutate()}
+                onPress={handleJoin}
                 disabled={joinMutation.isPending}
               >
                 <Text style={styles.btnText}>
@@ -93,14 +125,8 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
         ) : null
       }
       data={postsQuery.data?.items ?? []}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <PostCard
-          post={item}
-          onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
-          onAuthorPress={() => navigation.navigate("UserProfile", { userId: item.author.id })}
-        />
-      )}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
       refreshControl={
         <RefreshControl
           refreshing={communityQuery.isRefetching || postsQuery.isRefetching}
@@ -119,6 +145,7 @@ export default function CommunityDetailScreen({ route, navigation }: Props) {
           </View>
         )
       }
+      {...FLATLIST_OPTS}
     />
   );
 }
@@ -135,15 +162,13 @@ const styles = StyleSheet.create({
     padding: 10, borderRadius: 8, marginBottom: 12, textAlign: "center",
   },
   joinBtn: {
-    backgroundColor: "#6C63FF", borderRadius: 10,
-    paddingVertical: 12, alignItems: "center",
+    backgroundColor: "#6C63FF", borderRadius: 10, paddingVertical: 12, alignItems: "center",
   },
   disabled: { opacity: 0.5 },
   btnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   memberActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   memberBadge: {
-    backgroundColor: "#E8F5E9", paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 10,
+    backgroundColor: "#E8F5E9", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
   },
   memberBadgeText: { color: "#4CAF50", fontWeight: "600", fontSize: 14 },
   createBtn: {

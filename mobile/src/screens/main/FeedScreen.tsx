@@ -1,35 +1,51 @@
-import React from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
+import React, { useCallback } from "react";
+import { View, Text, FlatList, StyleSheet, RefreshControl } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { getHomeFeed } from "../../api/feed";
 import PostCard from "../../components/post/PostCard";
+import ErrorBanner from "../../components/common/ErrorBanner";
+import { FeedSkeleton } from "../../components/common/SkeletonLoader";
 import type { StackScreenProps } from "@react-navigation/stack";
 import type { FeedStackParamList } from "../../navigation/types";
+import type { PostResponse } from "../../types/api";
 
 type Props = StackScreenProps<FeedStackParamList, "Feed">;
+
+const FLATLIST_OPTS = {
+  removeClippedSubviews: true,
+  initialNumToRender: 8,
+  maxToRenderPerBatch: 6,
+  windowSize: 7,
+} as const;
 
 export default function FeedScreen({ navigation }: Props) {
   const { data, isLoading, refetch, isRefetching, isError } = useQuery({
     queryKey: ["feed"],
     queryFn: () => getHomeFeed(),
+    staleTime: 30_000, // Data stays fresh for 30s
   });
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6C63FF" />
-      </View>
-    );
-  }
+  const renderItem = useCallback(
+    ({ item }: { item: PostResponse }) => (
+      <PostCard
+        post={item}
+        onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
+        onAuthorPress={() => navigation.navigate("UserProfile", { userId: item.author.id })}
+      />
+    ),
+    [navigation]
+  );
+
+  const keyExtractor = useCallback((item: PostResponse) => item.id, []);
+
+  if (isLoading) return <FeedSkeleton />;
 
   if (isError) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Could not load feed</Text>
-        <Text style={styles.errorHint}>
-          You may need to verify your student account first
-        </Text>
-      </View>
+      <ErrorBanner
+        message="Could not load feed. You may need to verify your student account first."
+        onRetry={refetch}
+      />
     );
   }
 
@@ -37,35 +53,30 @@ export default function FeedScreen({ navigation }: Props) {
     <FlatList
       style={styles.list}
       data={data?.items ?? []}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <PostCard
-          post={item}
-          onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
-          onAuthorPress={() => navigation.navigate("UserProfile", { userId: item.author.id })}
-        />
-      )}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
       refreshControl={
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#6C63FF" />
       }
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>Your feed is empty</Text>
-          <Text style={styles.emptyHint}>
-            Join communities from the Communities tab to see posts here
-          </Text>
-        </View>
-      }
+      ListEmptyComponent={emptyComponent}
+      {...FLATLIST_OPTS}
     />
   );
 }
 
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: "#f5f5f5" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
-  errorText: { color: "#e74c3c", fontSize: 16, fontWeight: "600", marginBottom: 8 },
-  errorHint: { color: "#999", fontSize: 14, textAlign: "center" },
   emptyContainer: { padding: 40, alignItems: "center" },
   emptyTitle: { fontSize: 18, fontWeight: "600", color: "#666", marginBottom: 8 },
   emptyHint: { color: "#999", fontSize: 15, textAlign: "center", lineHeight: 22 },
 });
+
+// Stable reference — never re-creates
+const emptyComponent = (
+  <View style={styles.emptyContainer}>
+    <Text style={styles.emptyTitle}>Your feed is empty</Text>
+    <Text style={styles.emptyHint}>
+      Join communities from the Communities tab to see posts here
+    </Text>
+  </View>
+);
