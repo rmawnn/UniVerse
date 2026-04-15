@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const STORAGE_KEY = "universe_access_token";
-const BASE_URL = "http://localhost:8000/api/v1";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
 // ── Axios instance ──────────────────────────────────────────
 

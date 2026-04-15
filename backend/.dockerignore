@@ -13,4 +13,3 @@ venv/
 .git/
 .gitignore
 docs/
-tests/
