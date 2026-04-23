@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AlreadyExists, BadRequest, NotFound
+from app.core.exceptions import AlreadyExists, BadRequest, Forbidden, NotFound
 from app.models.community import Community, CommunityMember
 from app.models.user import User
 from app.repositories.community_repository import CommunityRepository
@@ -13,6 +13,7 @@ from app.schemas.community import (
     CommunityDetailResponse,
     CommunityResponse,
     CommunitySearchResponse,
+    CommunityUpdateRequest,
 )
 from app.utils.constants import CommunityRole
 
@@ -55,6 +56,58 @@ async def create_community(
         is_member=True,
         my_role=CommunityRole.ADMIN.value,
     )
+
+
+async def update_community(
+    db: AsyncSession,
+    community_id: UUID,
+    current_user: User,
+    data: CommunityUpdateRequest,
+) -> CommunityDetailResponse:
+    """Update a community. Only the creator (admin) can edit."""
+    repo = CommunityRepository(db)
+    community = await repo.get_by_id(community_id)
+
+    if not community:
+        raise NotFound("Community")
+
+    if community.created_by != current_user.id:
+        raise Forbidden("Only the community creator can edit this community")
+
+    # Build update dict from non-None fields
+    updates = data.model_dump(exclude_unset=True)
+    if not updates:
+        raise BadRequest("No fields to update")
+
+    community = await repo.update(community, **updates)
+
+    count = await repo.member_count(community_id)
+    member = await repo.get_member(community_id, current_user.id)
+
+    return CommunityDetailResponse(
+        **_community_to_dict(community),
+        member_count=count,
+        is_member=member is not None,
+        my_role=member.role if member else None,
+    )
+
+
+async def delete_community(
+    db: AsyncSession,
+    community_id: UUID,
+    current_user: User,
+) -> None:
+    """Soft-delete a community. Only the creator (admin) can delete."""
+    repo = CommunityRepository(db)
+    community = await repo.get_by_id(community_id)
+
+    if not community:
+        raise NotFound("Community")
+
+    if community.created_by != current_user.id:
+        raise Forbidden("Only the community creator can delete this community")
+
+    await repo.soft_delete(community)
 
 
 async def get_community(

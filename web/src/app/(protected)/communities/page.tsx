@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth-store";
 import { listCommunities } from "@/api/communities";
@@ -31,7 +32,12 @@ export default function CommunitiesPage() {
 
   return (
     <div>
-      <h2 style={styles.heading}>Communities</h2>
+      <div style={styles.headingRow}>
+        <h2 style={styles.heading}>Communities</h2>
+        <Link href="/communities/create" style={styles.createBtn}>
+          + Create
+        </Link>
+      </div>
 
       {isLoading && <SkeletonList count={4} Component={CommunitySkeleton} />}
 
@@ -58,7 +64,24 @@ export default function CommunitiesPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  heading: { fontSize: 22, fontWeight: 700, marginBottom: 16 },
+  headingRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  heading: { fontSize: 22, fontWeight: 700, margin: 0 },
+  createBtn: {
+    background: "#6C63FF",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 16px",
+    fontSize: 14,
+    fontWeight: 600,
+    textDecoration: "none",
+    cursor: "pointer",
+  },
   empty: { color: "#999", fontSize: 15 },
   list: { display: "flex", flexDirection: "column", gap: 10 },
   errorBox: {

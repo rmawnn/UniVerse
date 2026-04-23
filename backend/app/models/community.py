@@ -32,6 +32,7 @@ class Community(BaseModel):
         nullable=False,
     )
     is_public: Mapped[bool] = mapped_column(default=True)
+    is_deleted: Mapped[bool] = mapped_column(default=False, index=True)
 
 
 class CommunityMember(Base):

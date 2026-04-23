@@ -12,6 +12,7 @@ from app.schemas.community import (
     CommunityDetailResponse,
     CommunityResponse,
     CommunitySearchResponse,
+    CommunityUpdateRequest,
 )
 from app.services import community_service
 
@@ -26,6 +27,27 @@ async def create_community(
 ):
     """Create a new community. Requires verified student."""
     return await community_service.create_community(db, current_user, data)
+
+
+@router.patch("/{community_id}", response_model=CommunityDetailResponse)
+async def update_community(
+    community_id: UUID,
+    data: CommunityUpdateRequest,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a community. Only the creator (admin) can edit."""
+    return await community_service.update_community(db, community_id, current_user, data)
+
+
+@router.delete("/{community_id}", status_code=204)
+async def delete_community(
+    community_id: UUID,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a community. Only the creator (admin) can delete."""
+    await community_service.delete_community(db, community_id, current_user)
 
 
 @router.get("/search", response_model=PaginatedResponse[CommunitySearchResponse])

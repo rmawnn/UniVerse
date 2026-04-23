@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, use, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   useQuery,
   useMutation,
   useInfiniteQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { getCommunity, joinCommunity } from "@/api/communities";
+import {
+  getCommunity,
+  joinCommunity,
+  updateCommunity,
+  deleteCommunity,
+} from "@/api/communities";
 import { listCommunityPosts, createPost } from "@/api/posts";
 import PostCard from "@/components/post/PostCard";
 import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
@@ -22,8 +28,8 @@ export default function CommunityDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const qc = useQueryClient();
-
   const communityKey = ["community", id] as const;
   const postsKey = ["community-posts", id] as const;
 
@@ -66,6 +72,7 @@ export default function CommunityDetailPage({
     },
   });
 
+  // ── Post composer state ───────────────────────────────────
   const [showComposer, setShowComposer] = useState(false);
   const [draft, setDraft] = useState("");
   const [composeError, setComposeError] = useState<string | null>(null);
@@ -90,6 +97,70 @@ export default function CommunityDetailPage({
     createPostMutation.mutate();
   };
 
+  // ── Edit state ────────────────────────────────────────────
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editPublic, setEditPublic] = useState(true);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const openEdit = () => {
+    if (!communityQuery.data) return;
+    setEditName(communityQuery.data.name);
+    setEditDesc(communityQuery.data.description ?? "");
+    setEditPublic(communityQuery.data.is_public);
+    setEditError(null);
+    setShowEdit(true);
+  };
+
+  const editNameError =
+    editName.length > 0 && editName.trim().length < 2
+      ? "Name must be at least 2 characters"
+      : null;
+
+  const editMutation = useMutation({
+    mutationFn: () =>
+      updateCommunity(id, {
+        name: editName.trim(),
+        description: editDesc.trim() || undefined,
+        is_public: editPublic,
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(communityKey, data);
+      qc.invalidateQueries({ queryKey: ["communities"] });
+      setShowEdit(false);
+    },
+    onError: (err: { message?: string }) => {
+      setEditError(err?.message ?? "Failed to update community");
+    },
+  });
+
+  const canSaveEdit =
+    editName.trim().length >= 2 && !editNameError && !editMutation.isPending;
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSaveEdit) return;
+    setEditError(null);
+    editMutation.mutate();
+  };
+
+  // ── Delete state ──────────────────────────────────────────
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCommunity(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["communities"] });
+      router.push("/communities");
+    },
+    onError: (err: { message?: string }) => {
+      setDeleteError(err?.message ?? "Failed to delete community");
+    },
+  });
+
+  // ── Loading / error ───────────────────────────────────────
   if (communityQuery.isLoading) {
     return <p style={styles.muted}>Loading community...</p>;
   }
@@ -98,38 +169,198 @@ export default function CommunityDetailPage({
   }
 
   const community = communityQuery.data;
+  const isAdmin = community.my_role === "admin";
 
   return (
     <div>
+      {/* ── Header ─────────────────────────────────────────── */}
       <section style={styles.header}>
         <div style={styles.headerTop}>
           <div>
             <h2 style={styles.name}>{community.name}</h2>
-            <p style={styles.meta}>{community.member_count} members</p>
+            <p style={styles.meta}>
+              {community.member_count} members
+              {!community.is_public && " · Private"}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => joinMutation.mutate()}
-            disabled={community.is_member || joinMutation.isPending}
-            style={{
-              ...styles.joinBtn,
-              background: community.is_member ? "#e5e7eb" : "#6C63FF",
-              color: community.is_member ? "#666" : "#fff",
-              cursor: community.is_member ? "default" : "pointer",
-            }}
-          >
-            {community.is_member
-              ? "Joined"
-              : joinMutation.isPending
-                ? "Joining..."
-                : "Join"}
-          </button>
+          <div style={styles.headerActions}>
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={openEdit}
+                  style={styles.editBtn}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setShowDeleteConfirm(true);
+                  }}
+                  style={styles.deleteBtn}
+                >
+                  Delete
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => joinMutation.mutate()}
+              disabled={community.is_member || joinMutation.isPending}
+              style={{
+                ...styles.joinBtn,
+                background: community.is_member ? "#e5e7eb" : "#6C63FF",
+                color: community.is_member ? "#666" : "#fff",
+                cursor: community.is_member ? "default" : "pointer",
+              }}
+            >
+              {community.is_member
+                ? "Joined"
+                : joinMutation.isPending
+                  ? "Joining..."
+                  : "Join"}
+            </button>
+          </div>
         </div>
         {community.description && (
           <p style={styles.description}>{community.description}</p>
         )}
       </section>
 
+      {/* ── Edit modal ─────────────────────────────────────── */}
+      {showEdit && (
+        <div style={styles.overlay} onClick={() => setShowEdit(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>Edit Community</h3>
+            <form onSubmit={handleEditSubmit}>
+              <div style={styles.field}>
+                <label style={styles.label}>Name *</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => {
+                    setEditName(e.target.value);
+                    setEditError(null);
+                  }}
+                  style={styles.input}
+                  disabled={editMutation.isPending}
+                  maxLength={100}
+                  autoFocus
+                />
+                {editNameError && (
+                  <p style={styles.fieldError}>{editNameError}</p>
+                )}
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>Description</label>
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows={3}
+                  style={styles.textarea}
+                  disabled={editMutation.isPending}
+                  maxLength={1000}
+                />
+                <span style={styles.charCount}>{editDesc.length}/1000</span>
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>Visibility</label>
+                <div style={styles.toggleRow}>
+                  <button
+                    type="button"
+                    onClick={() => setEditPublic(true)}
+                    style={{
+                      ...styles.toggleBtn,
+                      ...(editPublic ? styles.toggleActive : {}),
+                    }}
+                    disabled={editMutation.isPending}
+                  >
+                    Public
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditPublic(false)}
+                    style={{
+                      ...styles.toggleBtn,
+                      ...(!editPublic ? styles.toggleActive : {}),
+                    }}
+                    disabled={editMutation.isPending}
+                  >
+                    Private
+                  </button>
+                </div>
+              </div>
+
+              {editError && <p style={styles.formError}>{editError}</p>}
+
+              <div style={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => setShowEdit(false)}
+                  style={styles.cancelBtn}
+                  disabled={editMutation.isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSaveEdit}
+                  style={{
+                    ...styles.submitBtn,
+                    opacity: canSaveEdit ? 1 : 0.5,
+                  }}
+                >
+                  {editMutation.isPending ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete confirmation ────────────────────────────── */}
+      {showDeleteConfirm && (
+        <div
+          style={styles.overlay}
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>Delete Community</h3>
+            <p style={styles.confirmText}>
+              Are you sure you want to delete <strong>{community.name}</strong>?
+              This action cannot be undone. All posts and members will be
+              removed.
+            </p>
+
+            {deleteError && <p style={styles.formError}>{deleteError}</p>}
+
+            <div style={styles.modalFooter}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                style={styles.cancelBtn}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                style={styles.dangerBtn}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Post composer ──────────────────────────────────── */}
       {community.is_member && (
         <section style={styles.composerSection}>
           {!showComposer ? (
@@ -182,6 +413,7 @@ export default function CommunityDetailPage({
         </section>
       )}
 
+      {/* ── Posts list ─────────────────────────────────────── */}
       <h3 style={styles.subheading}>Posts</h3>
 
       {postsQuery.isLoading && (
@@ -225,6 +457,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "flex-start",
     gap: 12,
   },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
   name: { fontSize: 22, fontWeight: 700, margin: 0 },
   meta: { fontSize: 13, color: "#999", margin: "4px 0 0" },
   description: {
@@ -240,38 +478,109 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 500,
   },
-  composerSection: { marginBottom: 16 },
-  composerTrigger: {
-    width: "100%",
-    background: "#fff",
-    border: "1px dashed #ccc",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 14,
-    color: "#666",
+  editBtn: {
+    background: "none",
+    border: "1px solid #ddd",
+    borderRadius: 6,
+    padding: "8px 14px",
+    fontSize: 13,
     cursor: "pointer",
+    color: "#555",
   },
-  composerForm: {
+  deleteBtn: {
+    background: "none",
+    border: "1px solid #fed7d7",
+    borderRadius: 6,
+    padding: "8px 14px",
+    fontSize: 13,
+    cursor: "pointer",
+    color: "#c53030",
+  },
+  // ── Modal / overlay ────────────────────────────────────────
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  modal: {
     background: "#fff",
-    border: "1px solid #eee",
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 24,
+    width: "100%",
+    maxWidth: 480,
+    margin: "0 16px",
+    maxHeight: "90vh",
+    overflowY: "auto",
+  },
+  modalTitle: { fontSize: 18, fontWeight: 700, margin: "0 0 16px" },
+  modalFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 16,
+  },
+  confirmText: {
+    fontSize: 14,
+    color: "#444",
+    lineHeight: 1.6,
+    margin: "0 0 8px",
+  },
+  // ── Form fields ────────────────────────────────────────────
+  field: { marginBottom: 16 },
+  label: {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#555",
+    marginBottom: 6,
+  },
+  input: {
+    width: "100%",
+    padding: "10px 14px",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
   },
   textarea: {
     width: "100%",
-    border: "1px solid #eee",
-    borderRadius: 6,
-    padding: 10,
+    padding: "10px 14px",
+    border: "1px solid #ddd",
+    borderRadius: 8,
     fontSize: 14,
     resize: "vertical",
     outline: "none",
   },
-  composerFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 8,
+  charCount: {
+    display: "block",
+    textAlign: "right",
+    fontSize: 11,
+    color: "#bbb",
+    marginTop: 4,
   },
+  fieldError: { color: "#c53030", fontSize: 12, marginTop: 4 },
+  toggleRow: { display: "flex", gap: 8 },
+  toggleBtn: {
+    flex: 1,
+    padding: "10px 0",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
+    background: "#fff",
+    color: "#666",
+    cursor: "pointer",
+  },
+  toggleActive: {
+    background: "#6C63FF",
+    color: "#fff",
+    borderColor: "#6C63FF",
+  },
+  // ── Buttons ────────────────────────────────────────────────
   cancelBtn: {
     background: "none",
     border: "1px solid #ddd",
@@ -291,7 +600,42 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     cursor: "pointer",
   },
+  dangerBtn: {
+    background: "#c53030",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    padding: "8px 16px",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
   formError: { color: "#c53030", fontSize: 13, margin: "8px 0 0" },
+  // ── Composer ───────────────────────────────────────────────
+  composerSection: { marginBottom: 16 },
+  composerTrigger: {
+    width: "100%",
+    background: "#fff",
+    border: "1px dashed #ccc",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: "#666",
+    cursor: "pointer",
+  },
+  composerForm: {
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 10,
+    padding: 12,
+  },
+  composerFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 8,
+  },
+  // ── Posts ───────────────────────────────────────────────────
   subheading: { fontSize: 17, fontWeight: 600, margin: "8px 0 12px" },
   muted: { color: "#999", fontSize: 14 },
   error: { color: "#c53030", fontSize: 14 },

@@ -85,6 +85,18 @@ export interface CommunityDetailResponse extends CommunityResponse {
   my_role: string | null;
 }
 
+export interface CreateCommunityRequest {
+  name: string;
+  description?: string;
+  is_public?: boolean;
+}
+
+export interface UpdateCommunityRequest {
+  name?: string;
+  description?: string;
+  is_public?: boolean;
+}
+
 export interface CommunitySearchResult extends CommunityResponse {
   is_member: boolean | null;
 }

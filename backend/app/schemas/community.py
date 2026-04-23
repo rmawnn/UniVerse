@@ -11,6 +11,13 @@ class CommunityCreateRequest(BaseModel):
     is_public: bool = True
 
 
+class CommunityUpdateRequest(BaseModel):
+    """Payload for updating a community. All fields optional."""
+    name: str | None = Field(None, min_length=2, max_length=100)
+    description: str | None = Field(None, max_length=1000)
+    is_public: bool | None = None
+
+
 class CommunityResponse(BaseModel):
     """Public-facing community representation."""
     id: uuid.UUID

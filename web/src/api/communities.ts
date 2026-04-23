@@ -5,7 +5,36 @@ import type {
   CommunityResponse,
   CommunityDetailResponse,
   CommunitySearchResult,
+  CreateCommunityRequest,
+  UpdateCommunityRequest,
 } from "@/types/api";
+
+export async function createCommunity(
+  body: CreateCommunityRequest
+): Promise<CommunityDetailResponse> {
+  const { data } = await api.post<CommunityDetailResponse>(
+    "/communities",
+    body
+  );
+  return data;
+}
+
+export async function updateCommunity(
+  communityId: string,
+  body: UpdateCommunityRequest
+): Promise<CommunityDetailResponse> {
+  const { data } = await api.patch<CommunityDetailResponse>(
+    `/communities/${communityId}`,
+    body
+  );
+  return data;
+}
+
+export async function deleteCommunity(
+  communityId: string
+): Promise<void> {
+  await api.delete(`/communities/${communityId}`);
+}
 
 export async function getCommunity(
   communityId: string

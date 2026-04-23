@@ -21,14 +21,35 @@ class CommunityRepository:
         return community
 
     async def get_by_id(self, community_id: UUID) -> Community | None:
-        return await self.db.get(Community, community_id)
+        stmt = select(Community).where(
+            Community.id == community_id,
+            Community.is_deleted == False,  # noqa: E712
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def update(self, community: Community, **fields) -> Community:
+        for key, value in fields.items():
+            setattr(community, key, value)
+        await self.db.flush()
+        await self.db.refresh(community)
+        return community
+
+    async def soft_delete(self, community: Community) -> Community:
+        community.is_deleted = True
+        await self.db.flush()
+        await self.db.refresh(community)
+        return community
 
     async def list_by_university(
         self, university_id: UUID, *, skip: int = 0, limit: int = 50,
     ) -> list[Community]:
         stmt = (
             select(Community)
-            .where(Community.university_id == university_id)
+            .where(
+                Community.university_id == university_id,
+                Community.is_deleted == False,  # noqa: E712
+            )
             .order_by(Community.created_at.desc())
             .offset(skip)
             .limit(limit)
@@ -40,7 +61,10 @@ class CommunityRepository:
         stmt = (
             select(func.count())
             .select_from(Community)
-            .where(Community.university_id == university_id)
+            .where(
+                Community.university_id == university_id,
+                Community.is_deleted == False,  # noqa: E712
+            )
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
@@ -74,6 +98,7 @@ class CommunityRepository:
             select(Community)
             .outerjoin(member_counts, member_counts.c.community_id == Community.id)
             .where(
+                Community.is_deleted == False,  # noqa: E712
                 or_(
                     Community.name.ilike(pattern),
                     Community.description.ilike(pattern),
@@ -109,6 +134,7 @@ class CommunityRepository:
             select(func.count())
             .select_from(Community)
             .where(
+                Community.is_deleted == False,  # noqa: E712
                 or_(
                     Community.name.ilike(pattern),
                     Community.description.ilike(pattern),
@@ -152,10 +178,14 @@ class CommunityRepository:
         return member is not None
 
     async def get_joined_ids(self, user_id: UUID) -> list[UUID]:
-        """Return community IDs the user has joined (lightweight, no full rows)."""
+        """Return community IDs the user has joined, excluding deleted communities."""
         stmt = (
             select(CommunityMember.community_id)
-            .where(CommunityMember.user_id == user_id)
+            .join(Community, Community.id == CommunityMember.community_id)
+            .where(
+                CommunityMember.user_id == user_id,
+                Community.is_deleted == False,  # noqa: E712
+            )
         )
         result = await self.db.execute(stmt)
         return [row[0] for row in result.all()]
@@ -165,7 +195,10 @@ class CommunityRepository:
         stmt = (
             select(Community)
             .join(CommunityMember, CommunityMember.community_id == Community.id)
-            .where(CommunityMember.user_id == user_id)
+            .where(
+                CommunityMember.user_id == user_id,
+                Community.is_deleted == False,  # noqa: E712
+            )
             .order_by(Community.name.asc())
         )
         result = await self.db.execute(stmt)
