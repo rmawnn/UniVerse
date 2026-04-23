@@ -133,6 +133,62 @@ async def list_posts(
     )
 
 
+async def list_user_posts(
+    db: AsyncSession,
+    author_id: UUID,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User | None = None,
+) -> PaginatedResponse[PostResponse]:
+    """List posts created by a specific user, newest first, with like counts."""
+    post_repo = PostRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await post_repo.count_by_author(author_id)
+    posts = await post_repo.list_by_author(author_id, skip=skip, limit=page_size)
+
+    if not posts:
+        return PaginatedResponse(
+            items=[], total=total, page=page, page_size=page_size,
+            total_pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    # Batch-load authors (likely just one user, but keeps pattern consistent)
+    user_repo = UserRepository(db)
+    author_ids = {p.author_id for p in posts}
+    authors: dict[UUID, User] = {}
+    for aid in author_ids:
+        user = await user_repo.get_by_id(aid)
+        if user:
+            authors[aid] = user
+
+    # Batch-load like counts and current user's likes
+    post_ids = [p.id for p in posts]
+    like_repo = PostLikeRepository(db)
+    like_counts = await like_repo.count_by_posts(post_ids)
+    liked_set: set[UUID] = set()
+    if current_user:
+        liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
+
+    items = [
+        _build_response(
+            p, authors.get(p.author_id),
+            like_count=like_counts.get(p.id, 0),
+            liked_by_me=p.id in liked_set,
+        )
+        for p in posts
+    ]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
 def _build_response(
     post: Post,
     author: User | None,

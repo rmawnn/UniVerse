@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { use, useMemo } from "react";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { getUserProfile } from "@/api/users";
+import { listUserPosts } from "@/api/posts";
 import { formatRelativeTime } from "@/lib/format";
+import PostCard from "@/components/post/PostCard";
+import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import type { PaginatedResponse, PostResponse } from "@/types/api";
+
+const PAGE_SIZE = 15;
 
 export default function PublicProfilePage({
   params,
@@ -13,29 +20,60 @@ export default function PublicProfilePage({
 }) {
   const { userId } = use(params);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const profileQuery = useQuery({
     queryKey: ["user-profile", userId],
     queryFn: () => getUserProfile(userId),
     staleTime: 60_000,
   });
 
-  if (isLoading) {
+  const postsKey = ["user-posts", userId] as const;
+
+  const postsQuery = useInfiniteQuery<PaginatedResponse<PostResponse>>({
+    queryKey: [...postsKey],
+    queryFn: ({ pageParam = 1 }) =>
+      listUserPosts(userId, {
+        page: pageParam as number,
+        page_size: PAGE_SIZE,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
+  });
+
+  const posts = useMemo(
+    () => postsQuery.data?.pages.flatMap((p) => p.items) ?? [],
+    [postsQuery.data]
+  );
+
+  const sentinelRef = useInfiniteScroll(
+    () => {
+      if (postsQuery.hasNextPage && !postsQuery.isFetchingNextPage) {
+        postsQuery.fetchNextPage();
+      }
+    },
+    !!postsQuery.hasNextPage && !postsQuery.isFetchingNextPage
+  );
+
+  if (profileQuery.isLoading) {
     return <p style={styles.muted}>Loading profile...</p>;
   }
 
-  if (isError || !data) {
+  if (profileQuery.isError || !profileQuery.data) {
     return (
       <div style={styles.error}>
         <span>Could not load profile.</span>
-        <button onClick={() => refetch()} style={styles.retry}>
+        <button onClick={() => profileQuery.refetch()} style={styles.retry}>
           Retry
         </button>
       </div>
     );
   }
 
+  const data = profileQuery.data;
+
   return (
     <div>
+      {/* ── Profile header ──────────────────────────────────── */}
       <section style={styles.header}>
         <div style={styles.avatar}>
           {data.full_name.charAt(0).toUpperCase()}
@@ -78,6 +116,7 @@ export default function PublicProfilePage({
         </div>
       </section>
 
+      {/* ── Communities ──────────────────────────────────────── */}
       <section style={styles.section}>
         <h3 style={styles.subheading}>Communities</h3>
         {data.communities.length === 0 ? (
@@ -94,6 +133,51 @@ export default function PublicProfilePage({
               </Link>
             ))}
           </div>
+        )}
+      </section>
+
+      {/* ── Posts ────────────────────────────────────────────── */}
+      <section style={styles.section}>
+        <h3 style={styles.subheading}>Posts</h3>
+
+        {postsQuery.isLoading && (
+          <SkeletonList count={3} Component={PostSkeleton} />
+        )}
+
+        {postsQuery.isError && (
+          <div style={styles.error}>
+            <span>Could not load posts.</span>
+            <button
+              onClick={() => postsQuery.refetch()}
+              style={styles.retry}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!postsQuery.isLoading && !postsQuery.isError && posts.length === 0 && (
+          <p style={styles.muted}>No posts yet.</p>
+        )}
+
+        <div style={styles.postsList}>
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              invalidateKeys={[[...postsKey], ["feed"]]}
+            />
+          ))}
+        </div>
+
+        {postsQuery.hasNextPage && (
+          <div ref={sentinelRef} style={{ marginTop: 12, minHeight: 40 }}>
+            {postsQuery.isFetchingNextPage && <PostSkeleton />}
+          </div>
+        )}
+
+        {!postsQuery.hasNextPage && posts.length > 0 && (
+          <p style={styles.endText}>No more posts</p>
         )}
       </section>
     </div>
@@ -183,6 +267,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     textDecoration: "none",
     border: "1px solid #e0defe",
+  },
+  postsList: { display: "flex", flexDirection: "column", gap: 12 },
+  endText: {
+    textAlign: "center",
+    color: "#bbb",
+    fontSize: 13,
+    padding: "12px 0 0",
   },
   error: {
     background: "#fff5f5",

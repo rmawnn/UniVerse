@@ -54,6 +54,17 @@ export async function createComment(
   return data;
 }
 
+export async function listUserPosts(
+  userId: string,
+  params?: PaginationParams
+): Promise<PaginatedResponse<PostResponse>> {
+  const { data } = await api.get<PaginatedResponse<PostResponse>>(
+    `/users/${userId}/posts`,
+    { params }
+  );
+  return data;
+}
+
 export async function listCommunityPosts(
   communityId: string,
   params?: PaginationParams

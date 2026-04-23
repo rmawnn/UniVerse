@@ -45,6 +45,30 @@ class PostRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one()
 
+    async def list_by_author(
+        self, author_id: UUID, *, skip: int = 0, limit: int = 20,
+    ) -> list[Post]:
+        """Fetch posts created by a specific user, newest first."""
+        stmt = (
+            select(Post)
+            .where(Post.author_id == author_id, Post.is_deleted == False)  # noqa: E712
+            .order_by(Post.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_by_author(self, author_id: UUID) -> int:
+        """Count non-deleted posts created by a specific user."""
+        stmt = (
+            select(func.count())
+            .select_from(Post)
+            .where(Post.author_id == author_id, Post.is_deleted == False)  # noqa: E712
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
     async def list_by_communities(
         self, community_ids: list[UUID], *, skip: int = 0, limit: int = 20,
     ) -> list[Post]:

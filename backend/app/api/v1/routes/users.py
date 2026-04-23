@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_user_optional
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, SuccessResponse
+from app.schemas.post import PostResponse
 from app.schemas.user import (
     ChangePasswordRequest,
     PublicUserProfileResponse,
@@ -15,7 +16,7 @@ from app.schemas.user import (
     UserStatusResponse,
     UserUpdateRequest,
 )
-from app.services import user_service
+from app.services import post_service, user_service
 
 router = APIRouter()
 
@@ -75,3 +76,17 @@ async def get_user_profile(
 ):
     """View another user's public profile. Requires authentication."""
     return await user_service.get_public_profile(db, user_id)
+
+
+@router.get("/{user_id}/posts", response_model=PaginatedResponse[PostResponse])
+async def list_user_posts(
+    user_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """List posts created by a specific user, newest first."""
+    return await post_service.list_user_posts(
+        db, user_id, page=page, page_size=page_size, current_user=current_user,
+    )
