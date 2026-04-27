@@ -11,6 +11,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.community import (
     CommunityCreateRequest,
     CommunityDetailResponse,
+    CommunityMemberResponse,
     CommunityResponse,
     CommunitySearchResponse,
     CommunityUpdateRequest,
@@ -206,6 +207,107 @@ async def join_community(
         is_member=True,
         my_role=CommunityRole.MEMBER.value,
     )
+
+
+async def leave_community(
+    db: AsyncSession,
+    community_id: UUID,
+    current_user: User,
+) -> None:
+    """Leave a community. Blocks if the user is the only admin."""
+    repo = CommunityRepository(db)
+    community = await repo.get_by_id(community_id)
+
+    if not community:
+        raise NotFound("Community")
+
+    member = await repo.get_member(community_id, current_user.id)
+    if not member:
+        raise BadRequest("You are not a member of this community")
+
+    # Block leaving if user is the sole admin
+    if member.role == CommunityRole.ADMIN.value:
+        admin_count = await repo.count_admins(community_id)
+        if admin_count <= 1:
+            raise BadRequest(
+                "You are the only admin. Transfer ownership or delete the community instead."
+            )
+
+    await repo.remove_member(member)
+
+
+async def list_members(
+    db: AsyncSession,
+    community_id: UUID,
+    current_user: User,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+) -> PaginatedResponse[CommunityMemberResponse]:
+    """List members of a community. Requires the caller to be a member."""
+    repo = CommunityRepository(db)
+    community = await repo.get_by_id(community_id)
+
+    if not community:
+        raise NotFound("Community")
+
+    if not await repo.is_member(community_id, current_user.id):
+        raise Forbidden("You must be a member to view the member list")
+
+    total = await repo.member_count(community_id)
+    skip = (page - 1) * page_size
+    rows = await repo.list_members(community_id, skip=skip, limit=page_size)
+
+    items = [
+        CommunityMemberResponse(
+            user_id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            profile_image_url=user.profile_image_url,
+            role=member.role,
+            joined_at=member.joined_at,
+        )
+        for member, user in rows
+    ]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+async def remove_member(
+    db: AsyncSession,
+    community_id: UUID,
+    target_user_id: UUID,
+    current_user: User,
+) -> None:
+    """Remove a member from a community. Only admin/creator can remove."""
+    repo = CommunityRepository(db)
+    community = await repo.get_by_id(community_id)
+
+    if not community:
+        raise NotFound("Community")
+
+    # Only the admin/creator can remove members
+    caller_member = await repo.get_member(community_id, current_user.id)
+    if not caller_member or caller_member.role != CommunityRole.ADMIN.value:
+        raise Forbidden("Only the community admin can remove members")
+
+    # Prevent admin from removing themselves if they're the only admin
+    if target_user_id == current_user.id:
+        admin_count = await repo.count_admins(community_id)
+        if admin_count <= 1:
+            raise BadRequest("Cannot remove the only admin from the community")
+
+    target_member = await repo.get_member(community_id, target_user_id)
+    if not target_member:
+        raise NotFound("Member")
+
+    await repo.remove_member(target_member)
 
 
 async def search_communities(

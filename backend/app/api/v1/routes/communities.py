@@ -10,6 +10,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.community import (
     CommunityCreateRequest,
     CommunityDetailResponse,
+    CommunityMemberResponse,
     CommunityResponse,
     CommunitySearchResponse,
     CommunityUpdateRequest,
@@ -97,3 +98,41 @@ async def join_community(
 ):
     """Join a public community. Requires verified student."""
     return await community_service.join_community(db, community_id, current_user)
+
+
+@router.post("/{community_id}/leave", status_code=204)
+async def leave_community(
+    community_id: UUID,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Leave a community. Blocked if user is the only admin."""
+    await community_service.leave_community(db, community_id, current_user)
+
+
+@router.get(
+    "/{community_id}/members",
+    response_model=PaginatedResponse[CommunityMemberResponse],
+)
+async def list_members(
+    community_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List community members. Requires membership."""
+    return await community_service.list_members(
+        db, community_id, current_user, page=page, page_size=page_size,
+    )
+
+
+@router.delete("/{community_id}/members/{user_id}", status_code=204)
+async def remove_member(
+    community_id: UUID,
+    user_id: UUID,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a member from a community. Only admin can remove."""
+    await community_service.remove_member(db, community_id, user_id, current_user)

@@ -43,3 +43,13 @@ class CommunityDetailResponse(CommunityResponse):
     """Extended response that includes the caller's membership status."""
     is_member: bool = False
     my_role: str | None = None
+
+
+class CommunityMemberResponse(BaseModel):
+    """A single member row with user profile info."""
+    user_id: uuid.UUID
+    username: str
+    full_name: str
+    profile_image_url: str | None = None
+    role: str
+    joined_at: datetime

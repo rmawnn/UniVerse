@@ -101,6 +101,15 @@ export interface CommunitySearchResult extends CommunityResponse {
   is_member: boolean | null;
 }
 
+export interface CommunityMemberResponse {
+  user_id: string;
+  username: string;
+  full_name: string;
+  profile_image_url: string | null;
+  role: string;
+  joined_at: string;
+}
+
 // ── Post ────────────────────────────────────────────────────
 
 export interface PostResponse {

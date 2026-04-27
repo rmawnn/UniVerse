@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, use, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useQuery,
@@ -11,10 +12,14 @@ import {
 import {
   getCommunity,
   joinCommunity,
+  leaveCommunity,
   updateCommunity,
   deleteCommunity,
+  listMembers,
+  removeMember,
 } from "@/api/communities";
 import { listCommunityPosts, createPost } from "@/api/posts";
+import { useAuthStore } from "@/store/auth-store";
 import PostCard from "@/components/post/PostCard";
 import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
@@ -30,8 +35,11 @@ export default function CommunityDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const qc = useQueryClient();
+  const currentUser = useAuthStore((s) => s.user);
+
   const communityKey = ["community", id] as const;
   const postsKey = ["community-posts", id] as const;
+  const membersKey = ["community-members", id] as const;
 
   const communityQuery = useQuery({
     queryKey: communityKey,
@@ -160,6 +168,51 @@ export default function CommunityDetailPage({
     },
   });
 
+  // ── Leave state ───────────────────────────────────────────
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+
+  const leaveMutation = useMutation({
+    mutationFn: () => leaveCommunity(id),
+    onSuccess: () => {
+      setShowLeaveConfirm(false);
+      qc.invalidateQueries({ queryKey: communityKey });
+      qc.invalidateQueries({ queryKey: ["communities"] });
+      qc.invalidateQueries({ queryKey: ["feed"] });
+      qc.invalidateQueries({ queryKey: [...membersKey] });
+    },
+    onError: (err: { message?: string }) => {
+      setLeaveError(err?.message ?? "Failed to leave community");
+    },
+  });
+
+  // ── Members state ─────────────────────────────────────────
+  const [showMembers, setShowMembers] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  const membersQuery = useQuery({
+    queryKey: [...membersKey],
+    queryFn: () => listMembers(id, { page_size: 100 }),
+    enabled: showMembers && !!communityQuery.data?.is_member,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (userId: string) => removeMember(id, userId),
+    onSuccess: () => {
+      setRemoveTarget(null);
+      setMemberError(null);
+      qc.invalidateQueries({ queryKey: [...membersKey] });
+      qc.invalidateQueries({ queryKey: communityKey });
+    },
+    onError: (err: { message?: string }) => {
+      setMemberError(err?.message ?? "Failed to remove member");
+    },
+  });
+
   // ── Loading / error ───────────────────────────────────────
   if (communityQuery.isLoading) {
     return <p style={styles.muted}>Loading community...</p>;
@@ -205,23 +258,27 @@ export default function CommunityDetailPage({
                 </button>
               </>
             )}
-            <button
-              type="button"
-              onClick={() => joinMutation.mutate()}
-              disabled={community.is_member || joinMutation.isPending}
-              style={{
-                ...styles.joinBtn,
-                background: community.is_member ? "#e5e7eb" : "#6C63FF",
-                color: community.is_member ? "#666" : "#fff",
-                cursor: community.is_member ? "default" : "pointer",
-              }}
-            >
-              {community.is_member
-                ? "Joined"
-                : joinMutation.isPending
-                  ? "Joining..."
-                  : "Join"}
-            </button>
+            {community.is_member ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setLeaveError(null);
+                  setShowLeaveConfirm(true);
+                }}
+                style={styles.leaveBtn}
+              >
+                Leave
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => joinMutation.mutate()}
+                disabled={joinMutation.isPending}
+                style={styles.joinBtn}
+              >
+                {joinMutation.isPending ? "Joining..." : "Join"}
+              </button>
+            )}
           </div>
         </div>
         {community.description && (
@@ -360,6 +417,85 @@ export default function CommunityDetailPage({
         </div>
       )}
 
+      {/* ── Leave confirmation ──────────────────────────────── */}
+      {showLeaveConfirm && (
+        <div
+          style={styles.overlay}
+          onClick={() => setShowLeaveConfirm(false)}
+        >
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>Leave Community</h3>
+            <p style={styles.confirmText}>
+              Are you sure you want to leave <strong>{community.name}</strong>?
+              You can rejoin later if the community is public.
+            </p>
+
+            {leaveError && <p style={styles.formError}>{leaveError}</p>}
+
+            <div style={styles.modalFooter}>
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                style={styles.cancelBtn}
+                disabled={leaveMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => leaveMutation.mutate()}
+                disabled={leaveMutation.isPending}
+                style={styles.dangerBtn}
+              >
+                {leaveMutation.isPending ? "Leaving..." : "Leave"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Remove member confirmation ─────────────────────── */}
+      {removeTarget && (
+        <div
+          style={styles.overlay}
+          onClick={() => {
+            setRemoveTarget(null);
+            setMemberError(null);
+          }}
+        >
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>Remove Member</h3>
+            <p style={styles.confirmText}>
+              Remove <strong>{removeTarget.name}</strong> from this community?
+            </p>
+
+            {memberError && <p style={styles.formError}>{memberError}</p>}
+
+            <div style={styles.modalFooter}>
+              <button
+                type="button"
+                onClick={() => {
+                  setRemoveTarget(null);
+                  setMemberError(null);
+                }}
+                style={styles.cancelBtn}
+                disabled={removeMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => removeMutation.mutate(removeTarget.userId)}
+                disabled={removeMutation.isPending}
+                style={styles.dangerBtn}
+              >
+                {removeMutation.isPending ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Post composer ──────────────────────────────────── */}
       {community.is_member && (
         <section style={styles.composerSection}>
@@ -409,6 +545,72 @@ export default function CommunityDetailPage({
                 </button>
               </div>
             </form>
+          )}
+        </section>
+      )}
+
+      {/* ── Members section ────────────────────────────────── */}
+      {community.is_member && (
+        <section style={styles.membersSection}>
+          <button
+            type="button"
+            onClick={() => setShowMembers((v) => !v)}
+            style={styles.memberToggle}
+          >
+            <span style={styles.subheading}>
+              Members ({community.member_count})
+            </span>
+            <span style={styles.chevron}>{showMembers ? "\u25B2" : "\u25BC"}</span>
+          </button>
+
+          {showMembers && (
+            <div style={styles.memberList}>
+              {membersQuery.isLoading && (
+                <p style={styles.muted}>Loading members...</p>
+              )}
+              {membersQuery.isError && (
+                <p style={styles.formError}>Could not load members.</p>
+              )}
+              {membersQuery.data?.items.map((m) => (
+                <div key={m.user_id} style={styles.memberRow}>
+                  <Link
+                    href={`/profile/${m.user_id}`}
+                    style={styles.memberInfo}
+                  >
+                    <div style={styles.memberAvatar}>
+                      {m.full_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <span style={styles.memberName}>{m.full_name}</span>
+                      <span style={styles.memberUsername}>
+                        @{m.username}
+                        {m.role === "admin" && (
+                          <span style={styles.adminBadge}>Admin</span>
+                        )}
+                      </span>
+                    </div>
+                  </Link>
+                  {isAdmin && m.user_id !== currentUser?.id && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRemoveTarget({
+                          userId: m.user_id,
+                          name: m.full_name,
+                        })
+                      }
+                      style={styles.removeMemberBtn}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              {membersQuery.data &&
+                membersQuery.data.items.length === 0 && (
+                  <p style={styles.muted}>No members found.</p>
+                )}
+            </div>
           )}
         </section>
       )}
@@ -472,11 +674,23 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "12px 0 0",
   },
   joinBtn: {
+    background: "#6C63FF",
+    color: "#fff",
     border: "none",
     borderRadius: 6,
     padding: "8px 18px",
     fontSize: 14,
     fontWeight: 500,
+    cursor: "pointer",
+  },
+  leaveBtn: {
+    background: "none",
+    border: "1px solid #ddd",
+    borderRadius: 6,
+    padding: "8px 14px",
+    fontSize: 13,
+    cursor: "pointer",
+    color: "#666",
   },
   editBtn: {
     background: "none",
@@ -634,6 +848,86 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "flex-end",
     gap: 8,
     marginTop: 8,
+  },
+  // ── Members ────────────────────────────────────────────────
+  membersSection: {
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 10,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  memberToggle: {
+    width: "100%",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "14px 16px",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+  },
+  chevron: { fontSize: 11, color: "#999" },
+  memberList: { padding: "0 16px 14px" },
+  memberRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "10px 0",
+    borderBottom: "1px solid #f5f5f5",
+  },
+  memberInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    textDecoration: "none",
+    color: "inherit",
+    flex: 1,
+    minWidth: 0,
+  },
+  memberAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: "50%",
+    background: "#6C63FF",
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: 600,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  memberName: {
+    display: "block",
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#333",
+  },
+  memberUsername: {
+    display: "block",
+    fontSize: 12,
+    color: "#999",
+  },
+  adminBadge: {
+    display: "inline-block",
+    background: "#f0efff",
+    color: "#6C63FF",
+    fontSize: 10,
+    fontWeight: 600,
+    padding: "1px 6px",
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  removeMemberBtn: {
+    background: "none",
+    border: "1px solid #fed7d7",
+    borderRadius: 6,
+    padding: "4px 10px",
+    fontSize: 12,
+    color: "#c53030",
+    cursor: "pointer",
+    flexShrink: 0,
   },
   // ── Posts ───────────────────────────────────────────────────
   subheading: { fontSize: 17, fontWeight: 600, margin: "8px 0 12px" },

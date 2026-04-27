@@ -4,6 +4,7 @@ from sqlalchemy import select, func, case, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.community import Community, CommunityMember
+from app.models.user import User
 
 
 class CommunityRepository:
@@ -209,6 +210,43 @@ class CommunityRepository:
             select(func.count())
             .select_from(CommunityMember)
             .where(CommunityMember.community_id == community_id)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def list_members(
+        self, community_id: UUID, *, skip: int = 0, limit: int = 50,
+    ) -> list[tuple[CommunityMember, User]]:
+        """Return (membership, user) pairs for a community, admins first."""
+        stmt = (
+            select(CommunityMember, User)
+            .join(User, User.id == CommunityMember.user_id)
+            .where(CommunityMember.community_id == community_id)
+            .order_by(
+                case(
+                    (CommunityMember.role == "admin", 0),
+                    else_=1,
+                ),
+                CommunityMember.joined_at.asc(),
+            )
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return [(row[0], row[1]) for row in result.all()]
+
+    async def remove_member(self, member: CommunityMember) -> None:
+        await self.db.delete(member)
+        await self.db.flush()
+
+    async def count_admins(self, community_id: UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(CommunityMember)
+            .where(
+                CommunityMember.community_id == community_id,
+                CommunityMember.role == "admin",
+            )
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()

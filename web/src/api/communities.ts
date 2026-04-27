@@ -4,6 +4,7 @@ import type {
   PaginationParams,
   CommunityResponse,
   CommunityDetailResponse,
+  CommunityMemberResponse,
   CommunitySearchResult,
   CreateCommunityRequest,
   UpdateCommunityRequest,
@@ -54,6 +55,12 @@ export async function joinCommunity(
   return data;
 }
 
+export async function leaveCommunity(
+  communityId: string
+): Promise<void> {
+  await api.post(`/communities/${communityId}/leave`);
+}
+
 export async function listCommunities(
   universityId: string,
   params?: PaginationParams
@@ -63,6 +70,24 @@ export async function listCommunities(
     { params: { university_id: universityId, ...params } }
   );
   return data;
+}
+
+export async function listMembers(
+  communityId: string,
+  params?: PaginationParams
+): Promise<PaginatedResponse<CommunityMemberResponse>> {
+  const { data } = await api.get<PaginatedResponse<CommunityMemberResponse>>(
+    `/communities/${communityId}/members`,
+    { params }
+  );
+  return data;
+}
+
+export async function removeMember(
+  communityId: string,
+  userId: string
+): Promise<void> {
+  await api.delete(`/communities/${communityId}/members/${userId}`);
 }
 
 export async function searchCommunities(
