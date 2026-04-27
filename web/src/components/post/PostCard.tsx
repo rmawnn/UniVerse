@@ -114,6 +114,18 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
 
       <p style={styles.content}>{post.content}</p>
 
+      {post.image_url && (
+        <div style={styles.imageWrap}>
+          <img
+            src={post.image_url}
+            alt=""
+            style={styles.image}
+            loading="lazy"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       <div style={styles.footer}>
         <button
           type="button"
@@ -126,6 +138,10 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
         >
           {post.liked_by_me ? "♥" : "♡"} {post.like_count}
         </button>
+
+        <span style={styles.commentCount}>
+          💬 {post.comment_count ?? 0}
+        </span>
       </div>
     </article>
   );
@@ -138,7 +154,9 @@ const PostCard = memo(PostCardInner, (prev, next) => {
     a.id === b.id &&
     a.liked_by_me === b.liked_by_me &&
     a.like_count === b.like_count &&
+    a.comment_count === b.comment_count &&
     a.content === b.content &&
+    a.image_url === b.image_url &&
     a.updated_at === b.updated_at
   );
 });
@@ -169,6 +187,18 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "0 0 12px",
     whiteSpace: "pre-wrap",
   },
+  imageWrap: {
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 12,
+    maxHeight: 400,
+  },
+  image: {
+    width: "100%",
+    maxHeight: 400,
+    objectFit: "cover" as const,
+    display: "block",
+  },
   footer: { display: "flex", gap: 16 },
   likeBtn: {
     background: "none",
@@ -177,5 +207,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     cursor: "pointer",
     borderRadius: 6,
+  },
+  commentCount: {
+    color: "#666",
+    fontSize: 14,
+    padding: "4px 8px",
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
   },
 };

@@ -51,6 +51,7 @@ async def send_message(
             await notification_service.notify(
                 db,
                 user_id=p.user_id,
+                actor_id=current_user.id,
                 type="message",
                 reference_id=conversation_id,
                 content=f"{current_user.username} sent you a message",

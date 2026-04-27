@@ -45,6 +45,17 @@ class CommunityDetailResponse(CommunityResponse):
     my_role: str | None = None
 
 
+class ExploreCommunityResponse(BaseModel):
+    """Community card for the Explore/Trending page."""
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    member_count: int = 0
+    is_member: bool | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class CommunityMemberResponse(BaseModel):
     """A single member row with user profile info."""
     user_id: uuid.UUID

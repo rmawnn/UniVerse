@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.repositories.comment_repository import CommentRepository
 from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
@@ -39,7 +40,7 @@ async def get_home_feed(
     skip = (page - 1) * page_size
 
     total = await post_repo.count_by_communities(community_ids)
-    posts = await post_repo.list_by_communities(community_ids, skip=skip, limit=page_size)
+    posts = await post_repo.list_by_communities_ranked(community_ids, skip=skip, limit=page_size)
 
     if not posts:
         return PaginatedResponse(
@@ -56,16 +57,19 @@ async def get_home_feed(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts and user's likes
+    # Batch-load like counts, comment counts, and user's likes
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
+    comment_repo = CommentRepository(db)
+    comment_counts = await comment_repo.count_by_posts(post_ids)
     liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
+            comment_count=comment_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
         )
         for p in posts

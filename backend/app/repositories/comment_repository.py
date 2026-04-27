@@ -47,3 +47,19 @@ class CommentRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def count_by_posts(self, post_ids: list[UUID]) -> dict[UUID, int]:
+        """Batch count comments for multiple posts. Returns {post_id: count}."""
+        if not post_ids:
+            return {}
+        stmt = (
+            select(Comment.post_id, func.count())
+            .where(
+                Comment.post_id.in_(post_ids),
+                Comment.is_deleted == False,  # noqa: E712
+            )
+            .group_by(Comment.post_id)
+        )
+        result = await self.db.execute(stmt)
+        counts = {row[0]: row[1] for row in result.all()}
+        return {pid: counts.get(pid, 0) for pid in post_ids}

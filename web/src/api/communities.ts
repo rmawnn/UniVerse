@@ -8,6 +8,7 @@ import type {
   CommunitySearchResult,
   CreateCommunityRequest,
   UpdateCommunityRequest,
+  ExploreCommunityResponse,
 } from "@/types/api";
 
 export async function createCommunity(
@@ -88,6 +89,16 @@ export async function removeMember(
   userId: string
 ): Promise<void> {
   await api.delete(`/communities/${communityId}/members/${userId}`);
+}
+
+export async function exploreCommunities(
+  params?: PaginationParams
+): Promise<PaginatedResponse<ExploreCommunityResponse>> {
+  const { data } = await api.get<PaginatedResponse<ExploreCommunityResponse>>(
+    "/explore/communities",
+    { params }
+  );
+  return data;
 }
 
 export async function searchCommunities(

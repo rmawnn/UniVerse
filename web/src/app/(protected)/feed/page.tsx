@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getHomeFeed } from "@/api/feed";
 import PostCard from "@/components/post/PostCard";
@@ -57,9 +58,16 @@ export default function FeedPage() {
       )}
 
       {!isLoading && !isError && posts.length === 0 && (
-        <p style={styles.muted}>
-          Your feed is empty. Join some communities first.
-        </p>
+        <div style={styles.empty}>
+          <span style={styles.emptyIcon}>📭</span>
+          <p style={styles.emptyTitle}>Your feed is empty</p>
+          <p style={styles.emptyHint}>
+            Join communities to see posts here.
+          </p>
+          <Link href="/communities" style={styles.emptyLink}>
+            Browse Communities
+          </Link>
+        </div>
       )}
 
       <div style={styles.list}>
@@ -87,8 +95,32 @@ export default function FeedPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   heading: { fontSize: 22, fontWeight: 700, marginBottom: 16 },
-  muted: { color: "#999", fontSize: 15 },
   list: { display: "flex", flexDirection: "column", gap: 12 },
+  empty: {
+    textAlign: "center",
+    padding: "48px 24px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px dashed #ddd",
+  },
+  emptyIcon: { fontSize: 40, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: "0 0 16px" },
+  emptyLink: {
+    display: "inline-block",
+    background: "#111",
+    color: "#fff",
+    padding: "8px 20px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
+    textDecoration: "none",
+  },
   sentinel: { marginTop: 12, minHeight: 40 },
   end: {
     textAlign: "center",

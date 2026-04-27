@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select, func, case, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.community import Community, CommunityMember
+from app.models.post import Post
 from app.models.user import User
 
 
@@ -65,6 +67,72 @@ class CommunityRepository:
             .where(
                 Community.university_id == university_id,
                 Community.is_deleted == False,  # noqa: E712
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    # ── Explore / Trending ─────────────────────────────────
+
+    async def list_trending(
+        self, *, skip: int = 0, limit: int = 20, activity_days: int = 7,
+    ) -> list[Community]:
+        """Return communities ranked by popularity.
+
+        Score = member_count + (recent_post_count * 2)
+        Only non-deleted, public communities are considered.
+        """
+        # Subquery: member counts per community
+        member_counts = (
+            select(
+                CommunityMember.community_id,
+                func.count().label("member_cnt"),
+            )
+            .group_by(CommunityMember.community_id)
+        ).subquery()
+
+        # Subquery: post counts from the last N days (non-deleted posts)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=activity_days)
+        recent_posts = (
+            select(
+                Post.community_id,
+                func.count().label("post_cnt"),
+            )
+            .where(
+                Post.is_deleted == False,  # noqa: E712
+                Post.created_at >= cutoff,
+            )
+            .group_by(Post.community_id)
+        ).subquery()
+
+        score = (
+            func.coalesce(member_counts.c.member_cnt, 0)
+            + func.coalesce(recent_posts.c.post_cnt, 0) * 2
+        )
+
+        stmt = (
+            select(Community)
+            .outerjoin(member_counts, member_counts.c.community_id == Community.id)
+            .outerjoin(recent_posts, recent_posts.c.community_id == Community.id)
+            .where(
+                Community.is_deleted == False,  # noqa: E712
+                Community.is_public == True,  # noqa: E712
+            )
+            .order_by(score.desc(), Community.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_public(self) -> int:
+        """Count all non-deleted, public communities."""
+        stmt = (
+            select(func.count())
+            .select_from(Community)
+            .where(
+                Community.is_deleted == False,  # noqa: E712
+                Community.is_public == True,  # noqa: E712
             )
         )
         result = await self.db.execute(stmt)

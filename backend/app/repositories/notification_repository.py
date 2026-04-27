@@ -52,6 +52,32 @@ class NotificationRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one()
 
+    async def exists_duplicate(
+        self,
+        *,
+        user_id: UUID,
+        actor_id: UUID,
+        type: str,
+        reference_id: UUID | None,
+    ) -> bool:
+        """Check if a matching unread notification already exists.
+
+        Prevents spam from repeated actions (e.g., like→unlike→like).
+        """
+        stmt = (
+            select(func.count())
+            .select_from(Notification)
+            .where(
+                Notification.user_id == user_id,
+                Notification.actor_id == actor_id,
+                Notification.type == type,
+                Notification.reference_id == reference_id,
+                Notification.is_read == False,  # noqa: E712
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one() > 0
+
     async def mark_as_read(self, notification_id: UUID) -> None:
         stmt = (
             update(Notification)

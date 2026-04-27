@@ -20,6 +20,7 @@ from app.api.v1.routes.post_likes import router as post_likes_router
 from app.api.v1.routes.conversations import router as conversations_router
 from app.api.v1.routes.notifications import router as notifications_router
 from app.api.v1.routes.feed import router as feed_router
+from app.api.v1.routes.explore import router as explore_router
 
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 v1_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -32,3 +33,4 @@ v1_router.include_router(post_likes_router, tags=["Likes"])
 v1_router.include_router(conversations_router, tags=["Messaging"])
 v1_router.include_router(notifications_router, tags=["Notifications"])
 v1_router.include_router(feed_router, tags=["Feed"])
+v1_router.include_router(explore_router, tags=["Explore"])

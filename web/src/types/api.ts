@@ -110,6 +110,14 @@ export interface CommunityMemberResponse {
   joined_at: string;
 }
 
+export interface ExploreCommunityResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+  is_member: boolean | null;
+}
+
 // ── Post ────────────────────────────────────────────────────
 
 export interface PostResponse {
@@ -119,6 +127,7 @@ export interface PostResponse {
   content: string;
   image_url: string | null;
   like_count: number;
+  comment_count: number;
   liked_by_me: boolean;
   created_at: string;
   updated_at: string;
@@ -137,6 +146,7 @@ export interface CommentResponse {
 
 export interface CreatePostRequest {
   content: string;
+  image_url?: string;
 }
 
 export interface CreateCommentRequest {
@@ -150,10 +160,18 @@ export interface LikeToggleResponse {
 
 // ── Notification ────────────────────────────────────────────
 
+export interface NotificationActorSummary {
+  id: string;
+  username: string;
+  full_name: string;
+  profile_image_url: string | null;
+}
+
 export interface NotificationResponse {
   id: string;
   type: string;
   reference_id: string | null;
+  actor: NotificationActorSummary | null;
   content: string;
   is_read: boolean;
   created_at: string;

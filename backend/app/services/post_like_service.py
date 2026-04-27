@@ -49,6 +49,7 @@ async def toggle_like(
             await notification_service.notify(
                 db,
                 user_id=post.author_id,
+                actor_id=current_user.id,
                 type="like",
                 reference_id=post_id,
                 content=f"{current_user.username} liked your post",

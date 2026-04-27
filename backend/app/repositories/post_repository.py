@@ -1,9 +1,11 @@
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.comment import Comment
 from app.models.post import Post
+from app.models.post_like import PostLike
 
 
 class PostRepository:
@@ -82,6 +84,63 @@ class PostRepository:
                 Post.is_deleted == False,  # noqa: E712
             )
             .order_by(Post.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_by_communities_ranked(
+        self, community_ids: list[UUID], *, skip: int = 0, limit: int = 20,
+    ) -> list[Post]:
+        """Fetch posts from multiple communities, ranked by engagement.
+
+        Score = (likes * 2) + comments - (age_in_hours / 6)
+        Higher score = shown first. Recent posts with no engagement still
+        appear near the top because their age penalty is small.
+        """
+        if not community_ids:
+            return []
+
+        # Subquery: like counts per post
+        like_counts = (
+            select(
+                PostLike.post_id,
+                func.count().label("like_cnt"),
+            )
+            .group_by(PostLike.post_id)
+        ).subquery()
+
+        # Subquery: comment counts per post (non-deleted)
+        comment_counts = (
+            select(
+                Comment.post_id,
+                func.count().label("comment_cnt"),
+            )
+            .where(Comment.is_deleted == False)  # noqa: E712
+            .group_by(Comment.post_id)
+        ).subquery()
+
+        # Age in hours: extract(epoch from now() - created_at) / 3600
+        age_hours = func.extract(
+            "epoch", func.now() - Post.created_at
+        ) / 3600
+
+        score = (
+            func.coalesce(like_counts.c.like_cnt, 0) * 2
+            + func.coalesce(comment_counts.c.comment_cnt, 0)
+            - age_hours / 6
+        )
+
+        stmt = (
+            select(Post)
+            .outerjoin(like_counts, like_counts.c.post_id == Post.id)
+            .outerjoin(comment_counts, comment_counts.c.post_id == Post.id)
+            .where(
+                Post.community_id.in_(community_ids),
+                Post.is_deleted == False,  # noqa: E712
+            )
+            .order_by(score.desc())
             .offset(skip)
             .limit(limit)
         )

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listNotifications, markAsRead, markAllAsRead } from "@/api/notifications";
@@ -15,15 +16,28 @@ const NOTIFICATIONS_KEY = ["notifications", "list"] as const;
 function iconForType(type: string): string {
   switch (type) {
     case "like":
-      return "❤️";
+      return "\u2764\uFE0F";
     case "comment":
-      return "💬";
+      return "\uD83D\uDCAC";
     case "message":
-      return "✉️";
+      return "\u2709\uFE0F";
     case "follow":
-      return "👤";
+      return "\uD83D\uDC64";
     default:
-      return "🔔";
+      return "\uD83D\uDD14";
+  }
+}
+
+function actionTextForType(type: string): string {
+  switch (type) {
+    case "like":
+      return "liked your post";
+    case "comment":
+      return "commented on your post";
+    case "message":
+      return "sent you a message";
+    default:
+      return "";
   }
 }
 
@@ -107,7 +121,13 @@ export default function NotificationsPage() {
       )}
 
       {!isLoading && !isError && notifications.length === 0 && (
-        <p style={styles.muted}>No notifications yet.</p>
+        <div style={styles.empty}>
+          <span style={styles.emptyIcon}>{"\uD83D\uDD14"}</span>
+          <p style={styles.emptyTitle}>No notifications yet</p>
+          <p style={styles.emptyHint}>
+            When someone likes, comments, or messages you, it will show up here.
+          </p>
+        </div>
       )}
 
       <div style={styles.list}>
@@ -119,15 +139,55 @@ export default function NotificationsPage() {
             style={{
               ...styles.row,
               background: n.is_read ? "#fff" : "#f5f4ff",
+              borderLeft: n.is_read ? "3px solid transparent" : "3px solid #6C63FF",
             }}
           >
-            <div style={styles.icon}>{iconForType(n.type)}</div>
-            <div style={styles.rowContent}>
-              <p style={styles.content}>{n.content}</p>
-              <span style={styles.time}>
-                {formatRelativeTime(n.created_at)}
-              </span>
+            {/* Avatar or icon */}
+            <div style={styles.avatarWrap}>
+              {n.actor?.profile_image_url ? (
+                <img
+                  src={n.actor.profile_image_url}
+                  alt=""
+                  style={styles.avatarImg}
+                />
+              ) : n.actor ? (
+                <div style={styles.avatarFallback}>
+                  {n.actor.full_name.charAt(0).toUpperCase()}
+                </div>
+              ) : (
+                <div style={styles.iconFallback}>{iconForType(n.type)}</div>
+              )}
             </div>
+
+            {/* Content */}
+            <div style={styles.rowContent}>
+              <p style={styles.contentText}>
+                {n.actor ? (
+                  <>
+                    <Link
+                      href={`/profile/${n.actor.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={styles.actorName}
+                    >
+                      {n.actor.full_name}
+                    </Link>{" "}
+                    <span style={styles.actionText}>
+                      {actionTextForType(n.type)}
+                    </span>
+                  </>
+                ) : (
+                  <span>{n.content}</span>
+                )}
+              </p>
+              <div style={styles.meta}>
+                <span style={styles.typeIcon}>{iconForType(n.type)}</span>
+                <span style={styles.time}>
+                  {formatRelativeTime(n.created_at)}
+                </span>
+              </div>
+            </div>
+
+            {/* Unread dot */}
             {!n.is_read && <div style={styles.dot} />}
           </button>
         ))}
@@ -152,8 +212,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     cursor: "pointer",
     color: "#6C63FF",
+    fontWeight: 500,
   },
-  muted: { color: "#999", fontSize: 15 },
   list: {
     background: "#fff",
     border: "1px solid #eee",
@@ -164,37 +224,95 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     width: "100%",
-    padding: 14,
+    padding: "14px 16px",
     borderBottom: "1px solid #f0f0f0",
-    border: "none",
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: "#f0f0f0",
+    borderTop: "none",
+    borderRight: "none",
     textAlign: "left",
     cursor: "pointer",
     fontSize: 14,
+    gap: 12,
+    transition: "background 0.1s",
   },
-  icon: {
-    fontSize: 22,
-    width: 32,
-    textAlign: "center",
-    marginRight: 12,
+  avatarWrap: {
     flexShrink: 0,
+    width: 40,
+    height: 40,
+  },
+  avatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    objectFit: "cover" as const,
+  },
+  avatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    background: "#6C63FF",
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    background: "#f0efff",
+    fontSize: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowContent: { flex: 1, minWidth: 0 },
-  content: { fontSize: 14, margin: 0, color: "#333" },
+  contentText: {
+    fontSize: 14,
+    margin: "0 0 4px",
+    color: "#333",
+    lineHeight: 1.4,
+  },
+  actorName: {
+    fontWeight: 600,
+    color: "#111",
+    textDecoration: "none",
+  },
+  actionText: {
+    color: "#555",
+  },
+  meta: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  typeIcon: {
+    fontSize: 12,
+  },
   time: { fontSize: 12, color: "#999" },
   dot: {
     width: 8,
     height: 8,
     borderRadius: "50%",
     background: "#6C63FF",
-    marginLeft: 12,
     flexShrink: 0,
   },
+  empty: {
+    textAlign: "center",
+    padding: "48px 24px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px dashed #ddd",
+  },
+  emptyIcon: { fontSize: 40, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: 0 },
   error: {
     background: "#fff5f5",
     border: "1px solid #fed7d7",

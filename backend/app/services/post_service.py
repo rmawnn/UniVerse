@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import Forbidden, NotFound
 from app.models.post import Post
 from app.models.user import User
+from app.repositories.comment_repository import CommentRepository
 from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
@@ -70,7 +71,13 @@ async def get_post(
     if current_user:
         liked_by_me = await like_repo.get_like(post_id, current_user.id) is not None
 
-    return _build_response(post, author, like_count=like_count, liked_by_me=liked_by_me)
+    comment_repo = CommentRepository(db)
+    comment_count = await comment_repo.count_by_post(post_id)
+
+    return _build_response(
+        post, author,
+        like_count=like_count, comment_count=comment_count, liked_by_me=liked_by_me,
+    )
 
 
 async def list_posts(
@@ -107,10 +114,12 @@ async def list_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts and user's likes
+    # Batch-load like counts, comment counts, and user's likes
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
+    comment_repo = CommentRepository(db)
+    comment_counts = await comment_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
@@ -119,6 +128,7 @@ async def list_posts(
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
+            comment_count=comment_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
         )
         for p in posts
@@ -163,10 +173,12 @@ async def list_user_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts and current user's likes
+    # Batch-load like counts, comment counts, and current user's likes
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
+    comment_repo = CommentRepository(db)
+    comment_counts = await comment_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
@@ -175,6 +187,7 @@ async def list_user_posts(
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
+            comment_count=comment_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
         )
         for p in posts
@@ -194,9 +207,10 @@ def _build_response(
     author: User | None,
     *,
     like_count: int = 0,
+    comment_count: int = 0,
     liked_by_me: bool = False,
 ) -> PostResponse:
-    """Build a PostResponse with embedded author summary and like data."""
+    """Build a PostResponse with embedded author summary, like and comment data."""
     author_summary = PostAuthorSummary(
         id=author.id,
         username=author.username,
@@ -216,6 +230,7 @@ def _build_response(
         content=post.content,
         image_url=post.image_url,
         like_count=like_count,
+        comment_count=comment_count,
         liked_by_me=liked_by_me,
         created_at=post.created_at,
         updated_at=post.updated_at,

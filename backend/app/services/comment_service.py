@@ -51,6 +51,7 @@ async def create_comment(
         await notification_service.notify(
             db,
             user_id=post.author_id,
+            actor_id=current_user.id,
             type="comment",
             reference_id=post_id,
             content=f"{current_user.username} commented on your post",

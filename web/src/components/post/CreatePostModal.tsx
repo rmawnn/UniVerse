@@ -25,7 +25,21 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
   // `null` = not yet touched — fallback to first community on submit.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageError, setImageError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isValidUrl = (url: string) => {
+    if (!url.trim()) return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  const showPreview = isValidUrl(imageUrl) && !imageError;
 
   const communitiesQuery = useQuery({
     queryKey: ["communities", "browse", user?.university_id],
@@ -41,7 +55,10 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createPost(effectiveCommunityId, { content: content.trim() }),
+      createPost(effectiveCommunityId, {
+        content: content.trim(),
+        ...(isValidUrl(imageUrl) ? { image_url: imageUrl.trim() } : {}),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed"] });
       qc.invalidateQueries({
@@ -119,6 +136,38 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
             autoFocus
           />
 
+          <label style={styles.label}>Image URL (optional)</label>
+          <input
+            type="url"
+            value={imageUrl}
+            onChange={(e) => {
+              setImageUrl(e.target.value);
+              setImageError(false);
+            }}
+            placeholder="https://example.com/image.jpg"
+            style={styles.input}
+            disabled={createMutation.isPending}
+          />
+
+          {imageUrl.trim() && !isValidUrl(imageUrl) && (
+            <p style={styles.urlHint}>Enter a valid URL starting with http:// or https://</p>
+          )}
+
+          {showPreview && (
+            <div style={styles.previewWrap}>
+              <img
+                src={imageUrl}
+                alt="Preview"
+                style={styles.previewImg}
+                onError={() => setImageError(true)}
+              />
+            </div>
+          )}
+
+          {imageError && imageUrl.trim() && (
+            <p style={styles.urlHint}>Could not load image. Check the URL.</p>
+          )}
+
           {error && <p style={styles.error}>{error}</p>}
 
           <div style={styles.footer}>
@@ -189,6 +238,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     resize: "vertical",
     outline: "none",
+  },
+  input: {
+    width: "100%",
+    padding: 10,
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+  },
+  urlHint: {
+    color: "#e67e22",
+    fontSize: 12,
+    margin: "4px 0 0",
+  },
+  previewWrap: {
+    marginTop: 10,
+    borderRadius: 8,
+    overflow: "hidden",
+    border: "1px solid #eee",
+    maxHeight: 200,
+  },
+  previewImg: {
+    width: "100%",
+    maxHeight: 200,
+    objectFit: "cover" as const,
+    display: "block",
   },
   muted: { color: "#999", fontSize: 14, margin: "4px 0" },
   error: { color: "#c53030", fontSize: 13, margin: "10px 0 0" },

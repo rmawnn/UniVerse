@@ -15,6 +15,7 @@ from app.schemas.community import (
     CommunityResponse,
     CommunitySearchResponse,
     CommunityUpdateRequest,
+    ExploreCommunityResponse,
 )
 from app.utils.constants import CommunityRole
 
@@ -353,6 +354,55 @@ async def search_communities(
     items = [
         CommunitySearchResponse(
             **_community_to_dict(c),
+            member_count=member_counts.get(c.id, 0),
+            is_member=(c.id in joined_ids) if current_user else None,
+        )
+        for c in communities
+    ]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+async def explore_communities(
+    db: AsyncSession,
+    *,
+    current_user: User | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> PaginatedResponse[ExploreCommunityResponse]:
+    """Return trending public communities ranked by member_count + recent activity."""
+    repo = CommunityRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await repo.count_public()
+    communities = await repo.list_trending(skip=skip, limit=page_size)
+
+    if not communities:
+        return PaginatedResponse(
+            items=[], total=total, page=page, page_size=page_size,
+            total_pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    # Batch load member counts
+    community_ids = [c.id for c in communities]
+    member_counts = await repo.member_counts_batch(community_ids)
+
+    # Batch load membership for current user
+    joined_ids: set[UUID] = set()
+    if current_user:
+        joined_ids = set(await repo.get_joined_ids(current_user.id))
+
+    items = [
+        ExploreCommunityResponse(
+            id=c.id,
+            name=c.name,
+            description=c.description,
             member_count=member_counts.get(c.id, 0),
             is_member=(c.id in joined_ids) if current_user else None,
         )
