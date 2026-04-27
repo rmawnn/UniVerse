@@ -66,7 +66,7 @@ export default function ExplorePage() {
 
       <div style={styles.grid}>
         {communities.map((c) => (
-          <div key={c.id} style={styles.card}>
+          <div key={c.id} style={styles.card} className="card-hover">
             <Link href={`/communities/${c.id}`} style={styles.cardLink}>
               <h3 style={styles.cardName}>{c.name}</h3>
               <p style={styles.cardDesc}>

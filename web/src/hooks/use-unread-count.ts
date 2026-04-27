@@ -11,8 +11,8 @@ export function useUnreadCount(): number {
   const { data } = useQuery({
     queryKey: ["notifications", "badge"],
     queryFn: () => listNotifications({ page_size: 30 }),
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    refetchInterval: 60_000,
+    staleTime: 20_000,
   });
 
   return data?.items.filter((n) => !n.is_read).length ?? 0;

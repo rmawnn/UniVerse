@@ -22,8 +22,8 @@ export default function ChatPage({
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...messagesKey],
     queryFn: () => listMessages(id, { page_size: 100 }),
-    refetchInterval: 3_000,
-    staleTime: 1_000,
+    refetchInterval: 30_000,
+    staleTime: 10_000,
   });
 
   // Server returns newest-first; reverse for top-to-bottom chat.
@@ -76,7 +76,29 @@ export default function ChatPage({
       </div>
 
       <div ref={scrollRef} style={styles.messages}>
-        {isLoading && <p style={styles.muted}>Loading messages...</p>}
+        {isLoading && (
+          <div style={styles.loadingWrap}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  justifyContent: i % 2 === 0 ? "flex-start" : "flex-end",
+                  marginBottom: 8,
+                }}
+              >
+                <div
+                  className="skeleton"
+                  style={{
+                    width: `${50 + (i % 3) * 15}%`,
+                    height: 42,
+                    borderRadius: 14,
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && (
           <div style={styles.errorBox}>
             <span>Could not load messages.</span>
@@ -86,7 +108,11 @@ export default function ChatPage({
           </div>
         )}
         {!isLoading && !isError && messages.length === 0 && (
-          <p style={styles.muted}>No messages yet. Say hi.</p>
+          <div style={styles.emptyChat}>
+            <span style={styles.emptyIcon}>👋</span>
+            <p style={styles.emptyTitle}>No messages yet</p>
+            <p style={styles.emptyHint}>Send a message to start the conversation!</p>
+          </div>
         )}
 
         {messages.map((m) => (
@@ -191,12 +217,21 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 14,
     background: "#fafafa",
   },
-  muted: {
-    color: "#999",
-    fontSize: 14,
-    textAlign: "center",
-    padding: "24px 0",
+  loadingWrap: {
+    padding: "12px 0",
   },
+  emptyChat: {
+    textAlign: "center",
+    padding: "40px 24px",
+  },
+  emptyIcon: { fontSize: 36, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#999", fontSize: 14, margin: 0 },
   errorBox: {
     background: "#fff5f5",
     border: "1px solid #fed7d7",

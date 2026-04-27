@@ -215,10 +215,25 @@ export default function CommunityDetailPage({
 
   // ── Loading / error ───────────────────────────────────────
   if (communityQuery.isLoading) {
-    return <p style={styles.muted}>Loading community...</p>;
+    return (
+      <div>
+        <div style={{ ...styles.header, padding: 20 }}>
+          <div className="skeleton" style={{ width: "50%", height: 22, borderRadius: 6, marginBottom: 10 }} />
+          <div className="skeleton" style={{ width: "30%", height: 14, borderRadius: 6 }} />
+        </div>
+        <SkeletonList count={3} Component={PostSkeleton} />
+      </div>
+    );
   }
   if (communityQuery.isError || !communityQuery.data) {
-    return <p style={styles.error}>Could not load community.</p>;
+    return (
+      <div style={styles.errorBox}>
+        <span>Could not load community.</span>
+        <button onClick={() => communityQuery.refetch()} style={styles.retryBtn}>
+          Retry
+        </button>
+      </div>
+    );
   }
 
   const community = communityQuery.data;
@@ -621,9 +636,24 @@ export default function CommunityDetailPage({
       {postsQuery.isLoading && (
         <SkeletonList count={3} Component={PostSkeleton} />
       )}
-      {postsQuery.isError && <p style={styles.error}>Could not load posts.</p>}
-      {!postsQuery.isLoading && posts.length === 0 && (
-        <p style={styles.muted}>No posts yet.</p>
+      {postsQuery.isError && (
+        <div style={styles.errorBox}>
+          <span>Could not load posts.</span>
+          <button onClick={() => postsQuery.refetch()} style={styles.retryBtn}>
+            Retry
+          </button>
+        </div>
+      )}
+      {!postsQuery.isLoading && !postsQuery.isError && posts.length === 0 && (
+        <div style={styles.emptyPosts}>
+          <span style={styles.emptyIcon}>📝</span>
+          <p style={styles.emptyTitle}>No posts yet</p>
+          <p style={styles.emptyHint}>
+            {community.is_member
+              ? "Be the first to post in this community!"
+              : "Join this community to start posting."}
+          </p>
+        </div>
       )}
 
       <div style={styles.list}>
@@ -931,7 +961,42 @@ const styles: Record<string, React.CSSProperties> = {
   },
   // ── Posts ───────────────────────────────────────────────────
   subheading: { fontSize: 17, fontWeight: 600, margin: "8px 0 12px" },
+  errorBox: {
+    background: "#fff5f5",
+    border: "1px solid #fed7d7",
+    color: "#c53030",
+    padding: 12,
+    borderRadius: 8,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  retryBtn: {
+    background: "#fff",
+    border: "1px solid #fed7d7",
+    color: "#c53030",
+    borderRadius: 6,
+    padding: "4px 12px",
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  emptyPosts: {
+    textAlign: "center",
+    padding: "40px 24px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px dashed #ddd",
+    marginBottom: 12,
+  },
+  emptyIcon: { fontSize: 36, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: 0 },
   muted: { color: "#999", fontSize: 14 },
-  error: { color: "#c53030", fontSize: 14 },
   list: { display: "flex", flexDirection: "column", gap: 12 },
 };

@@ -17,8 +17,8 @@ export default function MessagesPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => listConversations({ page_size: 50 }),
-    refetchInterval: 10_000,
-    staleTime: 5_000,
+    refetchInterval: 60_000,
+    staleTime: 15_000,
   });
 
   const conversations = data?.items ?? [];
@@ -39,7 +39,13 @@ export default function MessagesPage() {
       )}
 
       {!isLoading && !isError && conversations.length === 0 && (
-        <p style={styles.muted}>No conversations yet.</p>
+        <div style={styles.empty}>
+          <span style={styles.emptyIcon}>💬</span>
+          <p style={styles.emptyTitle}>No conversations yet</p>
+          <p style={styles.emptyHint}>
+            Visit someone&apos;s profile to start a conversation.
+          </p>
+        </div>
       )}
 
       <div style={styles.list}>
@@ -65,7 +71,7 @@ function ConversationRow({
   const lastMessage = conversation.last_message;
 
   return (
-    <Link href={`/messages/${conversation.id}`} style={styles.row}>
+    <Link href={`/messages/${conversation.id}`} style={styles.row} className="row-hover">
       <div style={styles.avatar}>
         {(other?.full_name ?? "?").charAt(0).toUpperCase()}
       </div>
@@ -88,7 +94,21 @@ function ConversationRow({
 
 const styles: Record<string, React.CSSProperties> = {
   heading: { fontSize: 22, fontWeight: 700, marginBottom: 16 },
-  muted: { color: "#999", fontSize: 15 },
+  empty: {
+    textAlign: "center",
+    padding: "48px 24px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px dashed #ddd",
+  },
+  emptyIcon: { fontSize: 40, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: 0 },
   list: {
     background: "#fff",
     border: "1px solid #eee",

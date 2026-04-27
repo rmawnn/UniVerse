@@ -63,7 +63,7 @@ export default function NotificationsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...NOTIFICATIONS_KEY],
     queryFn: () => listNotifications({ page_size: 50 }),
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,
   });
 
   const notifications = data?.items ?? [];
@@ -135,6 +135,7 @@ export default function NotificationsPage() {
           <button
             key={n.id}
             type="button"
+            className="row-hover"
             onClick={() => handleClick(n)}
             style={{
               ...styles.row,

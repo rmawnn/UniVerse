@@ -125,6 +125,85 @@ textarea {
   }
 }
 
+/* ── Interactive polish ───────────────────────────── */
+
+/* Cards: subtle lift on hover */
+.card-hover {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.card-hover:hover {
+  border-color: #d0d0d0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Row hover for list items (notifications, conversations) */
+.row-hover {
+  transition: background 0.12s;
+}
+.row-hover:hover {
+  background: #f9f8ff !important;
+}
+
+/* Buttons */
+button,
+[role="button"] {
+  transition: opacity 0.12s, background 0.12s;
+}
+
+/* Primary buttons */
+.btn-primary {
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-primary:hover {
+  background: #5a52e0;
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Secondary buttons */
+.btn-secondary {
+  background: #fff;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.btn-secondary:hover {
+  border-color: #bbb;
+  background: #fafafa;
+}
+
+/* Links inside cards */
+a {
+  transition: color 0.12s;
+}
+
+/* Focus ring for keyboard navigation */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #6c63ff;
+  outline-offset: 1px;
+}
+
+button:focus-visible {
+  outline: 2px solid #6c63ff;
+  outline-offset: 2px;
+}
+
 /* ── FAB ──────────────────────────────────────────── */
 .fab {
   position: fixed;

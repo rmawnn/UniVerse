@@ -97,7 +97,7 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
   const goToPost = () => router.push(`/posts/${post.id}`);
 
   return (
-    <article style={styles.card} onClick={goToPost}>
+    <article style={styles.card} className="card-hover" onClick={goToPost}>
       <header style={styles.header}>
         <div>
           <strong style={styles.name}>{post.author.full_name}</strong>

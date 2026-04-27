@@ -12,6 +12,7 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.conversation import ParticipantSummary
 from app.schemas.message import MessageResponse
+from app.core.ws_manager import ws_manager
 from app.services import notification_service
 
 
@@ -44,7 +45,9 @@ async def send_message(
     msg_repo = MessageRepository(db)
     message = await msg_repo.create(message)
 
-    # Notify other participants
+    response = _build_response(message, current_user)
+
+    # Notify other participants + push via WebSocket
     participants = await conv_repo.get_participants(conversation_id)
     for p in participants:
         if p.user_id != current_user.id:
@@ -56,8 +59,16 @@ async def send_message(
                 reference_id=conversation_id,
                 content=f"{current_user.username} sent you a message",
             )
+            # Real-time push
+            await ws_manager.send_to_user(p.user_id, {
+                "type": "new_message",
+                "data": {
+                    "conversation_id": str(conversation_id),
+                    "message": response.model_dump(mode="json"),
+                },
+            })
 
-    return _build_response(message, current_user)
+    return response
 
 
 async def list_messages(

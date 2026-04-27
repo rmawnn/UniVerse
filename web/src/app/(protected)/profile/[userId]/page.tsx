@@ -55,7 +55,16 @@ export default function PublicProfilePage({
   );
 
   if (profileQuery.isLoading) {
-    return <p style={styles.muted}>Loading profile...</p>;
+    return (
+      <div>
+        <div style={styles.header}>
+          <div className="skeleton" style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 12px" }} />
+          <div className="skeleton" style={{ width: "40%", height: 22, borderRadius: 6, margin: "0 auto 8px" }} />
+          <div className="skeleton" style={{ width: "25%", height: 14, borderRadius: 6, margin: "0 auto 16px" }} />
+          <div className="skeleton" style={{ width: "100%", maxWidth: 480, height: 100, borderRadius: 10, margin: "0 auto" }} />
+        </div>
+      </div>
+    );
   }
 
   if (profileQuery.isError || !profileQuery.data) {
@@ -120,7 +129,7 @@ export default function PublicProfilePage({
       <section style={styles.section}>
         <h3 style={styles.subheading}>Communities</h3>
         {data.communities.length === 0 ? (
-          <p style={styles.muted}>Not a member of any community yet.</p>
+          <p style={styles.mutedText}>Not a member of any community yet.</p>
         ) : (
           <div style={styles.communitiesList}>
             {data.communities.map((c) => (
@@ -157,7 +166,11 @@ export default function PublicProfilePage({
         )}
 
         {!postsQuery.isLoading && !postsQuery.isError && posts.length === 0 && (
-          <p style={styles.muted}>No posts yet.</p>
+          <div style={styles.emptyPosts}>
+            <span style={styles.emptyIcon}>📝</span>
+            <p style={styles.emptyTitle}>No posts yet</p>
+            <p style={styles.emptyHint}>This user hasn&apos;t posted anything yet.</p>
+          </div>
         )}
 
         <div style={styles.postsList}>
@@ -185,7 +198,22 @@ export default function PublicProfilePage({
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  muted: { color: "#999", fontSize: 15 },
+  emptyPosts: {
+    textAlign: "center",
+    padding: "36px 24px",
+    background: "#fafafa",
+    borderRadius: 10,
+    border: "1px dashed #ddd",
+  },
+  emptyIcon: { fontSize: 32, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: 0 },
+  mutedText: { color: "#999", fontSize: 14 },
   header: {
     background: "#fff",
     border: "1px solid #eee",

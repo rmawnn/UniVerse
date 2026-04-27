@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import Forbidden, NotFound
+from app.core.ws_manager import ws_manager
 from app.models.notification import Notification
 from app.models.user import User
 from app.repositories.notification_repository import NotificationRepository
@@ -58,6 +59,17 @@ async def notify(
         content=content,
     )
     await repo.create(notification)
+
+    # Real-time push via WebSocket
+    await ws_manager.send_to_user(user_id, {
+        "type": "new_notification",
+        "data": {
+            "id": str(notification.id),
+            "notification_type": type,
+            "reference_id": str(reference_id) if reference_id else None,
+            "content": content,
+        },
+    })
 
 
 # ── API-facing operations ───────────────────────────────────────

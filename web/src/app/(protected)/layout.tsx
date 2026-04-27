@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { useWebSocket } from "@/hooks/use-websocket";
 import AppShell from "@/components/layouts/AppShell";
 
 export default function ProtectedLayout({
@@ -9,6 +10,9 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const { user, isReady } = useAuthGuard();
+
+  // Connect WebSocket for real-time messages & notifications
+  useWebSocket();
 
   if (!isReady || !user) {
     return (

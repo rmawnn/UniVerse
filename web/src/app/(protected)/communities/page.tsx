@@ -51,7 +51,16 @@ export default function CommunitiesPage() {
       )}
 
       {!isLoading && !isError && (data?.items.length ?? 0) === 0 && (
-        <p style={styles.empty}>No communities yet.</p>
+        <div style={styles.emptyCard}>
+          <span style={styles.emptyIcon}>🏘️</span>
+          <p style={styles.emptyTitle}>No communities yet</p>
+          <p style={styles.emptyHint}>
+            Be the first to create one for your university!
+          </p>
+          <Link href="/communities/create" style={styles.emptyLink}>
+            Create Community
+          </Link>
+        </div>
       )}
 
       <div style={styles.list}>
@@ -82,7 +91,31 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: "none",
     cursor: "pointer",
   },
-  empty: { color: "#999", fontSize: 15 },
+  emptyCard: {
+    textAlign: "center",
+    padding: "48px 24px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px dashed #ddd",
+  },
+  emptyIcon: { fontSize: 40, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: "0 0 16px" },
+  emptyLink: {
+    display: "inline-block",
+    background: "#6C63FF",
+    color: "#fff",
+    padding: "8px 20px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
+    textDecoration: "none",
+  },
   list: { display: "flex", flexDirection: "column", gap: 10 },
   errorBox: {
     background: "#fff5f5",

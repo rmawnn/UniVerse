@@ -85,7 +85,14 @@ export default function PostDetailPage({
       <h2 style={styles.heading}>Post</h2>
 
       {postQuery.isLoading && <PostSkeleton />}
-      {postQuery.isError && <p style={styles.error}>Could not load this post.</p>}
+      {postQuery.isError && (
+        <div style={styles.errorBox}>
+          <span>Could not load this post.</span>
+          <button onClick={() => postQuery.refetch()} style={styles.retry}>
+            Retry
+          </button>
+        </div>
+      )}
       {postQuery.data && (
         <PostCard
           post={postQuery.data}
@@ -123,11 +130,20 @@ export default function PostDetailPage({
         <SkeletonList count={3} Component={CommentSkeleton} />
       )}
       {commentsQuery.isError && (
-        <p style={styles.error}>Could not load comments.</p>
+        <div style={styles.errorBox}>
+          <span>Could not load comments.</span>
+          <button onClick={() => commentsQuery.refetch()} style={styles.retry}>
+            Retry
+          </button>
+        </div>
       )}
 
-      {!commentsQuery.isLoading && comments.length === 0 && (
-        <p style={styles.muted}>No comments yet. Be the first.</p>
+      {!commentsQuery.isLoading && !commentsQuery.isError && comments.length === 0 && (
+        <div style={styles.emptyComments}>
+          <span style={styles.emptyIcon}>💬</span>
+          <p style={styles.emptyTitle}>No comments yet</p>
+          <p style={styles.emptyHint}>Be the first to share your thoughts!</p>
+        </div>
       )}
 
       <div>
@@ -148,8 +164,42 @@ export default function PostDetailPage({
 const styles: Record<string, React.CSSProperties> = {
   heading: { fontSize: 22, fontWeight: 700, marginBottom: 16 },
   subheading: { fontSize: 17, fontWeight: 600, margin: "24px 0 12px" },
-  muted: { color: "#999", fontSize: 14 },
-  error: { color: "#c53030", fontSize: 14 },
+  errorBox: {
+    background: "#fff5f5",
+    border: "1px solid #fed7d7",
+    color: "#c53030",
+    padding: 12,
+    borderRadius: 8,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  retry: {
+    background: "#fff",
+    border: "1px solid #fed7d7",
+    color: "#c53030",
+    borderRadius: 6,
+    padding: "4px 12px",
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  emptyComments: {
+    textAlign: "center",
+    padding: "36px 24px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px dashed #ddd",
+    marginBottom: 12,
+  },
+  emptyIcon: { fontSize: 32, display: "block", marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#333",
+    margin: "0 0 4px",
+  },
+  emptyHint: { color: "#888", fontSize: 14, margin: 0 },
   form: {
     background: "#fff",
     border: "1px solid #eee",

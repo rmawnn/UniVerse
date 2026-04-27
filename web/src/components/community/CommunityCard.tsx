@@ -9,7 +9,7 @@ export default function CommunityCard({
   community: CommunityResponse;
 }) {
   return (
-    <Link href={`/communities/${community.id}`} style={styles.card}>
+    <Link href={`/communities/${community.id}`} style={styles.card} className="card-hover">
       <div style={styles.header}>
         <strong style={styles.name}>{community.name}</strong>
         <span style={styles.members}>{community.member_count} members</span>
