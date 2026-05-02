@@ -198,6 +198,7 @@ export interface ConversationResponse {
   id: string;
   participants: AuthorSummary[];
   last_message: MessageSummary | null;
+  unread_count: number;
   created_at: string;
 }
 

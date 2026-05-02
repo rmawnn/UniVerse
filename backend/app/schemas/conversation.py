@@ -24,6 +24,7 @@ class ConversationResponse(BaseModel):
     id: uuid.UUID
     participants: list[ParticipantSummary]
     last_message: "MessageSummary | None" = None
+    unread_count: int = 0
     created_at: datetime
 
 

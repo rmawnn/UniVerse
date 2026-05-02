@@ -13,6 +13,7 @@ interface AuthState {
   register: (body: RegisterRequest) => Promise<void>;
   logout: () => void;
   hydrate: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -65,5 +66,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     clearToken();
     set({ user: null, token: null });
+  },
+
+  refreshUser: async () => {
+    try {
+      const user = await authApi.getMe();
+      set({ user });
+    } catch {
+      get().logout();
+    }
   },
 }));

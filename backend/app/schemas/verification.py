@@ -28,3 +28,13 @@ class VerificationConfirmResponse(BaseModel):
     message: str
     status: str
     university_name: str
+
+
+class VerificationStatusResponse(BaseModel):
+    """Current verification state for the authenticated user."""
+    is_verified_student: bool
+    university_id: str | None = None
+    university_name: str | None = None
+    university_email: str | None = None
+    verification_status: str | None = None
+    verified_at: datetime | None = None

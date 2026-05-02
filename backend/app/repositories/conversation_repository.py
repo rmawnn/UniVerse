@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
@@ -131,3 +132,34 @@ class ConversationRepository:
         for row in result.all():
             mapping[row[0]].append(row[1])
         return mapping
+
+    async def mark_read(self, conversation_id: UUID, user_id: UUID) -> None:
+        """Update last_read_at to now for a participant."""
+        stmt = (
+            update(ConversationParticipant)
+            .where(
+                ConversationParticipant.user_id == user_id,
+                ConversationParticipant.conversation_id == conversation_id,
+            )
+            .values(last_read_at=datetime.now(timezone.utc))
+        )
+        await self.db.execute(stmt)
+
+    async def get_last_read_batch(
+        self, user_id: UUID, conversation_ids: list[UUID],
+    ) -> dict[UUID, datetime | None]:
+        """Batch load last_read_at for a user across multiple conversations."""
+        if not conversation_ids:
+            return {}
+        stmt = (
+            select(
+                ConversationParticipant.conversation_id,
+                ConversationParticipant.last_read_at,
+            )
+            .where(
+                ConversationParticipant.user_id == user_id,
+                ConversationParticipant.conversation_id.in_(conversation_ids),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return {row[0]: row[1] for row in result.all()}

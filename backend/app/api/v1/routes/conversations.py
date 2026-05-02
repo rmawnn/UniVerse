@@ -52,6 +52,16 @@ async def send_message(
     return await message_service.send_message(db, conversation_id, current_user, data.content)
 
 
+@router.post("/conversations/{conversation_id}/read", status_code=204)
+async def mark_conversation_read(
+    conversation_id: UUID,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark all messages in a conversation as read. Must be a participant."""
+    await conversation_service.mark_conversation_read(db, conversation_id, current_user)
+
+
 @router.get(
     "/conversations/{conversation_id}/messages",
     response_model=PaginatedResponse[MessageResponse],

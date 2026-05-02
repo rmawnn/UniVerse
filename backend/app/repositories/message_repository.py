@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.message import Message
@@ -27,7 +28,7 @@ class MessageRepository:
                 Message.conversation_id == conversation_id,
                 Message.is_deleted == False,  # noqa: E712
             )
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
@@ -77,3 +78,55 @@ class MessageRepository:
         result = await self.db.execute(stmt)
         messages = result.scalars().all()
         return {m.conversation_id: m for m in messages}
+
+    async def count_unread_batch(
+        self,
+        user_id: UUID,
+        conversation_last_read: dict[UUID, datetime | None],
+    ) -> dict[UUID, int]:
+        """Count unread messages per conversation for a user.
+
+        A message is unread if it was sent by someone else AND created after
+        the user's last_read_at (or all messages if last_read_at is None).
+        """
+        if not conversation_last_read:
+            return {}
+
+        conv_ids = list(conversation_last_read.keys())
+
+        conditions = []
+        for conv_id, last_read in conversation_last_read.items():
+            if last_read is None:
+                conditions.append(
+                    and_(
+                        Message.conversation_id == conv_id,
+                        Message.sender_id != user_id,
+                        Message.is_deleted == False,  # noqa: E712
+                    )
+                )
+            else:
+                conditions.append(
+                    and_(
+                        Message.conversation_id == conv_id,
+                        Message.sender_id != user_id,
+                        Message.is_deleted == False,  # noqa: E712
+                        Message.created_at > last_read,
+                    )
+                )
+
+        if not conditions:
+            return {cid: 0 for cid in conv_ids}
+
+        from sqlalchemy import or_
+
+        stmt = (
+            select(
+                Message.conversation_id,
+                func.count().label("cnt"),
+            )
+            .where(or_(*conditions))
+            .group_by(Message.conversation_id)
+        )
+        result = await self.db.execute(stmt)
+        counts = {row[0]: row[1] for row in result.all()}
+        return {cid: counts.get(cid, 0) for cid in conv_ids}

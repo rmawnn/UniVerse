@@ -9,6 +9,7 @@ from app.schemas.verification import (
     VerificationConfirmResponse,
     VerificationSendRequest,
     VerificationSendResponse,
+    VerificationStatusResponse,
 )
 from app.services import verification_service
 
@@ -25,6 +26,15 @@ async def send_verification_code(
     return await verification_service.send_verification_code(
         db, current_user, data.university_email,
     )
+
+
+@router.get("/status", response_model=VerificationStatusResponse)
+async def get_verification_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get current verification status for the authenticated user."""
+    return await verification_service.get_verification_status(db, current_user)
 
 
 @router.post("/confirm", response_model=VerificationConfirmResponse)

@@ -22,6 +22,7 @@ from app.api.v1.routes.notifications import router as notifications_router
 from app.api.v1.routes.feed import router as feed_router
 from app.api.v1.routes.explore import router as explore_router
 from app.api.v1.routes.ws import router as ws_router
+from app.api.v1.routes.admin import router as admin_router
 
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 v1_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -36,3 +37,4 @@ v1_router.include_router(notifications_router, tags=["Notifications"])
 v1_router.include_router(feed_router, tags=["Feed"])
 v1_router.include_router(explore_router, tags=["Explore"])
 v1_router.include_router(ws_router, tags=["WebSocket"])
+v1_router.include_router(admin_router, prefix="/admin", tags=["Admin"])

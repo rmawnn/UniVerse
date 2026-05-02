@@ -13,6 +13,7 @@ from app.repositories.verification_repository import VerificationRepository
 from app.schemas.verification import (
     VerificationConfirmResponse,
     VerificationSendResponse,
+    VerificationStatusResponse,
 )
 from app.utils.constants import VerificationStatus
 
@@ -146,4 +147,29 @@ async def confirm_verification_code(
         message="Student verification successful",
         status=VerificationStatus.VERIFIED.value,
         university_name=university.name,
+    )
+
+
+async def get_verification_status(
+    db: AsyncSession,
+    current_user: User,
+) -> VerificationStatusResponse:
+    """Return the current verification state for the authenticated user."""
+    university_name: str | None = None
+    if current_user.university_id:
+        uni_repo = UniversityRepository(db)
+        university = await uni_repo.get_by_id(current_user.university_id)
+        if university:
+            university_name = university.name
+
+    ver_repo = VerificationRepository(db)
+    latest = await ver_repo.get_latest_for_user(current_user.id)
+
+    return VerificationStatusResponse(
+        is_verified_student=current_user.is_verified_student,
+        university_id=str(current_user.university_id) if current_user.university_id else None,
+        university_name=university_name,
+        university_email=latest.university_email if latest else None,
+        verification_status=latest.status if latest else None,
+        verified_at=latest.verified_at if latest else None,
     )

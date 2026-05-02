@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable}`}>
+    <html lang="en" className={`${geistSans.variable}`} suppressHydrationWarning>
       <body style={{ margin: 0, fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}>
         <Providers>{children}</Providers>
       </body>

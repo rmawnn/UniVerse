@@ -122,3 +122,18 @@ class UserRepository:
 
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def list_all(self, *, skip: int = 0, limit: int = 50) -> list[User]:
+        stmt = (
+            select(User)
+            .order_by(User.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_all(self) -> int:
+        stmt = select(func.count()).select_from(User)
+        result = await self.db.execute(stmt)
+        return result.scalar_one()

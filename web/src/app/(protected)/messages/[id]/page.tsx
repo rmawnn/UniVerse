@@ -3,7 +3,7 @@
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listMessages, sendMessage } from "@/api/messaging";
+import { listMessages, sendMessage, markConversationRead } from "@/api/messaging";
 import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeTime } from "@/lib/format";
 import type { MessageResponse } from "@/types/api";
@@ -26,7 +26,7 @@ export default function ChatPage({
     staleTime: 10_000,
   });
 
-  // Server returns newest-first; reverse for top-to-bottom chat.
+  // Server returns newest-first (descending); reverse for chronological display.
   const messages = useMemo(
     () => [...(data?.items ?? [])].reverse(),
     [data]
@@ -34,16 +34,28 @@ export default function ChatPage({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastCountRef = useRef(0);
+  const initialScrollDone = useRef(false);
 
+  // Auto-scroll: instant on first load, smooth on new messages
   useEffect(() => {
     if (messages.length !== lastCountRef.current) {
       lastCountRef.current = messages.length;
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
+        behavior: initialScrollDone.current ? "smooth" : "instant",
       });
+      initialScrollDone.current = true;
     }
   }, [messages.length]);
+
+  // Mark conversation as read when chat opens and when new messages arrive
+  useEffect(() => {
+    if (data && data.items.length > 0) {
+      markConversationRead(id).then(() => {
+        qc.invalidateQueries({ queryKey: ["conversations"] });
+      }).catch(() => {});
+    }
+  }, [id, data, qc]);
 
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);

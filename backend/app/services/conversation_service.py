@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequest, NotFound
+from app.core.exceptions import BadRequest, Forbidden, NotFound
 from app.models.conversation import Conversation
 from app.models.conversation_participant import ConversationParticipant
 from app.models.user import User
@@ -111,6 +111,10 @@ async def list_conversations(
     msg_repo = MessageRepository(db)
     latest_messages = await msg_repo.get_latest_by_conversations(conv_ids)
 
+    # Batch load last_read_at and unread counts
+    last_read_map = await conv_repo.get_last_read_batch(current_user.id, conv_ids)
+    unread_counts = await msg_repo.count_unread_batch(current_user.id, last_read_map)
+
     items = []
     for conv in conversations:
         user_ids = participants_map.get(conv.id, [])
@@ -122,7 +126,11 @@ async def list_conversations(
             created_at=msg.created_at,
         ) if msg else None
 
-        items.append(_build_response(conv, user_ids, users, last_message=last_msg))
+        items.append(_build_response(
+            conv, user_ids, users,
+            last_message=last_msg,
+            unread_count=unread_counts.get(conv.id, 0),
+        ))
 
     return PaginatedResponse(
         items=items,
@@ -133,12 +141,30 @@ async def list_conversations(
     )
 
 
+async def mark_conversation_read(
+    db: AsyncSession,
+    conversation_id: UUID,
+    current_user: User,
+) -> None:
+    """Mark all messages in a conversation as read for the current user."""
+    conv_repo = ConversationRepository(db)
+    conversation = await conv_repo.get_by_id(conversation_id)
+    if not conversation:
+        raise NotFound("Conversation")
+
+    if not await conv_repo.is_participant(conversation_id, current_user.id):
+        raise Forbidden("You are not a participant in this conversation")
+
+    await conv_repo.mark_read(conversation_id, current_user.id)
+
+
 def _build_response(
     conversation: Conversation,
     participant_user_ids: list[UUID],
     users: dict[UUID, User],
     *,
     last_message: MessageSummary | None,
+    unread_count: int = 0,
 ) -> ConversationResponse:
     """Build a ConversationResponse with participant summaries."""
     participants = []
@@ -163,5 +189,6 @@ def _build_response(
         id=conversation.id,
         participants=participants,
         last_message=last_message,
+        unread_count=unread_count,
         created_at=conversation.created_at,
     )

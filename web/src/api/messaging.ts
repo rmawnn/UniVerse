@@ -46,3 +46,9 @@ export async function sendMessage(
   );
   return data;
 }
+
+export async function markConversationRead(
+  conversationId: string
+): Promise<void> {
+  await api.post(`/conversations/${conversationId}/read`);
+}

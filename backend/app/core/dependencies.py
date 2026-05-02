@@ -85,3 +85,17 @@ async def require_verified_user(
             detail="Student verification required",
         )
     return current_user
+
+
+async def require_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Gate that restricts access to admin users only."""
+    from app.utils.constants import UserRole
+
+    if current_user.role != UserRole.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user

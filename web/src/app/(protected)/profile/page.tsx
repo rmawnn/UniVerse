@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 
 export default function ProfilePage() {
@@ -22,15 +23,31 @@ export default function ProfilePage() {
 
         {user.bio && <p style={styles.bio}>{user.bio}</p>}
 
+        {!user.is_verified_student && (
+          <Link href="/verification" style={styles.verifyBanner}>
+            <span style={styles.verifyIcon}>!</span>
+            <div style={styles.verifyText}>
+              <strong>Verify your student status</strong>
+              <span style={styles.verifyHint}>
+                Unlock communities and posting
+              </span>
+            </div>
+            <span style={styles.verifyArrow}>&rarr;</span>
+          </Link>
+        )}
+
         <div style={styles.info}>
           <div style={styles.row}>
             <span style={styles.label}>Verified</span>
-            <span style={{
-              color: user.is_verified_student ? "#4CAF50" : "#f39c12",
-              fontWeight: 500,
-            }}>
-              {user.is_verified_student ? "Yes" : "Not yet"}
-            </span>
+            {user.is_verified_student ? (
+              <span style={{ color: "#22c55e", fontWeight: 500 }}>
+                &#10003; Verified
+              </span>
+            ) : (
+              <Link href="/verification" style={{ color: "#6C63FF", fontWeight: 500, textDecoration: "none" }}>
+                Verify now
+              </Link>
+            )}
           </div>
           {user.department && (
             <div style={styles.row}>
@@ -64,6 +81,48 @@ const styles: Record<string, React.CSSProperties> = {
   username: { color: "#666", fontSize: 15, margin: "0 0 2px" },
   email: { color: "#999", fontSize: 14, margin: "0 0 16px" },
   bio: { color: "#444", fontSize: 15, lineHeight: 1.6, margin: "0 0 16px" },
+  verifyBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    background: "#fffbeb",
+    border: "1px solid #fde68a",
+    borderRadius: 10,
+    padding: "12px 16px",
+    marginBottom: 16,
+    textDecoration: "none",
+    color: "inherit",
+    textAlign: "left",
+  },
+  verifyIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: "50%",
+    background: "#f59e0b",
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  verifyText: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    fontSize: 14,
+  },
+  verifyHint: {
+    fontSize: 12,
+    color: "#92400e",
+    marginTop: 2,
+  },
+  verifyArrow: {
+    fontSize: 18,
+    color: "#92400e",
+    flexShrink: 0,
+  },
   info: {
     background: "#f9f9f9", borderRadius: 10, padding: 16, textAlign: "left",
   },

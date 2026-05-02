@@ -69,25 +69,47 @@ function ConversationRow({
     conversation.participants[0];
 
   const lastMessage = conversation.last_message;
+  const unread = conversation.unread_count > 0;
 
   return (
-    <Link href={`/messages/${conversation.id}`} style={styles.row} className="row-hover">
+    <Link
+      href={`/messages/${conversation.id}`}
+      style={{
+        ...styles.row,
+        background: unread ? "#f8f7ff" : undefined,
+      }}
+      className="row-hover"
+    >
       <div style={styles.avatar}>
         {(other?.full_name ?? "?").charAt(0).toUpperCase()}
       </div>
       <div style={styles.rowContent}>
         <div style={styles.rowTop}>
-          <strong style={styles.name}>{other?.full_name ?? "Unknown"}</strong>
+          <strong style={{
+            ...styles.name,
+            fontWeight: unread ? 700 : 500,
+          }}>
+            {other?.full_name ?? "Unknown"}
+          </strong>
           {lastMessage && (
             <span style={styles.time}>
               {formatRelativeTime(lastMessage.created_at)}
             </span>
           )}
         </div>
-        <p style={styles.lastMessage}>
+        <p style={{
+          ...styles.lastMessage,
+          color: unread ? "#333" : "#777",
+          fontWeight: unread ? 500 : 400,
+        }}>
           {lastMessage ? lastMessage.content : "No messages yet"}
         </p>
       </div>
+      {unread && (
+        <div style={styles.unreadBadge}>
+          {conversation.unread_count > 9 ? "9+" : conversation.unread_count}
+        </div>
+      )}
     </Link>
   );
 }
@@ -173,5 +195,19 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "4px 12px",
     fontSize: 13,
     cursor: "pointer",
+  },
+  unreadBadge: {
+    background: "#6C63FF",
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: 700,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 6px",
+    flexShrink: 0,
   },
 };

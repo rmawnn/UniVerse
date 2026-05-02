@@ -54,3 +54,14 @@ class VerificationRepository:
         request.status = VerificationStatus.VERIFIED.value
         request.verified_at = datetime.now(timezone.utc)
         await self.db.flush()
+
+    async def get_latest_for_user(self, user_id: UUID) -> VerificationRequest | None:
+        """Get the most recent verification request for a user (any status)."""
+        stmt = (
+            select(VerificationRequest)
+            .where(VerificationRequest.user_id == user_id)
+            .order_by(VerificationRequest.created_at.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
