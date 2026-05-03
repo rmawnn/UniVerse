@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.verification_request import VerificationRequest
@@ -65,3 +65,38 @@ class VerificationRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_by_id(self, request_id: UUID) -> VerificationRequest | None:
+        return await self.db.get(VerificationRequest, request_id)
+
+    async def list_all(
+        self,
+        *,
+        status: str | None = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[VerificationRequest]:
+        stmt = (
+            select(VerificationRequest)
+            .order_by(VerificationRequest.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        if status:
+            stmt = stmt.where(VerificationRequest.status == status)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_all(self, *, status: str | None = None) -> int:
+        stmt = select(func.count()).select_from(VerificationRequest)
+        if status:
+            stmt = stmt.where(VerificationRequest.status == status)
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def mark_rejected(
+        self, request: VerificationRequest, reason: str | None = None,
+    ) -> None:
+        request.status = VerificationStatus.REJECTED.value
+        request.rejection_reason = reason
+        await self.db.flush()

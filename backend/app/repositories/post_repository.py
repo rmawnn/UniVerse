@@ -161,3 +161,28 @@ class PostRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def list_all_admin(self, *, skip: int = 0, limit: int = 50) -> list[Post]:
+        stmt = (
+            select(Post)
+            .order_by(Post.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_all_admin(self) -> int:
+        stmt = select(func.count()).select_from(Post)
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def get_by_id_admin(self, post_id: UUID) -> Post | None:
+        """Get post by ID including deleted (for admin)."""
+        return await self.db.get(Post, post_id)
+
+    async def set_deleted(self, post: Post, is_deleted: bool) -> Post:
+        post.is_deleted = is_deleted
+        await self.db.flush()
+        await self.db.refresh(post)
+        return post

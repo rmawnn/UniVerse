@@ -12,6 +12,7 @@ class VerificationStatus(str, Enum):
     VERIFIED = "verified"
     EXPIRED = "expired"
     CANCELLED = "cancelled"
+    REJECTED = "rejected"
 
 
 class CommunityRole(str, Enum):

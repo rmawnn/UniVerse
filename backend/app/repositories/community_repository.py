@@ -318,3 +318,18 @@ class CommunityRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def list_all_admin(self, *, skip: int = 0, limit: int = 50) -> list[Community]:
+        stmt = (
+            select(Community)
+            .order_by(Community.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_all_admin(self) -> int:
+        stmt = select(func.count()).select_from(Community)
+        result = await self.db.execute(stmt)
+        return result.scalar_one()

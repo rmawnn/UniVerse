@@ -137,3 +137,61 @@ class UserRepository:
         stmt = select(func.count()).select_from(User)
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    def _admin_filters(
+        self,
+        stmt,
+        *,
+        search: str | None = None,
+        is_active: bool | None = None,
+        is_verified: bool | None = None,
+        role: str | None = None,
+    ):
+        if search:
+            pattern = f"%{search}%"
+            stmt = stmt.where(
+                or_(
+                    User.username.ilike(pattern),
+                    User.email.ilike(pattern),
+                    User.full_name.ilike(pattern),
+                )
+            )
+        if is_active is not None:
+            stmt = stmt.where(User.is_active == is_active)
+        if is_verified is not None:
+            stmt = stmt.where(User.is_verified_student == is_verified)
+        if role is not None:
+            stmt = stmt.where(User.role == role)
+        return stmt
+
+    async def list_all_filtered(
+        self,
+        *,
+        search: str | None = None,
+        is_active: bool | None = None,
+        is_verified: bool | None = None,
+        role: str | None = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[User]:
+        stmt = select(User).order_by(User.created_at.desc()).offset(skip).limit(limit)
+        stmt = self._admin_filters(
+            stmt, search=search, is_active=is_active, is_verified=is_verified, role=role,
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_all_filtered(
+        self,
+        *,
+        search: str | None = None,
+        is_active: bool | None = None,
+        is_verified: bool | None = None,
+        role: str | None = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(User)
+        stmt = self._admin_filters(
+            stmt, search=search, is_active=is_active, is_verified=is_verified, role=role,
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()

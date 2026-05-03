@@ -54,3 +54,7 @@ class VerificationRequest(BaseModel):
     verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
     )
+    rejection_reason: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
