@@ -109,9 +109,9 @@ export default function PostsTab() {
                         </Link>
                       </td>
                       <td style={styles.td}>
-                        <span style={styles.preview}>
+                        <Link href={`/admin/posts/${p.id}`} style={styles.contentLink}>
                           {truncateClean(p.content_preview, 80)}
-                        </span>
+                        </Link>
                         {p.image_url && <span style={styles.imgTag}>IMG</span>}
                       </td>
                       <td style={styles.td}>
@@ -281,6 +281,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#6C63FF", fontSize: 13, fontWeight: 500, textDecoration: "none",
   },
   preview: { fontSize: 13, color: "#444", lineHeight: 1.4, display: "inline" },
+  contentLink: { fontSize: 13, color: "#6C63FF", lineHeight: 1.4, textDecoration: "none" },
   imgTag: {
     display: "inline-block", marginLeft: 6, padding: "1px 6px",
     fontSize: 10, fontWeight: 600, background: "#e0f2fe", color: "#0284c7",

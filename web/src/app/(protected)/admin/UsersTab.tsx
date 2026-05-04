@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listUsers, activateUser, deactivateUser, changeRole, verifyUserManually } from "@/api/admin";
 import type { AdminUser } from "@/api/admin";
@@ -186,7 +187,9 @@ export default function UsersTab({ currentUserId }: { currentUserId: string }) {
                   return (
                     <tr key={u.id} style={{ ...styles.tr, opacity: isBusy ? 0.5 : 1 }}>
                       <td style={styles.td}>
-                        <span style={styles.username}>{u.username}</span>
+                        <Link href={`/admin/users/${u.id}`} style={styles.usernameLink}>
+                          {u.username}
+                        </Link>
                         <RoleBadge role={u.role} />
                       </td>
                       <td style={styles.td}>
@@ -487,6 +490,7 @@ const styles: Record<string, React.CSSProperties> = {
   tr: { borderBottom: "1px solid #f5f5f5", transition: "opacity 0.2s" },
   td: { padding: "12px 16px", verticalAlign: "middle" },
   username: { fontWeight: 600, color: "#1a1a1a" },
+  usernameLink: { fontWeight: 600, color: "#6C63FF", textDecoration: "none" },
   statusPill: {
     display: "inline-block", padding: "3px 10px", borderRadius: 12,
     fontSize: 12, fontWeight: 600,

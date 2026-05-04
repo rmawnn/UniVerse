@@ -109,7 +109,9 @@ export default function CommunitiesTab() {
                       opacity: isBusy ? 0.5 : c.is_deleted ? 0.7 : 1,
                     }}>
                       <td style={styles.td}>
-                        <span style={styles.name}>{c.name}</span>
+                        <Link href={`/admin/communities/${c.id}`} style={styles.nameLink}>
+                          {c.name}
+                        </Link>
                         {c.description && (
                           <span style={styles.desc}>
                             {c.description.length > 60
@@ -287,6 +289,7 @@ const styles: Record<string, React.CSSProperties> = {
   tr: { borderBottom: "1px solid #f5f5f5", transition: "opacity 0.2s" },
   td: { padding: "12px 16px", verticalAlign: "middle" },
   name: { fontWeight: 600, color: "#1a1a1a", display: "block" },
+  nameLink: { fontWeight: 600, color: "#6C63FF", textDecoration: "none", display: "block" },
   desc: { fontSize: 12, color: "#999", display: "block" },
   memberCount: { fontWeight: 600, color: "#444" },
   activeBadge: {

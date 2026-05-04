@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getStats, getRecentActivity } from "@/api/admin";
 import type { AdminStats, RecentActivity } from "@/api/admin";
@@ -137,7 +138,7 @@ export default function DashboardTab({
               <p style={s.emptyActivity}>No recent users</p>
             )}
             {activity.latest_users.map((u) => (
-              <div key={u.id} style={s.activityRow}>
+              <Link key={u.id} href={`/admin/users/${u.id}`} style={s.activityRowLink}>
                 <div style={s.activityAvatar}>
                   {u.username.charAt(0).toUpperCase()}
                 </div>
@@ -146,7 +147,7 @@ export default function DashboardTab({
                   <span style={s.activitySub}>{u.email}</span>
                 </div>
                 <span style={s.activityTime}>{formatRelativeTime(u.created_at)}</span>
-              </div>
+              </Link>
             ))}
           </div>
 
@@ -197,7 +198,7 @@ export default function DashboardTab({
               <p style={s.emptyActivity}>No recent posts</p>
             )}
             {activity.latest_posts.map((p) => (
-              <div key={p.id} style={s.activityRow}>
+              <Link key={p.id} href={`/admin/posts/${p.id}`} style={s.activityRowLink}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={s.activityName}>{p.author_username}</span>
@@ -212,7 +213,7 @@ export default function DashboardTab({
                   </span>
                 </div>
                 <span style={s.activityTime}>{formatRelativeTime(p.created_at)}</span>
-              </div>
+              </Link>
             ))}
           </div>
 
@@ -228,13 +229,13 @@ export default function DashboardTab({
               <p style={s.emptyActivity}>No recent communities</p>
             )}
             {activity.latest_communities.map((c) => (
-              <div key={c.id} style={s.activityRow}>
+              <Link key={c.id} href={`/admin/communities/${c.id}`} style={s.activityRowLink}>
                 <div style={{ flex: 1 }}>
                   <span style={s.activityName}>{c.name}</span>
                   {c.is_deleted && <span style={s.hiddenTag}>Deleted</span>}
                 </div>
                 <span style={s.activityTime}>{formatRelativeTime(c.created_at)}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -351,6 +352,15 @@ const s: Record<string, React.CSSProperties> = {
     gap: 10,
     padding: "10px 0",
     borderBottom: "1px solid #f5f5f5",
+  },
+  activityRowLink: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 0",
+    borderBottom: "1px solid #f5f5f5",
+    textDecoration: "none",
+    color: "inherit",
   },
   activityAvatar: {
     width: 32,
