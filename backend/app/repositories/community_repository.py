@@ -259,6 +259,20 @@ class CommunityRepository:
         result = await self.db.execute(stmt)
         return [row[0] for row in result.all()]
 
+    async def count_by_user(self, user_id: UUID) -> int:
+        """Count communities a user belongs to (non-deleted only)."""
+        stmt = (
+            select(func.count())
+            .select_from(CommunityMember)
+            .join(Community, Community.id == CommunityMember.community_id)
+            .where(
+                CommunityMember.user_id == user_id,
+                Community.is_deleted == False,  # noqa: E712
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
     async def list_by_user(self, user_id: UUID) -> list[Community]:
         """List communities a user belongs to (for profile display)."""
         stmt = (

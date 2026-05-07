@@ -2,10 +2,26 @@ import api from "@/lib/api-client";
 import type {
   PaginatedResponse,
   PaginationParams,
+  UserResponse,
   UserSearchResult,
   PublicUserProfile,
   FollowResponse,
 } from "@/types/api";
+
+export interface UpdateProfileRequest {
+  full_name?: string;
+  bio?: string | null;
+  profile_image_url?: string | null;
+  department?: string | null;
+  academic_year?: number | null;
+}
+
+export async function updateProfile(
+  data: UpdateProfileRequest
+): Promise<UserResponse> {
+  const { data: result } = await api.patch<UserResponse>("/users/me", data);
+  return result;
+}
 
 export async function searchUsers(
   q: string,

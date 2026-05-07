@@ -11,6 +11,7 @@ from app.schemas.post import PostResponse
 from app.schemas.user import (
     ChangePasswordRequest,
     FollowResponse,
+    MyProfileResponse,
     PublicUserProfileResponse,
     UserResponse,
     UserSearchResponse,
@@ -36,20 +37,24 @@ async def search_users(
     )
 
 
-@router.get("/me", response_model=UserResponse)
-async def get_my_profile(current_user: User = Depends(get_current_user)):
-    """Return the full profile of the currently authenticated user."""
-    return current_user
+@router.get("/me", response_model=MyProfileResponse)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the full profile of the currently authenticated user with counts."""
+    return await user_service.get_my_profile(db, current_user)
 
 
-@router.patch("/me", response_model=UserResponse)
+@router.patch("/me", response_model=MyProfileResponse)
 async def update_my_profile(
     data: UserUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update the current user's editable profile fields."""
-    return await user_service.update_profile(db, current_user, data)
+    await user_service.update_profile(db, current_user, data)
+    return await user_service.get_my_profile(db, current_user)
 
 
 @router.patch("/me/password", response_model=SuccessResponse)

@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listCommunities } from "@/api/communities";
 import { createPost } from "@/api/posts";
+import { uploadImage } from "@/api/uploads";
 import { useAuthStore } from "@/store/auth-store";
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
+  "http://localhost:8000";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function CreatePostModal({
   open,
@@ -22,24 +30,15 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
 
-  // `null` = not yet touched — fallback to first community on submit.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageError, setImageError] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isValidUrl = (url: string) => {
-    if (!url.trim()) return false;
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === "http:" || parsed.protocol === "https:";
-    } catch {
-      return false;
-    }
-  };
-
-  const showPreview = isValidUrl(imageUrl) && !imageError;
+  // Image state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const communitiesQuery = useQuery({
     queryKey: ["communities", "browse", user?.university_id],
@@ -49,15 +48,14 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
   });
 
   const communities = communitiesQuery.data?.items ?? [];
-  // Derived: either the explicit choice or the first community in the list.
   const effectiveCommunityId =
     selectedId ?? (communities.length > 0 ? communities[0].id : "");
 
   const createMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (imageUrl?: string) =>
       createPost(effectiveCommunityId, {
         content: content.trim(),
-        ...(isValidUrl(imageUrl) ? { image_url: imageUrl.trim() } : {}),
+        ...(imageUrl ? { image_url: imageUrl } : {}),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed"] });
@@ -71,22 +69,79 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      !content.trim() ||
-      !effectiveCommunityId ||
-      createMutation.isPending
-    ) {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError("Only JPG, PNG, and WebP images are allowed");
       return;
     }
-    createMutation.mutate();
+
+    // Validate size
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 5 MB`);
+      return;
+    }
+
+    setError(null);
+    setSelectedFile(file);
+
+    // Create preview
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
   };
 
+  const removeImage = () => {
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim() || !effectiveCommunityId || createMutation.isPending || isUploading) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      let imageUrl: string | undefined;
+
+      // Upload image first if one is selected
+      if (selectedFile) {
+        setIsUploading(true);
+        try {
+          const result = await uploadImage(selectedFile);
+          // Convert relative path to absolute URL
+          imageUrl = `${BACKEND_URL}${result.url}`;
+        } catch (err: unknown) {
+          const msg = (err as { message?: string })?.message ?? "Failed to upload image";
+          setError(msg);
+          setIsUploading(false);
+          return;
+        }
+        setIsUploading(false);
+      }
+
+      createMutation.mutate(imageUrl);
+    } catch {
+      setError("Something went wrong");
+    }
+  };
+
+  const isBusy = createMutation.isPending || isUploading;
   const disabled =
     !content.trim() ||
     !effectiveCommunityId ||
-    createMutation.isPending ||
+    isBusy ||
     communities.length === 0;
 
   return (
@@ -115,7 +170,7 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
               value={effectiveCommunityId}
               onChange={(e) => setSelectedId(e.target.value)}
               style={styles.select}
-              disabled={createMutation.isPending}
+              disabled={isBusy}
             >
               {communities.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -132,40 +187,54 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
             placeholder="What's on your mind?"
             rows={5}
             style={styles.textarea}
-            disabled={createMutation.isPending}
+            disabled={isBusy}
             autoFocus
           />
 
-          <label style={styles.label}>Image URL (optional)</label>
-          <input
-            type="url"
-            value={imageUrl}
-            onChange={(e) => {
-              setImageUrl(e.target.value);
-              setImageError(false);
-            }}
-            placeholder="https://example.com/image.jpg"
-            style={styles.input}
-            disabled={createMutation.isPending}
-          />
+          {/* ── Image upload ──────────────────────────────────── */}
+          <label style={styles.label}>Image (optional)</label>
 
-          {imageUrl.trim() && !isValidUrl(imageUrl) && (
-            <p style={styles.urlHint}>Enter a valid URL starting with http:// or https://</p>
-          )}
-
-          {showPreview && (
-            <div style={styles.previewWrap}>
-              <img
-                src={imageUrl}
-                alt="Preview"
-                style={styles.previewImg}
-                onError={() => setImageError(true)}
-              />
+          {!selectedFile ? (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={styles.uploadBtn}
+              disabled={isBusy}
+            >
+              Choose Image
+            </button>
+          ) : (
+            <div style={styles.selectedFile}>
+              <span style={styles.fileName}>
+                {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)
+              </span>
+              <button
+                type="button"
+                onClick={removeImage}
+                style={styles.removeBtn}
+                disabled={isBusy}
+              >
+                ✕
+              </button>
             </div>
           )}
 
-          {imageError && imageUrl.trim() && (
-            <p style={styles.urlHint}>Could not load image. Check the URL.</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileSelect}
+            style={{ display: "none" }}
+          />
+
+          {previewUrl && (
+            <div style={styles.previewWrap}>
+              <img
+                src={previewUrl}
+                alt="Preview"
+                style={styles.previewImg}
+              />
+            </div>
           )}
 
           {error && <p style={styles.error}>{error}</p>}
@@ -175,7 +244,7 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
               type="button"
               onClick={onClose}
               style={styles.cancelBtn}
-              disabled={createMutation.isPending}
+              disabled={isBusy}
             >
               Cancel
             </button>
@@ -187,7 +256,11 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
                 opacity: disabled ? 0.5 : 1,
               }}
             >
-              {createMutation.isPending ? "Posting..." : "Post"}
+              {isUploading
+                ? "Uploading..."
+                : createMutation.isPending
+                  ? "Posting..."
+                  : "Post"}
             </button>
           </div>
         </form>
@@ -239,18 +312,43 @@ const styles: Record<string, React.CSSProperties> = {
     resize: "vertical",
     outline: "none",
   },
-  input: {
-    width: "100%",
-    padding: 10,
+  uploadBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "#f5f5f5",
     border: "1px solid #ddd",
     borderRadius: 8,
+    padding: "8px 16px",
     fontSize: 14,
-    outline: "none",
+    cursor: "pointer",
+    color: "#555",
   },
-  urlHint: {
-    color: "#e67e22",
-    fontSize: 12,
-    margin: "4px 0 0",
+  selectedFile: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    background: "#f0efff",
+    border: "1px solid #e0defe",
+    borderRadius: 8,
+    padding: "8px 12px",
+  },
+  fileName: {
+    fontSize: 13,
+    color: "#6C63FF",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    flex: 1,
+  },
+  removeBtn: {
+    background: "none",
+    border: "none",
+    color: "#999",
+    fontSize: 14,
+    cursor: "pointer",
+    padding: "0 4px",
+    flexShrink: 0,
   },
   previewWrap: {
     marginTop: 10,

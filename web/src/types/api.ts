@@ -47,6 +47,7 @@ export interface UserResponse {
   username: string;
   full_name: string;
   university_id: string | null;
+  university_name: string | null;
   department: string | null;
   academic_year: number | null;
   bio: string | null;
@@ -54,6 +55,10 @@ export interface UserResponse {
   is_active: boolean;
   is_verified_student: boolean;
   role: string;
+  posts_count: number;
+  followers_count: number;
+  following_count: number;
+  communities_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -236,8 +241,10 @@ export interface PublicUserProfile {
   university_name: string | null;
   is_verified_student: boolean;
   communities: CommunitySummary[];
+  posts_count: number;
   followers_count: number;
   following_count: number;
+  communities_count: number;
   is_following: boolean;
   created_at: string;
 }

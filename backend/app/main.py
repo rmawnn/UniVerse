@@ -1,13 +1,17 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.api import v1_router
 from app.core.config import settings
 from app.core.database import dispose_engine
 from app.core.exceptions import AppException, app_exception_handler
 from app.core.logging import logger, setup_logging
+
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 
 
 @asynccontextmanager
@@ -55,6 +59,10 @@ def create_app() -> FastAPI:
 
     # --- Routers ---
     app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
+
+    # --- Static file serving for uploads ---
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
     return app
 

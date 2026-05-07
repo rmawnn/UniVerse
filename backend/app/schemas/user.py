@@ -25,6 +25,30 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MyProfileResponse(BaseModel):
+    """Enriched profile for the authenticated user. Includes counts."""
+
+    id: uuid.UUID
+    email: EmailStr
+    username: str
+    full_name: str
+    university_id: uuid.UUID | None = None
+    university_name: str | None = None
+    department: str | None = None
+    academic_year: int | None = None
+    bio: str | None = None
+    profile_image_url: str | None = None
+    is_active: bool
+    is_verified_student: bool
+    role: str
+    posts_count: int = 0
+    followers_count: int = 0
+    following_count: int = 0
+    communities_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
 class UserUpdateRequest(BaseModel):
     """Fields an authenticated user is allowed to edit on their own profile."""
 
@@ -69,8 +93,10 @@ class PublicUserProfileResponse(BaseModel):
     university_name: str | None = None
     is_verified_student: bool
     communities: list[CommunitySummary] = []
+    posts_count: int = 0
     followers_count: int = 0
     following_count: int = 0
+    communities_count: int = 0
     is_following: bool = False
     created_at: datetime
 

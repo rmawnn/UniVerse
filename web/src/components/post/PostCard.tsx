@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ interface Props {
 function PostCardInner({ post, invalidateKeys = [] }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
+  const [imgBroken, setImgBroken] = useState(false);
 
   const likeMutation = useMutation({
     mutationFn: () => toggleLike(post.id),
@@ -114,7 +115,7 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
 
       <p style={styles.content}>{post.content}</p>
 
-      {post.image_url && (
+      {post.image_url && !imgBroken && (
         <div style={styles.imageWrap}>
           <img
             src={post.image_url}
@@ -122,6 +123,7 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
             style={styles.image}
             loading="lazy"
             onClick={(e) => e.stopPropagation()}
+            onError={() => setImgBroken(true)}
           />
         </div>
       )}

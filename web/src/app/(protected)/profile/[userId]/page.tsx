@@ -145,13 +145,23 @@ export default function PublicProfilePage({
 
         <div style={styles.statsRow}>
           <div style={styles.stat}>
-            <span style={styles.statCount}>{data.followers_count}</span>
-            <span style={styles.statLabel}>Followers</span>
+            <span style={styles.statCount}>{data.posts_count}</span>
+            <span style={styles.statLabel}>Posts</span>
           </div>
           <div style={styles.statDivider} />
-          <div style={styles.stat}>
+          <Link href={`/profile/${userId}/followers`} style={styles.statLink}>
+            <span style={styles.statCount}>{data.followers_count}</span>
+            <span style={styles.statLabel}>Followers</span>
+          </Link>
+          <div style={styles.statDivider} />
+          <Link href={`/profile/${userId}/following`} style={styles.statLink}>
             <span style={styles.statCount}>{data.following_count}</span>
             <span style={styles.statLabel}>Following</span>
+          </Link>
+          <div style={styles.statDivider} />
+          <div style={styles.stat}>
+            <span style={styles.statCount}>{data.communities_count}</span>
+            <span style={styles.statLabel}>Communities</span>
           </div>
         </div>
 
@@ -370,6 +380,14 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     gap: 2,
+  },
+  statLink: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+    textDecoration: "none",
+    color: "inherit",
   },
   statCount: { fontSize: 18, fontWeight: 700, color: "#222" },
   statLabel: { fontSize: 12, color: "#888" },
