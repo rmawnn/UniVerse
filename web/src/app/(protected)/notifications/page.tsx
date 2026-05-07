@@ -75,6 +75,9 @@ export default function NotificationsPage() {
       qc.invalidateQueries({ queryKey: [...NOTIFICATIONS_KEY] });
       qc.invalidateQueries({ queryKey: ["notifications", "badge"] });
     },
+    onError: () => {
+      // Silently ignore — marking as read is best-effort
+    },
   });
 
   const markAll = useMutation({
@@ -82,6 +85,10 @@ export default function NotificationsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...NOTIFICATIONS_KEY] });
       qc.invalidateQueries({ queryKey: ["notifications", "badge"] });
+    },
+    onError: () => {
+      // Refetch to show current state if bulk mark fails
+      qc.invalidateQueries({ queryKey: [...NOTIFICATIONS_KEY] });
     },
   });
 

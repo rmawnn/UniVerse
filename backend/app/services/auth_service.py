@@ -36,16 +36,22 @@ async def register(db: AsyncSession, data: RegisterRequest) -> UserResponse:
 async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
     """Authenticate a user and return a JWT access token.
 
-    Validates email existence, password correctness, and active status.
+    Accepts either an email address or a username in the `email` field.
+    If the input contains "@" it is treated as an email, otherwise as a username.
     """
     repo = UserRepository(db)
-    user = await repo.get_by_email(data.email)
+    identifier = data.email.strip()
+
+    if "@" in identifier:
+        user = await repo.get_by_email(identifier)
+    else:
+        user = await repo.get_by_username(identifier)
 
     if not user:
-        raise Unauthorized("Invalid email or password")
+        raise Unauthorized("Invalid credentials")
 
     if not verify_password(data.password, user.password_hash):
-        raise Unauthorized("Invalid email or password")
+        raise Unauthorized("Invalid credentials")
 
     if not user.is_active:
         raise Unauthorized("Account is deactivated")

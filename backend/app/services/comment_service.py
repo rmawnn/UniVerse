@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import Forbidden, NotFound
+from app.core.exceptions import BadRequest, Forbidden, NotFound
 from app.models.comment import Comment
 from app.models.user import User
 from app.repositories.comment_repository import CommentRepository
@@ -29,6 +29,9 @@ async def create_comment(
       - Post must exist (and not be deleted)
       - User must be a member of the post's community
     """
+    if not current_user.is_active:
+        raise BadRequest("Account is deactivated")
+
     post_repo = PostRepository(db)
     post = await post_repo.get_by_id(post_id)
     if not post:

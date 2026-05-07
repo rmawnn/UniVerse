@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import Forbidden, NotFound
+from app.core.exceptions import BadRequest, Forbidden, NotFound
 from app.models.message import Message
 from app.models.user import User
 from app.repositories.conversation_repository import ConversationRepository
@@ -29,6 +29,9 @@ async def send_message(
       - Conversation must exist
       - User must be a participant
     """
+    if not current_user.is_active:
+        raise BadRequest("Account is deactivated")
+
     conv_repo = ConversationRepository(db)
     conversation = await conv_repo.get_by_id(conversation_id)
     if not conversation:

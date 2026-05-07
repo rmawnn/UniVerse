@@ -37,12 +37,13 @@ export default function LoginPage() {
       {error && <div style={styles.error}>{error}</div>}
 
       <input
-        type="email"
-        placeholder="Email"
+        type="text"
+        placeholder="Email or Username"
         value={email}
         onChange={(e) => { setEmail(e.target.value); setError(""); }}
         style={styles.input}
         disabled={isLoading}
+        autoComplete="username"
       />
       <input
         type="password"

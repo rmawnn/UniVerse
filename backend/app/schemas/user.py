@@ -69,6 +69,9 @@ class PublicUserProfileResponse(BaseModel):
     university_name: str | None = None
     is_verified_student: bool
     communities: list[CommunitySummary] = []
+    followers_count: int = 0
+    following_count: int = 0
+    is_following: bool = False
     created_at: datetime
 
 
@@ -84,6 +87,13 @@ class UserSearchResponse(BaseModel):
     is_verified_student: bool
 
     model_config = {"from_attributes": True}
+
+
+class FollowResponse(BaseModel):
+    """Response after follow/unfollow action."""
+    followers_count: int
+    following_count: int
+    is_following: bool
 
 
 class UserStatusResponse(BaseModel):

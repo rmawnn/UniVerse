@@ -1,6 +1,7 @@
 import math
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AlreadyExists, BadRequest, Forbidden, NotFound
@@ -181,6 +182,9 @@ async def join_community(
     current_user: User,
 ) -> CommunityDetailResponse:
     """Join an existing public community."""
+    if not current_user.is_active:
+        raise BadRequest("Account is deactivated")
+
     repo = CommunityRepository(db)
     community = await repo.get_by_id(community_id)
 
@@ -198,7 +202,10 @@ async def join_community(
         community_id=community_id,
         role=CommunityRole.MEMBER.value,
     )
-    await repo.add_member(membership)
+    try:
+        await repo.add_member(membership)
+    except IntegrityError:
+        raise AlreadyExists("You are already a member of this community")
 
     count = await repo.member_count(community_id)
 

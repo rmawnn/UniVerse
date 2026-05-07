@@ -10,13 +10,14 @@ from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.schemas.post import PostResponse
 from app.schemas.user import (
     ChangePasswordRequest,
+    FollowResponse,
     PublicUserProfileResponse,
     UserResponse,
     UserSearchResponse,
     UserStatusResponse,
     UserUpdateRequest,
 )
-from app.services import post_service, user_service
+from app.services import follow_service, post_service, user_service
 
 router = APIRouter()
 
@@ -75,7 +76,55 @@ async def get_user_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """View another user's public profile. Requires authentication."""
-    return await user_service.get_public_profile(db, user_id)
+    return await user_service.get_public_profile(db, user_id, current_user_id=current_user.id)
+
+
+@router.post("/{user_id}/follow", response_model=FollowResponse)
+async def follow_user(
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Follow a user."""
+    return await follow_service.follow_user(db, current_user, user_id)
+
+
+@router.delete("/{user_id}/follow", response_model=FollowResponse)
+async def unfollow_user(
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unfollow a user."""
+    return await follow_service.unfollow_user(db, current_user, user_id)
+
+
+@router.get("/{user_id}/followers", response_model=PaginatedResponse[UserSearchResponse])
+async def list_followers(
+    user_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List users who follow the specified user."""
+    return await follow_service.list_followers(
+        db, user_id, page=page, page_size=page_size,
+    )
+
+
+@router.get("/{user_id}/following", response_model=PaginatedResponse[UserSearchResponse])
+async def list_following(
+    user_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List users the specified user follows."""
+    return await follow_service.list_following(
+        db, user_id, page=page, page_size=page_size,
+    )
 
 
 @router.get("/{user_id}/posts", response_model=PaginatedResponse[PostResponse])

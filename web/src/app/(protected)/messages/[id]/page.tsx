@@ -19,11 +19,12 @@ export default function ChatPage({
 
   const messagesKey = ["messages", id] as const;
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [...messagesKey],
     queryFn: () => listMessages(id, { page_size: 100 }),
     refetchInterval: 30_000,
     staleTime: 10_000,
+    retry: 2,
   });
 
   // Server returns newest-first (descending); reverse for chronological display.
@@ -49,13 +50,17 @@ export default function ChatPage({
   }, [messages.length]);
 
   // Mark conversation as read when chat opens and when new messages arrive
+  const latestMsgId = data?.items?.[0]?.id ?? null;
+  const prevLatestRef = useRef<string | null>(null);
   useEffect(() => {
-    if (data && data.items.length > 0) {
-      markConversationRead(id).then(() => {
-        qc.invalidateQueries({ queryKey: ["conversations"] });
-      }).catch(() => {});
-    }
-  }, [id, data, qc]);
+    // Only mark read when the latest message changes (new messages arrived)
+    // or on first load — not on every refetch
+    if (!latestMsgId || latestMsgId === prevLatestRef.current) return;
+    prevLatestRef.current = latestMsgId;
+    markConversationRead(id).then(() => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    }).catch(() => {});
+  }, [id, latestMsgId, qc]);
 
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
@@ -113,7 +118,14 @@ export default function ChatPage({
         )}
         {isError && (
           <div style={styles.errorBox}>
-            <span>Could not load messages.</span>
+            <div>
+              <span>Could not load messages.</span>
+              {(error as { message?: string })?.message && (
+                <p style={{ margin: "4px 0 0", fontSize: 12, opacity: 0.85 }}>
+                  {(error as { message?: string }).message}
+                </p>
+              )}
+            </div>
             <button onClick={() => refetch()} style={styles.retry}>
               Retry
             </button>

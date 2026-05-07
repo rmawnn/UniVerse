@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { use, useMemo } from "react";
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
-import { getUserProfile } from "@/api/users";
+import { use, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getUserProfile, followUser, unfollowUser } from "@/api/users";
 import { listUserPosts } from "@/api/posts";
+import { createConversation } from "@/api/messaging";
+import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeTime } from "@/lib/format";
 import PostCard from "@/components/post/PostCard";
 import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
@@ -19,6 +22,49 @@ export default function PublicProfilePage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = use(params);
+  const router = useRouter();
+  const currentUser = useAuthStore((s) => s.user);
+  const isOwnProfile = currentUser?.id === userId;
+  const [msgError, setMsgError] = useState<string | null>(null);
+  const [followError, setFollowError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const followMutation = useMutation({
+    mutationFn: (following: boolean) =>
+      following ? unfollowUser(userId) : followUser(userId),
+    onMutate: async (currentlyFollowing: boolean) => {
+      setFollowError(null);
+      await queryClient.cancelQueries({ queryKey: ["user-profile", userId] });
+      const prev = queryClient.getQueryData<typeof profileQuery.data>(["user-profile", userId]);
+      if (prev) {
+        queryClient.setQueryData(["user-profile", userId], {
+          ...prev,
+          is_following: !currentlyFollowing,
+          followers_count: prev.followers_count + (currentlyFollowing ? -1 : 1),
+        });
+      }
+      return { prev };
+    },
+    onError: (err: { message?: string }, _vars, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(["user-profile", userId], context.prev);
+      }
+      setFollowError(err?.message ?? "Could not update follow status");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
+    },
+  });
+
+  const messageMutation = useMutation({
+    mutationFn: () => createConversation({ participant_id: userId }),
+    onSuccess: (conv) => {
+      router.push(`/messages/${conv.id}`);
+    },
+    onError: (err: { message?: string }) => {
+      setMsgError(err?.message ?? "Could not start conversation");
+    },
+  });
 
   const profileQuery = useQuery({
     queryKey: ["user-profile", userId],
@@ -96,6 +142,62 @@ export default function PublicProfilePage({
           )}
         </h2>
         <p style={styles.username}>@{data.username}</p>
+
+        <div style={styles.statsRow}>
+          <div style={styles.stat}>
+            <span style={styles.statCount}>{data.followers_count}</span>
+            <span style={styles.statLabel}>Followers</span>
+          </div>
+          <div style={styles.statDivider} />
+          <div style={styles.stat}>
+            <span style={styles.statCount}>{data.following_count}</span>
+            <span style={styles.statLabel}>Following</span>
+          </div>
+        </div>
+
+        {!isOwnProfile && (
+          <div style={styles.actionRow}>
+            <button
+              type="button"
+              onClick={() => followMutation.mutate(data.is_following)}
+              disabled={followMutation.isPending}
+              style={{
+                ...(data.is_following ? styles.unfollowBtn : styles.followBtn),
+                opacity: followMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              {followMutation.isPending
+                ? "..."
+                : data.is_following
+                  ? "Unfollow"
+                  : "Follow"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMsgError(null);
+                messageMutation.mutate();
+              }}
+              disabled={messageMutation.isPending}
+              style={{
+                ...styles.messageBtn,
+                opacity: messageMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              {messageMutation.isPending ? "Opening..." : "Message"}
+            </button>
+          </div>
+        )}
+        {followError && (
+          <p style={{ color: "#c53030", fontSize: 12, margin: "6px 0 0" }}>
+            {followError}
+          </p>
+        )}
+        {msgError && (
+          <p style={{ color: "#c53030", fontSize: 12, margin: "6px 0 0" }}>
+            {msgError}
+          </p>
+        )}
 
         {data.bio && <p style={styles.bio}>{data.bio}</p>}
 
@@ -256,6 +358,62 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
   },
   username: { color: "#666", fontSize: 15, margin: "0 0 12px" },
+  statsRow: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 24,
+    marginBottom: 14,
+  },
+  stat: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+  },
+  statCount: { fontSize: 18, fontWeight: 700, color: "#222" },
+  statLabel: { fontSize: 12, color: "#888" },
+  statDivider: {
+    width: 1,
+    height: 28,
+    background: "#e0e0e0",
+  },
+  actionRow: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  followBtn: {
+    background: "#6C63FF",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 20px",
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  unfollowBtn: {
+    background: "#fff",
+    color: "#6C63FF",
+    border: "1px solid #6C63FF",
+    borderRadius: 8,
+    padding: "8px 20px",
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  messageBtn: {
+    background: "#fff",
+    color: "#6C63FF",
+    border: "1px solid #6C63FF",
+    borderRadius: 8,
+    padding: "8px 20px",
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
   bio: {
     color: "#444",
     fontSize: 14,

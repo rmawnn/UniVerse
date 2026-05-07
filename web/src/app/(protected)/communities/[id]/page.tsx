@@ -77,6 +77,8 @@ export default function CommunityDetailPage({
     onSuccess: (data) => {
       qc.setQueryData(communityKey, data);
       qc.invalidateQueries({ queryKey: ["communities"] });
+      qc.invalidateQueries({ queryKey: ["explore"] });
+      qc.invalidateQueries({ queryKey: ["feed"] });
     },
   });
 
@@ -178,6 +180,7 @@ export default function CommunityDetailPage({
       setShowLeaveConfirm(false);
       qc.invalidateQueries({ queryKey: communityKey });
       qc.invalidateQueries({ queryKey: ["communities"] });
+      qc.invalidateQueries({ queryKey: ["explore"] });
       qc.invalidateQueries({ queryKey: ["feed"] });
       qc.invalidateQueries({ queryKey: [...membersKey] });
     },

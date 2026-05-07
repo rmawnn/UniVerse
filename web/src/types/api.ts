@@ -236,5 +236,14 @@ export interface PublicUserProfile {
   university_name: string | null;
   is_verified_student: boolean;
   communities: CommunitySummary[];
+  followers_count: number;
+  following_count: number;
+  is_following: boolean;
   created_at: string;
+}
+
+export interface FollowResponse {
+  followers_count: number;
+  following_count: number;
+  is_following: boolean;
 }

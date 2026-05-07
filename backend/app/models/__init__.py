@@ -18,3 +18,4 @@ from app.models.conversation import Conversation  # noqa: F401
 from app.models.conversation_participant import ConversationParticipant  # noqa: F401
 from app.models.message import Message  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
+from app.models.user_follow import UserFollow  # noqa: F401

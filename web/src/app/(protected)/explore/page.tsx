@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { exploreCommunities, joinCommunity } from "@/api/communities";
@@ -16,6 +17,13 @@ const EXPLORE_KEY = ["explore", "communities"] as const;
 
 export default function ExplorePage() {
   const qc = useQueryClient();
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToastMsg(message);
+    setTimeout(() => setToastMsg(null), 3000);
+  }, []);
 
   const { data, isLoading, isError, refetch } = useQuery<
     PaginatedResponse<ExploreCommunityResponse>
@@ -26,10 +34,19 @@ export default function ExplorePage() {
 
   const joinMutation = useMutation({
     mutationFn: (communityId: string) => joinCommunity(communityId),
-    onSuccess: () => {
+    onMutate: (communityId) => {
+      setJoiningId(communityId);
+    },
+    onSuccess: (_data, communityId) => {
       qc.invalidateQueries({ queryKey: [...EXPLORE_KEY] });
+      qc.invalidateQueries({ queryKey: ["community", communityId] });
       qc.invalidateQueries({ queryKey: ["communities"] });
       qc.invalidateQueries({ queryKey: ["feed"] });
+      setJoiningId(null);
+    },
+    onError: (err: { message?: string }) => {
+      setJoiningId(null);
+      showToast(err?.message ?? "Failed to join community");
     },
   });
 
@@ -88,16 +105,30 @@ export default function ExplorePage() {
                 <button
                   type="button"
                   onClick={() => joinMutation.mutate(c.id)}
-                  disabled={joinMutation.isPending}
-                  style={styles.joinBtn}
+                  disabled={joiningId !== null}
+                  style={{
+                    ...styles.joinBtn,
+                    opacity: joiningId === c.id ? 0.6 : joiningId !== null ? 0.4 : 1,
+                  }}
                 >
-                  {joinMutation.isPending ? "Joining..." : "Join"}
+                  {joiningId === c.id ? "Joining..." : "Join"}
                 </button>
               )}
             </div>
           </div>
         ))}
       </div>
+
+      {toastMsg && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 1100,
+          background: "#ef4444", color: "#fff", padding: "12px 20px",
+          borderRadius: 8, fontSize: 14, fontWeight: 500,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        }}>
+          {toastMsg}
+        </div>
+      )}
     </div>
   );
 }

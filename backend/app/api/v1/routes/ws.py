@@ -18,9 +18,11 @@ async def _authenticate_ws(token: str) -> UUID | None:
         payload = decode_token(token)
         user_id_str = payload.get("sub")
         if not user_id_str:
+            logger.debug("WS auth: token has no 'sub' claim")
             return None
         user_id = UUID(user_id_str)
-    except (JWTError, ValueError):
+    except (JWTError, ValueError) as exc:
+        logger.debug("WS auth: token decode failed — %s", exc)
         return None
 
     # Quick DB check: user exists and is active
@@ -28,6 +30,7 @@ async def _authenticate_ws(token: str) -> UUID | None:
         repo = UserRepository(session)
         user = await repo.get_by_id(user_id)
         if not user or not user.is_active:
+            logger.debug("WS auth: user %s not found or inactive", user_id)
             return None
 
     return user_id
@@ -52,6 +55,10 @@ async def websocket_endpoint(
     """
     user_id = await _authenticate_ws(token)
     if user_id is None:
+        # Must accept before closing so the client receives the 4001 code.
+        # Without accept(), the browser sees a generic connection error and
+        # never gets the close code — causing infinite reconnect loops.
+        await ws.accept()
         await ws.close(code=4001, reason="Authentication failed")
         return
 

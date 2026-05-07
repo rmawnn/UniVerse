@@ -7,6 +7,7 @@ from app.core.exceptions import BadRequest, NotFound, Unauthorized
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.repositories.community_repository import CommunityRepository
+from app.repositories.follow_repository import FollowRepository
 from app.repositories.university_repository import UniversityRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
@@ -95,6 +96,7 @@ async def search_users(
 async def get_public_profile(
     db: AsyncSession,
     target_user_id: UUID,
+    current_user_id: UUID | None = None,
 ) -> PublicUserProfileResponse:
     """Fetch a user's public profile with university name and communities.
 
@@ -121,6 +123,15 @@ async def get_public_profile(
         CommunitySummary(id=c.id, name=c.name) for c in communities
     ]
 
+    # Resolve follow counts
+    follow_repo = FollowRepository(db)
+    followers_count = await follow_repo.count_followers(target_user_id)
+    following_count = await follow_repo.count_following(target_user_id)
+
+    is_following = False
+    if current_user_id and current_user_id != target_user_id:
+        is_following = await follow_repo.exists(current_user_id, target_user_id)
+
     return PublicUserProfileResponse(
         id=user.id,
         username=user.username,
@@ -133,5 +144,8 @@ async def get_public_profile(
         university_name=university_name,
         is_verified_student=user.is_verified_student,
         communities=community_summaries,
+        followers_count=followers_count,
+        following_count=following_count,
+        is_following=is_following,
         created_at=user.created_at,
     )

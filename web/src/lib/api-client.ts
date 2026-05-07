@@ -29,11 +29,31 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Request was cancelled (e.g. component unmounted) — not a real error
+    if (error.code === "ERR_CANCELED") {
+      return Promise.reject({ status: 0, message: "Request cancelled", data: null });
+    }
+
     if (error.response) {
       const { status, data } = error.response;
       const message = data?.detail ?? data?.message ?? "Something went wrong";
+
+      // Debug: log API errors
+      console.error(`[API ${status}] ${error.config?.method?.toUpperCase()} ${error.config?.url}: ${message}`);
+
+      // Token expired or invalid — clear auth and redirect to login
+      if (status === 401) {
+        clearToken();
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login";
+        }
+      }
+
       return Promise.reject({ status, message, data });
     }
+
+    // No response at all — genuine network failure
+    console.error(`[API Network Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`, error.message);
     return Promise.reject({
       status: 0,
       message: "Network error — check your connection",
