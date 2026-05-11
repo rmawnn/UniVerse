@@ -80,6 +80,15 @@ async def list_communities(
     )
 
 
+@router.get("/joined", response_model=list[CommunityResponse])
+async def list_joined_communities(
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List communities the current user has joined."""
+    return await community_service.list_joined_communities(db, current_user)
+
+
 @router.get("/{community_id}", response_model=CommunityDetailResponse)
 async def get_community(
     community_id: UUID,

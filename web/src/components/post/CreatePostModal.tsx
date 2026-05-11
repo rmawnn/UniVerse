@@ -2,10 +2,9 @@
 
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listCommunities } from "@/api/communities";
+import { listMyCommunities } from "@/api/communities";
 import { createPost } from "@/api/posts";
 import { uploadImage } from "@/api/uploads";
-import { useAuthStore } from "@/store/auth-store";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
@@ -27,7 +26,6 @@ export default function CreatePostModal({
 }
 
 function CreatePostModalBody({ onClose }: { onClose: () => void }) {
-  const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -41,13 +39,12 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const communitiesQuery = useQuery({
-    queryKey: ["communities", "browse", user?.university_id],
-    queryFn: () => listCommunities(user!.university_id!, { page_size: 100 }),
-    enabled: !!user?.university_id,
-    staleTime: 60_000,
+    queryKey: ["communities", "joined"],
+    queryFn: listMyCommunities,
+    staleTime: 30_000,
   });
 
-  const communities = communitiesQuery.data?.items ?? [];
+  const communities = communitiesQuery.data ?? [];
   const effectiveCommunityId =
     selectedId ?? (communities.length > 0 ? communities[0].id : "");
 
@@ -160,11 +157,14 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <label style={styles.label}>Community</label>
+          <label style={styles.label}>Post to community</label>
           {communitiesQuery.isLoading ? (
             <p style={styles.muted}>Loading communities...</p>
           ) : communities.length === 0 ? (
-            <p style={styles.muted}>You need to join a community first.</p>
+            <p style={styles.muted}>
+              You haven&apos;t joined any communities yet.{" "}
+              <a href="/explore" style={{ color: "#6C63FF" }}>Browse communities</a>
+            </p>
           ) : (
             <select
               value={effectiveCommunityId}

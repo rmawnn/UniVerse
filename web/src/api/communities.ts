@@ -62,6 +62,11 @@ export async function leaveCommunity(
   await api.post(`/communities/${communityId}/leave`);
 }
 
+export async function listMyCommunities(): Promise<CommunityResponse[]> {
+  const { data } = await api.get<CommunityResponse[]>("/communities/joined");
+  return data;
+}
+
 export async function listCommunities(
   universityId: string,
   params?: PaginationParams

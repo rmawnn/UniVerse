@@ -425,6 +425,26 @@ async def explore_communities(
     )
 
 
+async def list_joined_communities(
+    db: AsyncSession,
+    current_user: User,
+) -> list[CommunityResponse]:
+    """Return all communities the current user has joined."""
+    repo = CommunityRepository(db)
+    communities = await repo.list_by_user(current_user.id)
+
+    community_ids = [c.id for c in communities]
+    member_counts = await repo.member_counts_batch(community_ids) if community_ids else {}
+
+    return [
+        CommunityResponse(
+            **_community_to_dict(c),
+            member_count=member_counts.get(c.id, 0),
+        )
+        for c in communities
+    ]
+
+
 def _community_to_dict(community: Community) -> dict:
     """Convert a Community ORM object to a dict for schema construction."""
     return {
