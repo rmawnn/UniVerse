@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getHomeFeed } from "@/api/feed";
 import PostCard from "@/components/post/PostCard";
+import StoriesRow from "@/components/stories/StoriesRow";
 import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import type { PaginatedResponse, PostResponse } from "@/types/api";
@@ -45,6 +46,8 @@ export default function FeedPage() {
   return (
     <div>
       <h2 style={styles.heading}>Feed</h2>
+
+      <StoriesRow />
 
       {isLoading && <SkeletonList count={4} Component={PostSkeleton} />}
 

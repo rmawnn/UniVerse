@@ -145,6 +145,9 @@ export interface CommentResponse {
   post_id: string;
   author: AuthorSummary;
   content: string;
+  parent_comment_id: string | null;
+  reply_count: number;
+  replies: CommentResponse[];
   created_at: string;
   updated_at: string;
 }
@@ -156,6 +159,7 @@ export interface CreatePostRequest {
 
 export interface CreateCommentRequest {
   content: string;
+  parent_comment_id?: string;
 }
 
 export interface LikeToggleResponse {
@@ -253,4 +257,26 @@ export interface FollowResponse {
   followers_count: number;
   following_count: number;
   is_following: boolean;
+}
+
+// ── Stories ─────────────────────────────────────────────────
+
+export interface StoryAuthorSummary {
+  id: string;
+  username: string;
+  full_name: string;
+  profile_image_url: string | null;
+}
+
+export interface StoryResponse {
+  id: string;
+  author: StoryAuthorSummary;
+  image_url: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface UserStoriesResponse {
+  user: StoryAuthorSummary;
+  stories: StoryResponse[];
 }
