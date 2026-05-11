@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, useMemo } from "react";
+import { useState, useRef, use, useMemo } from "react";
 import {
   useQuery,
   useMutation,
@@ -27,6 +27,7 @@ export default function PostDetailPage({
 }) {
   const { id } = use(params);
   const qc = useQueryClient();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const postKey = ["post", id] as const;
   const commentsKey = ["comments", id] as const;
@@ -61,12 +62,18 @@ export default function PostDetailPage({
 
   const [draft, setDraft] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<CommentResponse | null>(null);
 
   const commentMutation = useMutation({
-    mutationFn: () => createComment(id, { content: draft.trim() }),
+    mutationFn: () =>
+      createComment(id, {
+        content: draft.trim(),
+        ...(replyingTo ? { parent_comment_id: replyingTo.id } : {}),
+      }),
     onSuccess: () => {
       setDraft("");
       setFormError(null);
+      setReplyingTo(null);
       qc.invalidateQueries({ queryKey: [...commentsKey] });
     },
     onError: (err: { message?: string }) => {
@@ -78,6 +85,17 @@ export default function PostDetailPage({
     e.preventDefault();
     if (!draft.trim() || commentMutation.isPending) return;
     commentMutation.mutate();
+  };
+
+  const handleReply = (comment: CommentResponse) => {
+    setReplyingTo(comment);
+    setDraft(`@${comment.author.username} `);
+    textareaRef.current?.focus();
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+    setDraft("");
   };
 
   return (
@@ -103,10 +121,30 @@ export default function PostDetailPage({
       <h3 style={styles.subheading}>Comments</h3>
 
       <form onSubmit={handleSubmit} style={styles.form}>
+        {replyingTo && (
+          <div style={styles.replyingBar}>
+            <span style={styles.replyingText}>
+              Replying to{" "}
+              <strong>{replyingTo.author.full_name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={cancelReply}
+              style={styles.cancelReply}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Write a comment..."
+          placeholder={
+            replyingTo
+              ? `Reply to ${replyingTo.author.full_name}...`
+              : "Write a comment..."
+          }
           rows={3}
           style={styles.textarea}
           disabled={commentMutation.isPending}
@@ -121,7 +159,11 @@ export default function PostDetailPage({
               opacity: !draft.trim() || commentMutation.isPending ? 0.5 : 1,
             }}
           >
-            {commentMutation.isPending ? "Posting..." : "Post comment"}
+            {commentMutation.isPending
+              ? "Posting..."
+              : replyingTo
+                ? "Post reply"
+                : "Post comment"}
           </button>
         </div>
       </form>
@@ -140,7 +182,7 @@ export default function PostDetailPage({
 
       {!commentsQuery.isLoading && !commentsQuery.isError && comments.length === 0 && (
         <div style={styles.emptyComments}>
-          <span style={styles.emptyIcon}>💬</span>
+          <span style={styles.emptyIcon}>{"💬"}</span>
           <p style={styles.emptyTitle}>No comments yet</p>
           <p style={styles.emptyHint}>Be the first to share your thoughts!</p>
         </div>
@@ -148,7 +190,11 @@ export default function PostDetailPage({
 
       <div>
         {comments.map((c) => (
-          <CommentItem key={c.id} comment={c} />
+          <CommentItem
+            key={c.id}
+            comment={c}
+            onReply={handleReply}
+          />
         ))}
       </div>
 
@@ -206,6 +252,28 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
+  },
+  replyingBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "6px 10px",
+    marginBottom: 8,
+    background: "#f0efff",
+    borderRadius: 8,
+    fontSize: 13,
+  },
+  replyingText: {
+    color: "#555",
+  },
+  cancelReply: {
+    background: "none",
+    border: "none",
+    color: "#6C63FF",
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: "pointer",
+    padding: "2px 6px",
   },
   textarea: {
     width: "100%",
