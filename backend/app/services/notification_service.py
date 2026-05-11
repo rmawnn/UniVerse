@@ -60,6 +60,19 @@ async def notify(
     )
     await repo.create(notification)
 
+    # Build actor summary for real-time push
+    actor_data = None
+    if actor_id:
+        user_repo = UserRepository(db)
+        actor_user = await user_repo.get_by_id(actor_id)
+        if actor_user:
+            actor_data = {
+                "id": str(actor_user.id),
+                "username": actor_user.username,
+                "full_name": actor_user.full_name,
+                "profile_image_url": actor_user.profile_image_url,
+            }
+
     # Real-time push via WebSocket
     await ws_manager.send_to_user(user_id, {
         "type": "new_notification",
@@ -68,6 +81,7 @@ async def notify(
             "notification_type": type,
             "reference_id": str(reference_id) if reference_id else None,
             "content": content,
+            "actor": actor_data,
         },
     })
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,18 +14,39 @@ import type { NotificationResponse } from "@/types/api";
 
 const NOTIFICATIONS_KEY = ["notifications", "list"] as const;
 
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
+  "http://localhost:8000";
+
+/* ── Type helpers ──────────────────────────────────────────── */
+
 function iconForType(type: string): string {
   switch (type) {
     case "like":
-      return "\u2764\uFE0F";
+      return "❤️";
     case "comment":
-      return "\uD83D\uDCAC";
+      return "💬";
     case "message":
-      return "\u2709\uFE0F";
+      return "✉️";
     case "follow":
-      return "\uD83D\uDC64";
+      return "👤";
     default:
-      return "\uD83D\uDD14";
+      return "🔔";
+  }
+}
+
+function badgeColorForType(type: string): string {
+  switch (type) {
+    case "like":
+      return "#ef4444";
+    case "comment":
+      return "#3b82f6";
+    case "message":
+      return "#10b981";
+    case "follow":
+      return "#8b5cf6";
+    default:
+      return "#6b7280";
   }
 }
 
@@ -36,6 +58,8 @@ function actionTextForType(type: string): string {
       return "commented on your post";
     case "message":
       return "sent you a message";
+    case "follow":
+      return "started following you";
     default:
       return "";
   }
@@ -56,6 +80,214 @@ function hrefForNotification(n: NotificationResponse): string | null {
   }
 }
 
+/* ── Simple grouping ───────────────────────────────────────── */
+
+interface GroupedNotification {
+  /** The most recent notification in the group */
+  latest: NotificationResponse;
+  /** All notification IDs in this group */
+  ids: string[];
+  /** How many are in this group */
+  count: number;
+  /** All unique actors in the group */
+  actors: NotificationResponse["actor"][];
+  /** Whether any in the group is unread */
+  hasUnread: boolean;
+}
+
+/**
+ * Group adjacent notifications of the same type targeting the same
+ * reference (e.g. "3 people liked your post"). Groups are only formed
+ * from consecutive notifications — this keeps the timeline coherent.
+ */
+function groupNotifications(
+  notifications: NotificationResponse[]
+): GroupedNotification[] {
+  const groups: GroupedNotification[] = [];
+
+  for (const n of notifications) {
+    const prev = groups[groups.length - 1];
+
+    // Group if same type + same reference_id + reference_id exists
+    if (
+      prev &&
+      prev.latest.type === n.type &&
+      prev.latest.reference_id === n.reference_id &&
+      n.reference_id !== null
+    ) {
+      prev.ids.push(n.id);
+      prev.count++;
+      if (!prev.actors.find((a) => a?.id === n.actor?.id) && n.actor) {
+        prev.actors.push(n.actor);
+      }
+      if (!n.is_read) prev.hasUnread = true;
+    } else {
+      groups.push({
+        latest: n,
+        ids: [n.id],
+        count: 1,
+        actors: n.actor ? [n.actor] : [],
+        hasUnread: !n.is_read,
+      });
+    }
+  }
+
+  return groups;
+}
+
+function buildGroupText(g: GroupedNotification): React.ReactNode {
+  const { latest, actors, count } = g;
+
+  if (!latest.actor) return <span>{latest.content}</span>;
+
+  // Single notification
+  if (count === 1 || actors.length <= 1) {
+    return (
+      <>
+        <Link
+          href={`/profile/${latest.actor.id}`}
+          onClick={(e) => e.stopPropagation()}
+          style={styles.actorName}
+        >
+          {latest.actor.full_name}
+        </Link>{" "}
+        <span style={styles.actionText}>
+          {actionTextForType(latest.type)}
+        </span>
+      </>
+    );
+  }
+
+  // Grouped: "Ali, Sara and 2 others liked your post"
+  const firstName = actors[0]?.full_name ?? "";
+  const othersCount = actors.length - 1;
+
+  return (
+    <>
+      <Link
+        href={`/profile/${actors[0]?.id}`}
+        onClick={(e) => e.stopPropagation()}
+        style={styles.actorName}
+      >
+        {firstName}
+      </Link>
+      {othersCount === 1 ? (
+        <>
+          {" and "}
+          <Link
+            href={`/profile/${actors[1]?.id}`}
+            onClick={(e) => e.stopPropagation()}
+            style={styles.actorName}
+          >
+            {actors[1]?.full_name}
+          </Link>
+        </>
+      ) : (
+        <span style={styles.actionText}>
+          {" "}and {othersCount} others
+        </span>
+      )}{" "}
+      <span style={styles.actionText}>
+        {actionTextForType(latest.type)}
+      </span>
+    </>
+  );
+}
+
+/* ── Avatar with action badge ──────────────────────────────── */
+
+function NotificationAvatar({
+  n,
+}: {
+  n: NotificationResponse;
+}) {
+  const profileUrl = n.actor?.profile_image_url
+    ? n.actor.profile_image_url.startsWith("http")
+      ? n.actor.profile_image_url
+      : `${BACKEND_URL}${n.actor.profile_image_url}`
+    : null;
+
+  return (
+    <div style={styles.avatarWrap}>
+      {profileUrl ? (
+        <img src={profileUrl} alt="" style={styles.avatarImg} />
+      ) : n.actor ? (
+        <div style={styles.avatarFallback}>
+          {n.actor.full_name.charAt(0).toUpperCase()}
+        </div>
+      ) : (
+        <div style={styles.iconFallback}>{iconForType(n.type)}</div>
+      )}
+      {/* Action-type badge */}
+      <div
+        style={{
+          ...styles.typeBadge,
+          background: badgeColorForType(n.type),
+        }}
+      >
+        <span style={styles.typeBadgeIcon}>{iconForType(n.type)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Stacked avatars for grouped notifications ─────────────── */
+
+function GroupedAvatars({ g }: { g: GroupedNotification }) {
+  if (g.count === 1 || g.actors.length <= 1) {
+    return <NotificationAvatar n={g.latest} />;
+  }
+
+  // Show up to 2 stacked avatars
+  const shown = g.actors.slice(0, 2);
+
+  return (
+    <div style={styles.stackedWrap}>
+      {shown.map((actor, i) => {
+        const profileUrl = actor?.profile_image_url
+          ? actor.profile_image_url.startsWith("http")
+            ? actor.profile_image_url
+            : `${BACKEND_URL}${actor.profile_image_url}`
+          : null;
+
+        return (
+          <div
+            key={actor?.id ?? i}
+            style={{
+              ...styles.stackedAvatar,
+              zIndex: shown.length - i,
+              marginLeft: i > 0 ? -12 : 0,
+            }}
+          >
+            {profileUrl ? (
+              <img src={profileUrl} alt="" style={styles.stackedImg} />
+            ) : (
+              <div style={styles.stackedFallback}>
+                {actor?.full_name?.charAt(0).toUpperCase() ?? "?"}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {/* Action-type badge on the stack */}
+      <div
+        style={{
+          ...styles.typeBadge,
+          background: badgeColorForType(g.latest.type),
+          right: -2,
+          bottom: -2,
+        }}
+      >
+        <span style={styles.typeBadgeIcon}>
+          {iconForType(g.latest.type)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page component ────────────────────────────────────────── */
+
 export default function NotificationsPage() {
   const router = useRouter();
   const qc = useQueryClient();
@@ -68,6 +300,7 @@ export default function NotificationsPage() {
 
   const notifications = data?.items ?? [];
   const hasUnread = notifications.some((n) => !n.is_read);
+  const grouped = useMemo(() => groupNotifications(notifications), [notifications]);
 
   const markOne = useMutation({
     mutationFn: (id: string) => markAsRead(id),
@@ -75,9 +308,7 @@ export default function NotificationsPage() {
       qc.invalidateQueries({ queryKey: [...NOTIFICATIONS_KEY] });
       qc.invalidateQueries({ queryKey: ["notifications", "badge"] });
     },
-    onError: () => {
-      // Silently ignore — marking as read is best-effort
-    },
+    onError: () => {},
   });
 
   const markAll = useMutation({
@@ -87,14 +318,16 @@ export default function NotificationsPage() {
       qc.invalidateQueries({ queryKey: ["notifications", "badge"] });
     },
     onError: () => {
-      // Refetch to show current state if bulk mark fails
       qc.invalidateQueries({ queryKey: [...NOTIFICATIONS_KEY] });
     },
   });
 
-  const handleClick = (n: NotificationResponse) => {
-    if (!n.is_read) markOne.mutate(n.id);
-    const href = hrefForNotification(n);
+  const handleClick = (g: GroupedNotification) => {
+    // Mark all in group as read
+    for (const id of g.ids) {
+      if (g.hasUnread) markOne.mutate(id);
+    }
+    const href = hrefForNotification(g.latest);
     if (href) router.push(href);
   };
 
@@ -129,80 +362,51 @@ export default function NotificationsPage() {
 
       {!isLoading && !isError && notifications.length === 0 && (
         <div style={styles.empty}>
-          <span style={styles.emptyIcon}>{"\uD83D\uDD14"}</span>
+          <span style={styles.emptyIcon}>{"🔔"}</span>
           <p style={styles.emptyTitle}>No notifications yet</p>
           <p style={styles.emptyHint}>
-            When someone likes, comments, or messages you, it will show up here.
+            When someone likes, comments, follows, or messages you, it will
+            show up here.
           </p>
         </div>
       )}
 
       <div style={styles.list}>
-        {notifications.map((n) => (
+        {grouped.map((g) => (
           <button
-            key={n.id}
+            key={g.latest.id}
             type="button"
             className="row-hover"
-            onClick={() => handleClick(n)}
+            onClick={() => handleClick(g)}
             style={{
               ...styles.row,
-              background: n.is_read ? "#fff" : "#f5f4ff",
-              borderLeft: n.is_read ? "3px solid transparent" : "3px solid #6C63FF",
+              background: g.hasUnread ? "#f5f4ff" : "#fff",
+              borderLeft: g.hasUnread
+                ? "3px solid #6C63FF"
+                : "3px solid transparent",
             }}
           >
-            {/* Avatar or icon */}
-            <div style={styles.avatarWrap}>
-              {n.actor?.profile_image_url ? (
-                <img
-                  src={n.actor.profile_image_url}
-                  alt=""
-                  style={styles.avatarImg}
-                />
-              ) : n.actor ? (
-                <div style={styles.avatarFallback}>
-                  {n.actor.full_name.charAt(0).toUpperCase()}
-                </div>
-              ) : (
-                <div style={styles.iconFallback}>{iconForType(n.type)}</div>
-              )}
-            </div>
+            {/* Avatar(s) with action badge */}
+            <GroupedAvatars g={g} />
 
             {/* Content */}
             <div style={styles.rowContent}>
-              <p style={styles.contentText}>
-                {n.actor ? (
-                  <>
-                    <Link
-                      href={`/profile/${n.actor.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      style={styles.actorName}
-                    >
-                      {n.actor.full_name}
-                    </Link>{" "}
-                    <span style={styles.actionText}>
-                      {actionTextForType(n.type)}
-                    </span>
-                  </>
-                ) : (
-                  <span>{n.content}</span>
-                )}
-              </p>
-              <div style={styles.meta}>
-                <span style={styles.typeIcon}>{iconForType(n.type)}</span>
-                <span style={styles.time}>
-                  {formatRelativeTime(n.created_at)}
-                </span>
-              </div>
+              <p style={styles.contentText}>{buildGroupText(g)}</p>
+              <span style={styles.time}>
+                {formatRelativeTime(g.latest.created_at)}
+              </span>
             </div>
 
             {/* Unread dot */}
-            {!n.is_read && <div style={styles.dot} />}
+            {g.hasUnread && <div style={styles.dot} />}
           </button>
         ))}
       </div>
     </div>
   );
 }
+
+/* ── Styles ────────────────────────────────────────────────── */
 
 const styles: Record<string, React.CSSProperties> = {
   headerRow: {
@@ -240,34 +444,37 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: 14,
     gap: 12,
-    transition: "background 0.1s",
+    transition: "background 0.15s",
   },
+
+  /* ── Avatar ──────────────────── */
   avatarWrap: {
     flexShrink: 0,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    position: "relative",
   },
   avatarImg: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: "50%",
     objectFit: "cover" as const,
   },
   avatarFallback: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: "50%",
     background: "#6C63FF",
     color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 700,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   iconFallback: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: "50%",
     background: "#f0efff",
     fontSize: 20,
@@ -275,10 +482,64 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
+  typeBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "2px solid #fff",
+  },
+  typeBadgeIcon: {
+    fontSize: 10,
+    lineHeight: 1,
+  },
+
+  /* ── Stacked avatars ─────────── */
+  stackedWrap: {
+    flexShrink: 0,
+    width: 52,
+    height: 44,
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  stackedAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: "50%",
+    border: "2px solid #fff",
+    overflow: "hidden",
+    position: "relative",
+  },
+  stackedImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover" as const,
+    borderRadius: "50%",
+  },
+  stackedFallback: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    background: "#6C63FF",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  /* ── Content ─────────────────── */
   rowContent: { flex: 1, minWidth: 0 },
   contentText: {
     fontSize: 14,
-    margin: "0 0 4px",
+    margin: "0 0 2px",
     color: "#333",
     lineHeight: 1.4,
   },
@@ -290,14 +551,6 @@ const styles: Record<string, React.CSSProperties> = {
   actionText: {
     color: "#555",
   },
-  meta: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  typeIcon: {
-    fontSize: 12,
-  },
   time: { fontSize: 12, color: "#999" },
   dot: {
     width: 8,
@@ -306,6 +559,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#6C63FF",
     flexShrink: 0,
   },
+
+  /* ── States ──────────────────── */
   empty: {
     textAlign: "center",
     padding: "48px 24px",

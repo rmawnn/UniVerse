@@ -9,6 +9,7 @@ from app.repositories.follow_repository import FollowRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.user import UserSearchResponse
+from app.services import notification_service
 
 
 async def follow_user(
@@ -38,6 +39,16 @@ async def follow_user(
         raise AlreadyExists("Follow relationship")
 
     await follow_repo.create(current_user.id, target_user_id)
+
+    # Notify the target user
+    await notification_service.notify(
+        db,
+        user_id=target_user_id,
+        actor_id=current_user.id,
+        type="follow",
+        reference_id=current_user.id,
+        content=f"{current_user.full_name} followed you",
+    )
 
     followers_count = await follow_repo.count_followers(target_user_id)
     following_count = await follow_repo.count_following(target_user_id)
