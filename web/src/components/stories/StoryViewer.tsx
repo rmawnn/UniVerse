@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatRelativeTime } from "@/lib/format";
 import type { UserStoriesResponse } from "@/types/api";
 
 interface Props {
@@ -75,15 +76,6 @@ export default function StoryViewer({ userStory, onClose }: Props) {
     [currentIndex, stories.length, onClose]
   );
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    return `${hrs}h ago`;
-  };
-
   if (!current) return null;
 
   return (
@@ -120,7 +112,7 @@ export default function StoryViewer({ userStory, onClose }: Props) {
                 {userStory.user.full_name}
               </span>
               <span style={styles.headerTime}>
-                {timeAgo(current.created_at)}
+                {formatRelativeTime(current.created_at)}
               </span>
             </div>
           </div>

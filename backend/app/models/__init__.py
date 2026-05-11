@@ -20,3 +20,4 @@ from app.models.message import Message  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 from app.models.user_follow import UserFollow  # noqa: F401
 from app.models.story import Story  # noqa: F401
+from app.models.saved_post import SavedPost  # noqa: F401

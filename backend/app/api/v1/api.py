@@ -25,6 +25,7 @@ from app.api.v1.routes.ws import router as ws_router
 from app.api.v1.routes.admin import router as admin_router
 from app.api.v1.routes.uploads import router as uploads_router
 from app.api.v1.routes.stories import router as stories_router
+from app.api.v1.routes.saved_posts import router as saved_posts_router
 
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 v1_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -42,3 +43,4 @@ v1_router.include_router(ws_router, tags=["WebSocket"])
 v1_router.include_router(admin_router, prefix="/admin", tags=["Admin"])
 v1_router.include_router(uploads_router, prefix="/uploads", tags=["Uploads"])
 v1_router.include_router(stories_router, prefix="/stories", tags=["Stories"])
+v1_router.include_router(saved_posts_router, tags=["Saved Posts"])

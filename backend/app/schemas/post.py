@@ -30,5 +30,6 @@ class PostResponse(BaseModel):
     like_count: int = 0
     comment_count: int = 0
     liked_by_me: bool = False
+    saved_by_me: bool = False
     created_at: datetime
     updated_at: datetime

@@ -10,6 +10,7 @@ from app.repositories.comment_repository import CommentRepository
 from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
+from app.repositories.saved_post_repository import SavedPostRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostAuthorSummary, PostCreateRequest, PostResponse
@@ -49,8 +50,8 @@ async def create_post(
     post_repo = PostRepository(db)
     post = await post_repo.create(post)
 
-    # New post has 0 likes, and the author hasn't liked it yet
-    return _build_response(post, current_user, like_count=0, liked_by_me=False)
+    # New post has 0 likes, not liked or saved yet
+    return _build_response(post, current_user, like_count=0, liked_by_me=False, saved_by_me=False)
 
 
 async def get_post(
@@ -71,15 +72,19 @@ async def get_post(
     like_repo = PostLikeRepository(db)
     like_count = await like_repo.count_by_post(post_id)
     liked_by_me = False
+    saved_by_me = False
     if current_user:
         liked_by_me = await like_repo.get_like(post_id, current_user.id) is not None
+        save_repo = SavedPostRepository(db)
+        saved_by_me = await save_repo.exists(current_user.id, post_id)
 
     comment_repo = CommentRepository(db)
     comment_count = await comment_repo.count_by_post(post_id)
 
     return _build_response(
         post, author,
-        like_count=like_count, comment_count=comment_count, liked_by_me=liked_by_me,
+        like_count=like_count, comment_count=comment_count,
+        liked_by_me=liked_by_me, saved_by_me=saved_by_me,
     )
 
 
@@ -117,15 +122,18 @@ async def list_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts, comment counts, and user's likes
+    # Batch-load like counts, comment counts, and user's likes/saves
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
+    saved_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
+        save_repo = SavedPostRepository(db)
+        saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
@@ -133,6 +141,7 @@ async def list_posts(
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
+            saved_by_me=p.id in saved_set,
         )
         for p in posts
     ]
@@ -176,15 +185,18 @@ async def list_user_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts, comment counts, and current user's likes
+    # Batch-load like counts, comment counts, and current user's likes/saves
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
+    saved_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
+        save_repo = SavedPostRepository(db)
+        saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
@@ -192,6 +204,7 @@ async def list_user_posts(
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
+            saved_by_me=p.id in saved_set,
         )
         for p in posts
     ]
@@ -212,8 +225,9 @@ def _build_response(
     like_count: int = 0,
     comment_count: int = 0,
     liked_by_me: bool = False,
+    saved_by_me: bool = False,
 ) -> PostResponse:
-    """Build a PostResponse with embedded author summary, like and comment data."""
+    """Build a PostResponse with embedded author summary, like, comment, and save data."""
     author_summary = PostAuthorSummary(
         id=author.id,
         username=author.username,
@@ -235,6 +249,7 @@ def _build_response(
         like_count=like_count,
         comment_count=comment_count,
         liked_by_me=liked_by_me,
+        saved_by_me=saved_by_me,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )

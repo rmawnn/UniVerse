@@ -298,7 +298,7 @@ export default function NotificationsPage() {
     refetchInterval: 60_000,
   });
 
-  const notifications = data?.items ?? [];
+  const notifications = useMemo(() => data?.items ?? [], [data]);
   const hasUnread = notifications.some((n) => !n.is_read);
   const grouped = useMemo(() => groupNotifications(notifications), [notifications]);
 

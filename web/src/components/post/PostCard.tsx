@@ -4,7 +4,7 @@ import { memo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toggleLike } from "@/api/posts";
+import { toggleLike, savePost, unsavePost } from "@/api/posts";
 import { formatRelativeTime } from "@/lib/format";
 import type { PostResponse } from "@/types/api";
 
@@ -14,78 +14,101 @@ interface Props {
   invalidateKeys?: readonly unknown[][];
 }
 
+/** Generic optimistic patcher — applies a transform to every cached query key */
+function usePatchPost(
+  qc: ReturnType<typeof useQueryClient>,
+  invalidateKeys: readonly unknown[][],
+) {
+  return async (patchFn: (p: PostResponse) => PostResponse) => {
+    const snapshots: Array<{ key: unknown[]; data: unknown }> = [];
+
+    for (const key of invalidateKeys) {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData(key);
+      snapshots.push({ key: [...key], data: prev });
+
+      qc.setQueryData(key, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+
+        // Infinite-query shape
+        if (
+          "pages" in old &&
+          Array.isArray((old as { pages: unknown[] }).pages)
+        ) {
+          const inf = old as {
+            pages: { items: PostResponse[] }[];
+            pageParams: unknown[];
+          };
+          return {
+            ...inf,
+            pages: inf.pages.map((p) => ({
+              ...p,
+              items: p.items.map(patchFn),
+            })),
+          };
+        }
+
+        // Plain paginated list
+        if (
+          "items" in old &&
+          Array.isArray((old as { items: unknown[] }).items)
+        ) {
+          const list = old as { items: PostResponse[] };
+          return { ...list, items: list.items.map(patchFn) };
+        }
+
+        // Single post
+        if ("id" in old) {
+          return patchFn(old as PostResponse);
+        }
+
+        return old;
+      });
+    }
+
+    return { snapshots };
+  };
+}
+
 function PostCardInner({ post, invalidateKeys = [] }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const [imgBroken, setImgBroken] = useState(false);
+  const patchPost = usePatchPost(qc, invalidateKeys);
 
   const likeMutation = useMutation({
     mutationFn: () => toggleLike(post.id),
-    onMutate: async () => {
-      // Optimistic: flip liked_by_me and adjust count in every cached query
-      const snapshots: Array<{ key: unknown[]; data: unknown }> = [];
-
-      const patchPost = (p: PostResponse): PostResponse =>
+    onMutate: () =>
+      patchPost((p) =>
         p.id === post.id
           ? {
               ...p,
               liked_by_me: !p.liked_by_me,
               like_count: p.like_count + (p.liked_by_me ? -1 : 1),
             }
-          : p;
-
-      for (const key of invalidateKeys) {
-        await qc.cancelQueries({ queryKey: key });
-        const prev = qc.getQueryData(key);
-        snapshots.push({ key: [...key], data: prev });
-
-        qc.setQueryData(key, (old: unknown) => {
-          if (!old || typeof old !== "object") return old;
-
-          // Infinite-query shape: { pages: [{ items: [...] }], pageParams: [...] }
-          if (
-            "pages" in old &&
-            Array.isArray((old as { pages: unknown[] }).pages)
-          ) {
-            const inf = old as {
-              pages: { items: PostResponse[] }[];
-              pageParams: unknown[];
-            };
-            return {
-              ...inf,
-              pages: inf.pages.map((p) => ({
-                ...p,
-                items: p.items.map(patchPost),
-              })),
-            };
-          }
-
-          // Plain paginated list
-          if (
-            "items" in old &&
-            Array.isArray((old as { items: unknown[] }).items)
-          ) {
-            const list = old as { items: PostResponse[] };
-            return { ...list, items: list.items.map(patchPost) };
-          }
-
-          // Single post
-          if ("id" in old && (old as PostResponse).id === post.id) {
-            return patchPost(old as PostResponse);
-          }
-
-          return old;
-        });
-      }
-      return { snapshots };
-    },
+          : p
+      ),
     onError: (_err, _vars, ctx) => {
-      ctx?.snapshots.forEach(({ key, data }) => {
-        qc.setQueryData(key, data);
-      });
+      ctx?.snapshots.forEach(({ key, data }) => qc.setQueryData(key, data));
     },
     onSettled: () => {
       invalidateKeys.forEach((key) => qc.invalidateQueries({ queryKey: key }));
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      post.saved_by_me ? unsavePost(post.id) : savePost(post.id),
+    onMutate: () =>
+      patchPost((p) =>
+        p.id === post.id ? { ...p, saved_by_me: !p.saved_by_me } : p
+      ),
+    onError: (_err, _vars, ctx) => {
+      ctx?.snapshots.forEach(({ key, data }) => qc.setQueryData(key, data));
+    },
+    onSettled: () => {
+      invalidateKeys.forEach((key) => qc.invalidateQueries({ queryKey: key }));
+      qc.invalidateQueries({ queryKey: ["saved-posts"] });
     },
   });
 
@@ -93,6 +116,12 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
     e.stopPropagation();
     e.preventDefault();
     if (!likeMutation.isPending) likeMutation.mutate();
+  };
+
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!saveMutation.isPending) saveMutation.mutate();
   };
 
   const goToPost = () => router.push(`/posts/${post.id}`);
@@ -134,7 +163,7 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
           onClick={handleLike}
           disabled={likeMutation.isPending}
           style={{
-            ...styles.likeBtn,
+            ...styles.actionBtn,
             color: post.liked_by_me ? "#e0245e" : "#666",
           }}
         >
@@ -144,6 +173,20 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
         <span style={styles.commentCount}>
           💬 {post.comment_count ?? 0}
         </span>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saveMutation.isPending}
+          style={{
+            ...styles.actionBtn,
+            color: post.saved_by_me ? "#6C63FF" : "#666",
+            marginLeft: "auto",
+          }}
+          title={post.saved_by_me ? "Unsave" : "Save"}
+        >
+          {post.saved_by_me ? "🔖" : "🏷️"}
+        </button>
       </div>
     </article>
   );
@@ -157,6 +200,7 @@ const PostCard = memo(PostCardInner, (prev, next) => {
     a.liked_by_me === b.liked_by_me &&
     a.like_count === b.like_count &&
     a.comment_count === b.comment_count &&
+    a.saved_by_me === b.saved_by_me &&
     a.content === b.content &&
     a.image_url === b.image_url &&
     a.updated_at === b.updated_at
@@ -201,8 +245,12 @@ const styles: Record<string, React.CSSProperties> = {
     objectFit: "cover" as const,
     display: "block",
   },
-  footer: { display: "flex", gap: 16 },
-  likeBtn: {
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+  },
+  actionBtn: {
     background: "none",
     border: "none",
     padding: "4px 8px",

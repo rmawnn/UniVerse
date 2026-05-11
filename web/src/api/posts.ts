@@ -7,6 +7,7 @@ import type {
   CreatePostRequest,
   CreateCommentRequest,
   LikeToggleResponse,
+  SaveToggleResponse,
 } from "@/types/api";
 
 export async function getPost(postId: string): Promise<PostResponse> {
@@ -71,6 +72,34 @@ export async function listCommunityPosts(
 ): Promise<PaginatedResponse<PostResponse>> {
   const { data } = await api.get<PaginatedResponse<PostResponse>>(
     `/communities/${communityId}/posts`,
+    { params }
+  );
+  return data;
+}
+
+export async function savePost(
+  postId: string
+): Promise<SaveToggleResponse> {
+  const { data } = await api.post<SaveToggleResponse>(
+    `/posts/${postId}/save`
+  );
+  return data;
+}
+
+export async function unsavePost(
+  postId: string
+): Promise<SaveToggleResponse> {
+  const { data } = await api.delete<SaveToggleResponse>(
+    `/posts/${postId}/save`
+  );
+  return data;
+}
+
+export async function listSavedPosts(
+  params?: PaginationParams
+): Promise<PaginatedResponse<PostResponse>> {
+  const { data } = await api.get<PaginatedResponse<PostResponse>>(
+    "/users/me/saved-posts",
     { params }
   );
   return data;

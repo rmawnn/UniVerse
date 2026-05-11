@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/explore", label: "Explore", icon: "🧭" },
   { href: "/communities", label: "Communities", icon: "👥" },
   { href: "/search", label: "Search", icon: "🔍" },
+  { href: "/saved", label: "Saved", icon: "🔖" },
   { href: "/messages", label: "Messages", icon: "✉️" },
   {
     href: "/notifications",

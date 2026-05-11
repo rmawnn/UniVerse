@@ -134,8 +134,15 @@ export interface PostResponse {
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
+  saved_by_me: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// ── Saved Posts ────────────────────────────────────────────────
+
+export interface SaveToggleResponse {
+  saved: boolean;
 }
 
 // ── Comment ────────────────────────────────────────────────
@@ -257,6 +264,14 @@ export interface FollowResponse {
   followers_count: number;
   following_count: number;
   is_following: boolean;
+}
+
+// ── Explore ─────────────────────────────────────────────────
+
+export interface ExploreResponse {
+  trending_posts: PostResponse[];
+  suggested_communities: ExploreCommunityResponse[];
+  suggested_users: UserSearchResult[];
 }
 
 // ── Stories ─────────────────────────────────────────────────
