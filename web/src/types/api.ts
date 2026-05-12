@@ -137,14 +137,26 @@ export interface PostResponse {
   comment_count: number;
   liked_by_me: boolean;
   saved_by_me: boolean;
+  feed_label: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// ── Saved Posts ────────────────────────────────────────────────
+// ── Saved Posts & Collections ──────────────────────────────────
 
 export interface SaveToggleResponse {
   saved: boolean;
+}
+
+export interface SavedCollectionResponse {
+  id: string;
+  name: string;
+  post_count: number;
+  created_at: string;
+}
+
+export interface CreateCollectionRequest {
+  name: string;
 }
 
 // ── Comment ────────────────────────────────────────────────

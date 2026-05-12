@@ -35,5 +35,6 @@ class PostResponse(BaseModel):
     comment_count: int = 0
     liked_by_me: bool = False
     saved_by_me: bool = False
+    feed_label: str | None = None
     created_at: datetime
     updated_at: datetime

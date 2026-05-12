@@ -16,6 +16,9 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostAuthorSummary, PostCreateRequest, PostResponse
 
 
+SHORTS_DAILY_LIMIT = 10
+
+
 async def create_post(
     db: AsyncSession,
     community_id: UUID,
@@ -28,9 +31,24 @@ async def create_post(
     Rules:
       - Community must exist
       - User must be a member of the community
+      - Short posts: max 10 per user per 24 hours
+      - Short posts require a video_url
     """
     if not current_user.is_active:
         raise BadRequest("Account is deactivated")
+
+    post_repo = PostRepository(db)
+
+    # Short-specific validation
+    if data.post_type == "short":
+        if not data.video_url:
+            raise BadRequest("Short posts require a video")
+        today_count = await post_repo.count_shorts_by_author_today(current_user.id)
+        if today_count >= SHORTS_DAILY_LIMIT:
+            raise BadRequest(
+                f"You can create up to {SHORTS_DAILY_LIMIT} shorts per day. "
+                f"Try again tomorrow."
+            )
 
     community_repo = CommunityRepository(db)
 
@@ -49,7 +67,6 @@ async def create_post(
         video_url=data.video_url,
         post_type=data.post_type,
     )
-    post_repo = PostRepository(db)
     post = await post_repo.create(post)
 
     # New post has 0 likes, not liked or saved yet
@@ -290,6 +307,7 @@ def _build_response(
     comment_count: int = 0,
     liked_by_me: bool = False,
     saved_by_me: bool = False,
+    feed_label: str | None = None,
 ) -> PostResponse:
     """Build a PostResponse with embedded author summary, like, comment, and save data."""
     author_summary = PostAuthorSummary(
@@ -316,6 +334,7 @@ def _build_response(
         comment_count=comment_count,
         liked_by_me=liked_by_me,
         saved_by_me=saved_by_me,
+        feed_label=feed_label,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )
