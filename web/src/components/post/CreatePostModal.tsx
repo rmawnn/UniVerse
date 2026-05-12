@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listMyCommunities } from "@/api/communities";
 import { createPost } from "@/api/posts";
-import { uploadImage } from "@/api/uploads";
+import { uploadImage, uploadVideo } from "@/api/uploads";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
@@ -12,6 +12,9 @@ const BACKEND_URL =
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+const VIDEO_MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+const VIDEO_ALLOWED_TYPES = ["video/mp4", "video/webm"];
 
 export default function CreatePostModal({
   open,
@@ -30,6 +33,7 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [postType, setPostType] = useState<"text" | "image" | "short">("text");
   const [error, setError] = useState<string | null>(null);
 
   // Image state
@@ -37,6 +41,11 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Video state
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const communitiesQuery = useQuery({
     queryKey: ["communities", "joined"],
@@ -49,16 +58,21 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
     selectedId ?? (communities.length > 0 ? communities[0].id : "");
 
   const createMutation = useMutation({
-    mutationFn: (imageUrl?: string) =>
+    mutationFn: (urls: { imageUrl?: string; videoUrl?: string }) =>
       createPost(effectiveCommunityId, {
         content: content.trim(),
-        ...(imageUrl ? { image_url: imageUrl } : {}),
+        ...(urls.imageUrl ? { image_url: urls.imageUrl } : {}),
+        ...(urls.videoUrl ? { video_url: urls.videoUrl } : {}),
+        post_type: postType,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed"] });
       qc.invalidateQueries({
         queryKey: ["community-posts", effectiveCommunityId],
       });
+      if (postType === "short") {
+        qc.invalidateQueries({ queryKey: ["shorts"] });
+      }
       onClose();
     },
     onError: (err: { message?: string }) => {
@@ -84,6 +98,7 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
 
     setError(null);
     setSelectedFile(file);
+    setPostType("image");
 
     // Create preview
     const url = URL.createObjectURL(file);
@@ -99,6 +114,40 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    if (postType === "image") setPostType("text");
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!VIDEO_ALLOWED_TYPES.includes(file.type)) {
+      setError("Only MP4 and WebM videos are allowed");
+      return;
+    }
+    if (file.size > VIDEO_MAX_SIZE) {
+      setError(`Video too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 20 MB`);
+      return;
+    }
+
+    setError(null);
+    setSelectedVideo(file);
+    setPostType("short");
+
+    const url = URL.createObjectURL(file);
+    setVideoPreviewUrl(url);
+  };
+
+  const removeVideo = () => {
+    setSelectedVideo(null);
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+      setVideoPreviewUrl(null);
+    }
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
+    }
+    setPostType("text");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,13 +160,13 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
 
     try {
       let imageUrl: string | undefined;
+      let videoUrl: string | undefined;
 
       // Upload image first if one is selected
       if (selectedFile) {
         setIsUploading(true);
         try {
           const result = await uploadImage(selectedFile);
-          // Convert relative path to absolute URL
           imageUrl = `${BACKEND_URL}${result.url}`;
         } catch (err: unknown) {
           const msg = (err as { message?: string })?.message ?? "Failed to upload image";
@@ -128,7 +177,22 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
         setIsUploading(false);
       }
 
-      createMutation.mutate(imageUrl);
+      // Upload video if one is selected
+      if (selectedVideo) {
+        setIsUploading(true);
+        try {
+          const result = await uploadVideo(selectedVideo);
+          videoUrl = `${BACKEND_URL}${result.url}`;
+        } catch (err: unknown) {
+          const msg = (err as { message?: string })?.message ?? "Failed to upload video";
+          setError(msg);
+          setIsUploading(false);
+          return;
+        }
+        setIsUploading(false);
+      }
+
+      createMutation.mutate({ imageUrl, videoUrl });
     } catch {
       setError("Something went wrong");
     }
@@ -233,6 +297,53 @@ function CreatePostModalBody({ onClose }: { onClose: () => void }) {
                 src={previewUrl}
                 alt="Preview"
                 style={styles.previewImg}
+              />
+            </div>
+          )}
+
+          {/* ── Video upload (Short) ─────────────────────────── */}
+          <label style={styles.label}>Short Video (optional)</label>
+
+          {!selectedVideo ? (
+            <button
+              type="button"
+              onClick={() => videoInputRef.current?.click()}
+              style={styles.uploadBtn}
+              disabled={isBusy || !!selectedFile}
+            >
+              Choose Video
+            </button>
+          ) : (
+            <div style={styles.selectedFile}>
+              <span style={styles.fileName}>
+                {selectedVideo.name} ({(selectedVideo.size / 1024 / 1024).toFixed(1)} MB)
+              </span>
+              <button
+                type="button"
+                onClick={removeVideo}
+                style={styles.removeBtn}
+                disabled={isBusy}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/mp4,video/webm"
+            onChange={handleVideoSelect}
+            style={{ display: "none" }}
+          />
+
+          {videoPreviewUrl && (
+            <div style={styles.previewWrap}>
+              <video
+                src={videoPreviewUrl}
+                style={styles.previewImg}
+                controls
+                preload="metadata"
               />
             </div>
           )}

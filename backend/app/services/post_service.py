@@ -46,6 +46,8 @@ async def create_post(
         author_id=current_user.id,
         content=data.content,
         image_url=data.image_url,
+        video_url=data.video_url,
+        post_type=data.post_type,
     )
     post_repo = PostRepository(db)
     post = await post_repo.create(post)
@@ -218,6 +220,68 @@ async def list_user_posts(
     )
 
 
+async def list_shorts(
+    db: AsyncSession,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User | None = None,
+) -> PaginatedResponse[PostResponse]:
+    """List short-form video posts, newest first."""
+    post_repo = PostRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await post_repo.count_shorts()
+    posts = await post_repo.list_shorts(skip=skip, limit=page_size)
+
+    if not posts:
+        return PaginatedResponse(
+            items=[], total=total, page=page, page_size=page_size,
+            total_pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    # Batch-load authors
+    user_repo = UserRepository(db)
+    author_ids = {p.author_id for p in posts}
+    authors: dict[UUID, User] = {}
+    for aid in author_ids:
+        user = await user_repo.get_by_id(aid)
+        if user:
+            authors[aid] = user
+
+    # Batch-load like counts, comment counts, and user's likes/saves
+    post_ids = [p.id for p in posts]
+    like_repo = PostLikeRepository(db)
+    like_counts = await like_repo.count_by_posts(post_ids)
+    comment_repo = CommentRepository(db)
+    comment_counts = await comment_repo.count_by_posts(post_ids)
+    liked_set: set[UUID] = set()
+    saved_set: set[UUID] = set()
+    if current_user:
+        liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
+        save_repo = SavedPostRepository(db)
+        saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
+
+    items = [
+        _build_response(
+            p, authors.get(p.author_id),
+            like_count=like_counts.get(p.id, 0),
+            comment_count=comment_counts.get(p.id, 0),
+            liked_by_me=p.id in liked_set,
+            saved_by_me=p.id in saved_set,
+        )
+        for p in posts
+    ]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
 def _build_response(
     post: Post,
     author: User | None,
@@ -246,6 +310,8 @@ def _build_response(
         author=author_summary,
         content=post.content,
         image_url=post.image_url,
+        video_url=post.video_url,
+        post_type=post.post_type,
         like_count=like_count,
         comment_count=comment_count,
         liked_by_me=liked_by_me,

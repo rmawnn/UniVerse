@@ -131,6 +131,8 @@ export interface PostResponse {
   author: AuthorSummary;
   content: string;
   image_url: string | null;
+  video_url: string | null;
+  post_type: "text" | "image" | "short";
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
@@ -162,6 +164,8 @@ export interface CommentResponse {
 export interface CreatePostRequest {
   content: string;
   image_url?: string;
+  video_url?: string;
+  post_type?: "text" | "image" | "short";
 }
 
 export interface CreateCommentRequest {

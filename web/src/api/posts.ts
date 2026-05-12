@@ -104,3 +104,13 @@ export async function listSavedPosts(
   );
   return data;
 }
+
+export async function listShorts(
+  params?: PaginationParams
+): Promise<PaginatedResponse<PostResponse>> {
+  const { data } = await api.get<PaginatedResponse<PostResponse>>(
+    "/shorts",
+    { params }
+  );
+  return data;
+}

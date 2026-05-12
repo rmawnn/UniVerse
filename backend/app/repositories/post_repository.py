@@ -230,6 +230,34 @@ class PostRepository:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_shorts(self, *, skip: int = 0, limit: int = 20) -> list[Post]:
+        """Return short-form video posts, newest first."""
+        stmt = (
+            select(Post)
+            .where(
+                Post.post_type == "short",
+                Post.is_deleted == False,  # noqa: E712
+            )
+            .order_by(Post.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_shorts(self) -> int:
+        """Count all non-deleted short-form video posts."""
+        stmt = (
+            select(func.count())
+            .select_from(Post)
+            .where(
+                Post.post_type == "short",
+                Post.is_deleted == False,  # noqa: E712
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
     async def set_deleted(self, post: Post, is_deleted: bool) -> Post:
         post.is_deleted = is_deleted
         await self.db.flush()

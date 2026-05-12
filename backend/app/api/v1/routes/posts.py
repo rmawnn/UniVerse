@@ -45,6 +45,22 @@ async def list_community_posts(
     )
 
 
+@router.get(
+    "/shorts",
+    response_model=PaginatedResponse[PostResponse],
+)
+async def list_shorts(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """List short-form video posts, newest first."""
+    return await post_service.list_shorts(
+        db, page=page, page_size=page_size, current_user=current_user,
+    )
+
+
 @router.get("/posts/{post_id}", response_model=PostResponse)
 async def get_post(
     post_id: UUID,

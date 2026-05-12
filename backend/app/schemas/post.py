@@ -8,6 +8,8 @@ class PostCreateRequest(BaseModel):
     """Payload for creating a post inside a community."""
     content: str = Field(..., min_length=1, max_length=5000)
     image_url: str | None = Field(None, max_length=500)
+    video_url: str | None = Field(None, max_length=500)
+    post_type: str = Field("text", pattern=r"^(text|image|short)$")
 
 
 class PostAuthorSummary(BaseModel):
@@ -27,6 +29,8 @@ class PostResponse(BaseModel):
     author: PostAuthorSummary
     content: str
     image_url: str | None = None
+    video_url: str | None = None
+    post_type: str = "text"
     like_count: int = 0
     comment_count: int = 0
     liked_by_me: bool = False

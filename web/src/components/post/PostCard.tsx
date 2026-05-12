@@ -144,7 +144,19 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
 
       <p style={styles.content}>{post.content}</p>
 
-      {post.image_url && !imgBroken && (
+      {post.video_url && post.post_type === "short" && (
+        <div style={styles.imageWrap}>
+          <video
+            src={post.video_url}
+            style={styles.image}
+            controls
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {post.image_url && !imgBroken && post.post_type !== "short" && (
         <div style={styles.imageWrap}>
           <img
             src={post.image_url}
@@ -203,6 +215,8 @@ const PostCard = memo(PostCardInner, (prev, next) => {
     a.saved_by_me === b.saved_by_me &&
     a.content === b.content &&
     a.image_url === b.image_url &&
+    a.video_url === b.video_url &&
+    a.post_type === b.post_type &&
     a.updated_at === b.updated_at
   );
 });

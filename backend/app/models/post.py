@@ -13,6 +13,11 @@ class Post(BaseModel):
 
     Soft-deleted via is_deleted — normal queries filter these out,
     but the data is preserved for moderation and audit.
+
+    post_type:
+      - "text"  — plain text post (default)
+      - "image" — post with an attached image
+      - "short" — short-form video post (Reels-lite)
     """
 
     __tablename__ = "posts"
@@ -31,4 +36,8 @@ class Post(BaseModel):
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500))
+    video_url: Mapped[str | None] = mapped_column(String(500))
+    post_type: Mapped[str] = mapped_column(
+        String(10), default="text", server_default="text", index=True,
+    )
     is_deleted: Mapped[bool] = mapped_column(default=False)

@@ -7,6 +7,7 @@ import { useUnreadCount } from "@/hooks/use-unread-count";
 
 const NAV_ITEMS = [
   { href: "/feed", label: "Feed", icon: "🏠" },
+  { href: "/shorts", label: "Shorts", icon: "🎬" },
   { href: "/explore", label: "Explore", icon: "🧭" },
   { href: "/communities", label: "Communities", icon: "👥" },
   { href: "/search", label: "Search", icon: "🔍" },
