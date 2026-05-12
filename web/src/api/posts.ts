@@ -8,6 +8,8 @@ import type {
   CreateCommentRequest,
   LikeToggleResponse,
   SaveToggleResponse,
+  SavedCollectionResponse,
+  CreateCollectionRequest,
 } from "@/types/api";
 
 export async function getPost(postId: string): Promise<PostResponse> {
@@ -104,6 +106,58 @@ export async function listSavedPosts(
   );
   return data;
 }
+
+// ── Collections ─────────────────────────────────────────────
+
+export async function listCollections(): Promise<SavedCollectionResponse[]> {
+  const { data } = await api.get<SavedCollectionResponse[]>(
+    "/users/me/saved-collections"
+  );
+  return data;
+}
+
+export async function createCollection(
+  body: CreateCollectionRequest
+): Promise<SavedCollectionResponse> {
+  const { data } = await api.post<SavedCollectionResponse>(
+    "/users/me/saved-collections",
+    body
+  );
+  return data;
+}
+
+export async function getCollectionPosts(
+  collectionId: string,
+  params?: PaginationParams
+): Promise<PaginatedResponse<PostResponse>> {
+  const { data } = await api.get<PaginatedResponse<PostResponse>>(
+    `/users/me/saved-collections/${collectionId}`,
+    { params }
+  );
+  return data;
+}
+
+export async function addPostToCollection(
+  collectionId: string,
+  postId: string
+): Promise<{ added: boolean }> {
+  const { data } = await api.post<{ added: boolean }>(
+    `/users/me/saved-collections/${collectionId}/posts/${postId}`
+  );
+  return data;
+}
+
+export async function removePostFromCollection(
+  collectionId: string,
+  postId: string
+): Promise<{ removed: boolean }> {
+  const { data } = await api.delete<{ removed: boolean }>(
+    `/users/me/saved-collections/${collectionId}/posts/${postId}`
+  );
+  return data;
+}
+
+// ── Shorts ──────────────────────────────────────────────────
 
 export async function listShorts(
   params?: PaginationParams
