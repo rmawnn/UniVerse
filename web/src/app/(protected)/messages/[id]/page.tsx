@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listMessages, sendMessage, markConversationRead } from "@/api/messaging";
 import { useAuthStore } from "@/store/auth-store";
+import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { formatRelativeTime } from "@/lib/format";
 import type { MessageResponse } from "@/types/api";
 
@@ -65,11 +66,14 @@ export default function ChatPage({
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
 
+  const { isTyping, handleInputChange, sendTypingStop } = useTypingIndicator(id);
+
   const sendMutation = useMutation({
     mutationFn: () => sendMessage(id, { content: draft.trim() }),
     onSuccess: () => {
       setDraft("");
       setSendError(null);
+      sendTypingStop(); // stop typing indicator on send
       qc.invalidateQueries({ queryKey: [...messagesKey] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
@@ -144,11 +148,25 @@ export default function ChatPage({
         ))}
       </div>
 
+      {isTyping && (
+        <div style={styles.typingBar}>
+          <span style={styles.typingDots}>
+            <span style={styles.dot1} />
+            <span style={styles.dot2} />
+            <span style={styles.dot3} />
+          </span>
+          <span style={styles.typingText}>typing...</span>
+        </div>
+      )}
+
       <form onSubmit={handleSend} style={styles.composer}>
         <input
           type="text"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            handleInputChange();
+          }}
           placeholder="Type a message..."
           style={styles.input}
           disabled={sendMutation.isPending}
@@ -301,4 +319,44 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   sendError: { color: "#c53030", fontSize: 13, marginTop: 6 },
+  typingBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 14px",
+    borderTop: "1px solid #f0f0f0",
+    background: "#fff",
+    flexShrink: 0,
+  },
+  typingDots: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+  },
+  dot1: {
+    width: 5,
+    height: 5,
+    borderRadius: "50%",
+    background: "#6C63FF",
+    animation: "typingBounce 1.2s ease-in-out infinite",
+  },
+  dot2: {
+    width: 5,
+    height: 5,
+    borderRadius: "50%",
+    background: "#6C63FF",
+    animation: "typingBounce 1.2s ease-in-out 0.2s infinite",
+  },
+  dot3: {
+    width: 5,
+    height: 5,
+    borderRadius: "50%",
+    background: "#6C63FF",
+    animation: "typingBounce 1.2s ease-in-out 0.4s infinite",
+  },
+  typingText: {
+    fontSize: 12,
+    color: "#999",
+    fontStyle: "italic",
+  },
 };

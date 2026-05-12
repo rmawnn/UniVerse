@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getToken } from "@/lib/api-client";
 
@@ -10,6 +10,10 @@ import { getToken } from "@/lib/api-client";
  * Connects to /api/v1/ws?token=<JWT> and listens for server-pushed events.
  * On "new_message" → invalidates the relevant message and conversation caches.
  * On "new_notification" → invalidates the notification caches.
+ * On "typing_start"/"typing_stop" → fires custom window events for chat UI.
+ *
+ * Also exposes a `send` function so components can push events upstream
+ * (used for typing indicators).
  *
  * Includes event deduplication: events with the same type + key within a short
  * window are coalesced to prevent redundant cache invalidations.
@@ -100,6 +104,14 @@ export function useWebSocket() {
               qc.invalidateQueries({ queryKey: ["notifications", "list"] });
               qc.invalidateQueries({ queryKey: ["notifications", "badge"] });
             }
+          } else if (
+            event.type === "typing_start" ||
+            event.type === "typing_stop"
+          ) {
+            // Dispatch as a DOM CustomEvent so chat components can listen
+            window.dispatchEvent(
+              new CustomEvent("ws:typing", { detail: event })
+            );
           }
         } catch {
           // ignore malformed frames
@@ -145,4 +157,13 @@ export function useWebSocket() {
       }
     };
   }, [qc]);
+
+  /** Send a JSON event to the server via the open WebSocket. */
+  const send = useCallback((event: Record<string, unknown>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(event));
+    }
+  }, []);
+
+  return { send };
 }
