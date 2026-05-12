@@ -181,6 +181,55 @@ class PostRepository:
         """Get post by ID including deleted (for admin)."""
         return await self.db.get(Post, post_id)
 
+    async def list_trending(self, *, limit: int = 10) -> list[Post]:
+        """Return globally trending posts ranked by engagement.
+
+        Score = (likes * 2) + comments - (age_in_hours / 6)
+        Only non-deleted posts from non-deleted, public communities.
+        """
+        from app.models.community import Community
+
+        like_counts = (
+            select(
+                PostLike.post_id,
+                func.count().label("like_cnt"),
+            )
+            .group_by(PostLike.post_id)
+        ).subquery()
+
+        comment_counts = (
+            select(
+                Comment.post_id,
+                func.count().label("comment_cnt"),
+            )
+            .where(Comment.is_deleted == False)  # noqa: E712
+            .group_by(Comment.post_id)
+        ).subquery()
+
+        age_hours = func.extract("epoch", func.now() - Post.created_at) / 3600
+
+        score = (
+            func.coalesce(like_counts.c.like_cnt, 0) * 2
+            + func.coalesce(comment_counts.c.comment_cnt, 0)
+            - age_hours / 6
+        )
+
+        stmt = (
+            select(Post)
+            .join(Community, Community.id == Post.community_id)
+            .outerjoin(like_counts, like_counts.c.post_id == Post.id)
+            .outerjoin(comment_counts, comment_counts.c.post_id == Post.id)
+            .where(
+                Post.is_deleted == False,  # noqa: E712
+                Community.is_deleted == False,  # noqa: E712
+                Community.is_public == True,  # noqa: E712
+            )
+            .order_by(score.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def set_deleted(self, post: Post, is_deleted: bool) -> Post:
         post.is_deleted = is_deleted
         await self.db.flush()

@@ -4,6 +4,7 @@ from sqlalchemy import select, func, case, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.models.user_follow import UserFollow
 
 
 class UserRepository:
@@ -195,3 +196,32 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def list_suggested(
+        self,
+        current_user_id: UUID,
+        *,
+        limit: int = 10,
+    ) -> list[User]:
+        """Return active users that the current user is NOT following.
+
+        Ordered randomly (using SQL func.random()) so each request
+        returns a fresh set of suggestions. Excludes the current user.
+        """
+        following_ids = (
+            select(UserFollow.following_id)
+            .where(UserFollow.follower_id == current_user_id)
+        ).subquery()
+
+        stmt = (
+            select(User)
+            .where(
+                User.is_active == True,  # noqa: E712
+                User.id != current_user_id,
+                User.id.notin_(select(following_ids)),
+            )
+            .order_by(func.random())
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())

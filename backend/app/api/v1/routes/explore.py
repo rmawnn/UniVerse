@@ -6,9 +6,22 @@ from app.core.dependencies import get_current_user_optional
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.community import ExploreCommunityResponse
-from app.services import community_service
+from app.schemas.explore import ExploreResponse
+from app.services import community_service, explore_service
 
 router = APIRouter()
+
+
+@router.get(
+    "/explore",
+    response_model=ExploreResponse,
+)
+async def explore(
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Combined explore page: trending posts, suggested communities & users."""
+    return await explore_service.get_explore(db, current_user=current_user)
 
 
 @router.get(
