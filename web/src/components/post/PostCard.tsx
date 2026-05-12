@@ -128,6 +128,10 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
 
   return (
     <article style={styles.card} className="card-hover" onClick={goToPost}>
+      {post.feed_label && (
+        <div style={styles.feedLabel}>{post.feed_label}</div>
+      )}
+
       <header style={styles.header}>
         <div>
           <strong style={styles.name}>{post.author.full_name}</strong>
@@ -150,7 +154,7 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
             src={post.video_url}
             style={styles.image}
             controls
-            preload="metadata"
+            preload="none"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
@@ -217,6 +221,7 @@ const PostCard = memo(PostCardInner, (prev, next) => {
     a.image_url === b.image_url &&
     a.video_url === b.video_url &&
     a.post_type === b.post_type &&
+    a.feed_label === b.feed_label &&
     a.updated_at === b.updated_at
   );
 });
@@ -231,6 +236,15 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 16,
     cursor: "pointer",
     transition: "border-color 0.15s",
+  },
+  feedLabel: {
+    fontSize: 11,
+    color: "#6C63FF",
+    fontWeight: 500,
+    marginBottom: 6,
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
   },
   header: {
     display: "flex",

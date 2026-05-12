@@ -4,7 +4,6 @@ import { useMemo, useRef, useEffect, useCallback, useState } from "react";
 import Link from "next/link";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listShorts, toggleLike, savePost, unsavePost } from "@/api/posts";
-import { useAuthStore } from "@/store/auth-store";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { formatRelativeTime } from "@/lib/format";
 import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
@@ -13,12 +12,18 @@ import type { PaginatedResponse, PostResponse } from "@/types/api";
 const SHORTS_KEY = ["shorts"] as const;
 const PAGE_SIZE = 10;
 
+/**
+ * How many slots away from the active index a video should
+ * keep its `src` loaded.  Videos outside this window have their
+ * src removed so the browser can free the buffered data.
+ */
+const PRELOAD_WINDOW = 1;
+
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
   "http://localhost:8000";
 
 export default function ShortsPage() {
-  const qc = useQueryClient();
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -51,20 +56,38 @@ export default function ShortsPage() {
     !!hasNextPage && !isFetchingNextPage
   );
 
-  // Snap scroll — detect which short is in view
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const idx = Math.round(el.scrollTop / el.clientHeight);
-    setActiveIndex(idx);
-  }, []);
+  // ── IntersectionObserver: detect which card is fully visible ──
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  const setCardRef = useCallback(
+    (index: number) => (el: HTMLDivElement | null) => {
+      if (el) cardRefs.current.set(index, el);
+      else cardRefs.current.delete(index);
+    },
+    [],
+  );
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
+    const container = containerRef.current;
+    if (!container || shorts.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            const idx = Number(
+              (entry.target as HTMLElement).dataset.shortIndex,
+            );
+            if (!Number.isNaN(idx)) setActiveIndex(idx);
+          }
+        }
+      },
+      { root: container, threshold: 0.6 },
+    );
+
+    cardRefs.current.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [shorts.length]);
 
   return (
     <div>
@@ -97,7 +120,10 @@ export default function ShortsPage() {
             <ShortCard
               key={short.id}
               post={short}
+              index={i}
               isActive={i === activeIndex}
+              isNearby={Math.abs(i - activeIndex) <= PRELOAD_WINDOW}
+              cardRef={setCardRef(i)}
             />
           ))}
           {hasNextPage && (
@@ -115,25 +141,56 @@ export default function ShortsPage() {
 
 function ShortCard({
   post,
+  index,
   isActive,
+  isNearby,
+  cardRef,
 }: {
   post: PostResponse;
+  index: number;
   isActive: boolean;
+  /** Within ±PRELOAD_WINDOW of active — keep src loaded */
+  isNearby: boolean;
+  cardRef: (el: HTMLDivElement | null) => void;
 }) {
   const qc = useQueryClient();
-  const me = useAuthStore((s) => s.user);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Auto-play when active, pause when not
+  const videoSrc = post.video_url
+    ? post.video_url.startsWith("http")
+      ? post.video_url
+      : `${BACKEND_URL}${post.video_url}`
+    : null;
+
+  // Lazy load / unload video src based on proximity to active index
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
-    if (isActive) {
+    if (!video || !videoSrc) return;
+
+    if (isNearby) {
+      // Load src if not already set
+      if (!video.src || video.src === window.location.href) {
+        video.src = videoSrc;
+        video.load();
+      }
+    } else {
+      // Unload — free memory for distant videos
+      video.pause();
+      video.removeAttribute("src");
+      video.load(); // resets the media element
+    }
+  }, [isNearby, videoSrc]);
+
+  // Auto-play / pause based on active state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoSrc) return;
+    if (isActive && isNearby) {
       video.play().catch(() => {});
     } else {
       video.pause();
     }
-  }, [isActive]);
+  }, [isActive, isNearby, videoSrc]);
 
   const likeMutation = useMutation({
     mutationFn: () => toggleLike(post.id),
@@ -151,28 +208,28 @@ function ShortCard({
     },
   });
 
-  const videoSrc = post.video_url
-    ? post.video_url.startsWith("http")
-      ? post.video_url
-      : `${BACKEND_URL}${post.video_url}`
-    : null;
-
   return (
-    <div style={styles.shortCard}>
+    <div
+      ref={cardRef}
+      data-short-index={index}
+      style={styles.shortCard}
+    >
       {/* Video */}
       <div style={styles.videoWrap}>
         {videoSrc ? (
           <video
             ref={videoRef}
-            src={videoSrc}
             style={styles.video}
             loop
             muted
             playsInline
-            preload="metadata"
+            preload="none"
             onClick={() => {
               const v = videoRef.current;
-              if (v) v.paused ? v.play() : v.pause();
+              if (v) {
+                if (v.paused) v.play();
+                else v.pause();
+              }
             }}
           />
         ) : (

@@ -16,7 +16,8 @@ MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 VIDEO_ALLOWED_TYPES = {"video/mp4", "video/webm"}
 VIDEO_ALLOWED_EXTENSIONS = {".mp4", ".webm"}
-VIDEO_MAX_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+VIDEO_MAX_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB (≈10s at reasonable quality)
+VIDEO_MIN_SIZE_BYTES = 10 * 1024  # 10 KB minimum (reject empty/corrupt files)
 
 
 @router.post("/image")
@@ -85,7 +86,8 @@ async def upload_video(
 
     Constraints:
     - MP4 or WebM only
-    - Max 20 MB
+    - Max 15 MB
+    - Min 10 KB (rejects corrupt/empty files)
     """
     if file.content_type not in VIDEO_ALLOWED_TYPES:
         raise BadRequest(
@@ -99,14 +101,30 @@ async def upload_video(
             f"Invalid file extension '{ext}'. Allowed: .mp4, .webm"
         )
 
-    data = await file.read()
-    if len(data) > VIDEO_MAX_SIZE_BYTES:
-        raise BadRequest(
-            f"File too large ({len(data) / 1024 / 1024:.1f} MB). Maximum is 20 MB"
-        )
+    # Read in chunks to avoid holding oversized files in memory
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)  # 1 MB chunks
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > VIDEO_MAX_SIZE_BYTES:
+            raise BadRequest(
+                f"File too large. Maximum is {VIDEO_MAX_SIZE_BYTES // (1024 * 1024)} MB"
+            )
+        chunks.append(chunk)
 
-    if len(data) == 0:
-        raise BadRequest("File is empty")
+    data = b"".join(chunks)
+
+    if len(data) < VIDEO_MIN_SIZE_BYTES:
+        raise BadRequest("File is too small or empty — not a valid video")
+
+    # Basic MP4 magic-byte check (ftyp box)
+    if ext == ".mp4" and data[:4] != b"\x00\x00\x00" and data[4:8] != b"ftyp":
+        # Lenient check: just verify first bytes aren't plain text
+        if data[:4] in (b"<htm", b"<!DO", b"{\n  ", b"PK\x03\x04"):
+            raise BadRequest("File does not appear to be a valid video")
 
     safe_name = f"{uuid.uuid4().hex}{ext}"
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

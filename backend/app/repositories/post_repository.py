@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select, func, case
@@ -147,6 +148,89 @@ class PostRepository:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_by_communities_personalized(
+        self,
+        community_ids: list[UUID],
+        current_user_id: UUID,
+        *,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[Post]:
+        """Fetch posts from joined communities with personalized ranking.
+
+        score = base_engagement + follow_boost + freshness_boost
+
+        - base_engagement: (likes * 2) + comments - (age_hours / 6)
+        - follow_boost:    +5 if the author is someone the viewer follows
+        - freshness_boost: +3 if < 6 h old, +1 if < 24 h old
+        """
+        if not community_ids:
+            return []
+
+        from app.models.user_follow import UserFollow
+
+        # Subquery: like counts per post
+        like_counts = (
+            select(
+                PostLike.post_id,
+                func.count().label("like_cnt"),
+            )
+            .group_by(PostLike.post_id)
+        ).subquery()
+
+        # Subquery: comment counts per post (non-deleted)
+        comment_counts = (
+            select(
+                Comment.post_id,
+                func.count().label("comment_cnt"),
+            )
+            .where(Comment.is_deleted == False)  # noqa: E712
+            .group_by(Comment.post_id)
+        ).subquery()
+
+        # Subquery: users the current user follows (one row per followed user)
+        following = (
+            select(UserFollow.following_id)
+            .where(UserFollow.follower_id == current_user_id)
+        ).subquery()
+
+        age_hours = func.extract("epoch", func.now() - Post.created_at) / 3600
+
+        base_score = (
+            func.coalesce(like_counts.c.like_cnt, 0) * 2
+            + func.coalesce(comment_counts.c.comment_cnt, 0)
+            - age_hours / 6
+        )
+
+        follow_boost = case(
+            (following.c.following_id.isnot(None), 5),
+            else_=0,
+        )
+
+        freshness_boost = case(
+            (age_hours < 6, 3),
+            (age_hours < 24, 1),
+            else_=0,
+        )
+
+        score = base_score + follow_boost + freshness_boost
+
+        stmt = (
+            select(Post)
+            .outerjoin(like_counts, like_counts.c.post_id == Post.id)
+            .outerjoin(comment_counts, comment_counts.c.post_id == Post.id)
+            .outerjoin(following, following.c.following_id == Post.author_id)
+            .where(
+                Post.community_id.in_(community_ids),
+                Post.is_deleted == False,  # noqa: E712
+            )
+            .order_by(score.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def count_by_communities(self, community_ids: list[UUID]) -> int:
         """Count non-deleted posts across multiple communities."""
         if not community_ids:
@@ -253,6 +337,22 @@ class PostRepository:
             .where(
                 Post.post_type == "short",
                 Post.is_deleted == False,  # noqa: E712
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def count_shorts_by_author_today(self, author_id: UUID) -> int:
+        """Count short posts created by a user in the last 24 hours."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        stmt = (
+            select(func.count())
+            .select_from(Post)
+            .where(
+                Post.author_id == author_id,
+                Post.post_type == "short",
+                Post.is_deleted == False,  # noqa: E712
+                Post.created_at >= cutoff,
             )
         )
         result = await self.db.execute(stmt)
