@@ -90,7 +90,11 @@ async def get_explore(
     suggested_users: list[UserSearchResponse] = []
     if current_user:
         user_repo = UserRepository(db)
-        users = await user_repo.list_suggested(current_user.id, limit=6)
+        users = await user_repo.list_suggested(
+            current_user.id,
+            university_id=current_user.university_id,
+            limit=6,
+        )
         suggested_users = [
             UserSearchResponse.model_validate(u) for u in users
         ]

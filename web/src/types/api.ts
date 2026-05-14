@@ -138,6 +138,7 @@ export interface PostResponse {
   liked_by_me: boolean;
   saved_by_me: boolean;
   feed_label: string | null;
+  recommendation_score: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -280,6 +281,12 @@ export interface FollowResponse {
   followers_count: number;
   following_count: number;
   is_following: boolean;
+}
+
+export interface UserInsightsResponse {
+  total_posts: number;
+  total_likes_received: number;
+  total_comments_received: number;
 }
 
 // ── Explore ─────────────────────────────────────────────────

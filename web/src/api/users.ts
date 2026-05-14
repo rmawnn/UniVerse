@@ -6,6 +6,7 @@ import type {
   UserSearchResult,
   PublicUserProfile,
   FollowResponse,
+  UserInsightsResponse,
 } from "@/types/api";
 
 export interface UpdateProfileRequest {
@@ -70,5 +71,19 @@ export async function listFollowing(
     `/users/${userId}/following`,
     { params }
   );
+  return data;
+}
+
+export async function getMyInsights(): Promise<UserInsightsResponse> {
+  const { data } = await api.get<UserInsightsResponse>("/users/me/insights");
+  return data;
+}
+
+export async function getFollowSuggestions(
+  limit: number = 10,
+): Promise<UserSearchResult[]> {
+  const { data } = await api.get<UserSearchResult[]>("/users/suggestions", {
+    params: { limit },
+  });
   return data;
 }

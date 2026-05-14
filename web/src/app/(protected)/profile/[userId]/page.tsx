@@ -1,20 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { use, useMemo, useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getUserProfile, followUser, unfollowUser } from "@/api/users";
-import { listUserPosts } from "@/api/posts";
 import { createConversation } from "@/api/messaging";
 import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeTime } from "@/lib/format";
-import PostCard from "@/components/post/PostCard";
-import { PostSkeleton, SkeletonList } from "@/components/skeletons/Skeletons";
-import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
-import type { PaginatedResponse, PostResponse } from "@/types/api";
-
-const PAGE_SIZE = 15;
+import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 
 export default function PublicProfilePage({
   params,
@@ -71,34 +65,6 @@ export default function PublicProfilePage({
     queryFn: () => getUserProfile(userId),
     staleTime: 60_000,
   });
-
-  const postsKey = ["user-posts", userId] as const;
-
-  const postsQuery = useInfiniteQuery<PaginatedResponse<PostResponse>>({
-    queryKey: [...postsKey],
-    queryFn: ({ pageParam = 1 }) =>
-      listUserPosts(userId, {
-        page: pageParam as number,
-        page_size: PAGE_SIZE,
-      }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
-  });
-
-  const posts = useMemo(
-    () => postsQuery.data?.pages.flatMap((p) => p.items) ?? [],
-    [postsQuery.data]
-  );
-
-  const sentinelRef = useInfiniteScroll(
-    () => {
-      if (postsQuery.hasNextPage && !postsQuery.isFetchingNextPage) {
-        postsQuery.fetchNextPage();
-      }
-    },
-    !!postsQuery.hasNextPage && !postsQuery.isFetchingNextPage
-  );
 
   if (profileQuery.isLoading) {
     return (
@@ -257,74 +223,15 @@ export default function PublicProfilePage({
         )}
       </section>
 
-      {/* ── Posts ────────────────────────────────────────────── */}
+      {/* ── Posts grid (Instagram-style) ─────────────────────── */}
       <section style={styles.section}>
-        <h3 style={styles.subheading}>Posts</h3>
-
-        {postsQuery.isLoading && (
-          <SkeletonList count={3} Component={PostSkeleton} />
-        )}
-
-        {postsQuery.isError && (
-          <div style={styles.error}>
-            <span>Could not load posts.</span>
-            <button
-              onClick={() => postsQuery.refetch()}
-              style={styles.retry}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {!postsQuery.isLoading && !postsQuery.isError && posts.length === 0 && (
-          <div style={styles.emptyPosts}>
-            <span style={styles.emptyIcon}>📝</span>
-            <p style={styles.emptyTitle}>No posts yet</p>
-            <p style={styles.emptyHint}>This user hasn&apos;t posted anything yet.</p>
-          </div>
-        )}
-
-        <div style={styles.postsList}>
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              invalidateKeys={[[...postsKey], ["feed"]]}
-            />
-          ))}
-        </div>
-
-        {postsQuery.hasNextPage && (
-          <div ref={sentinelRef} style={{ marginTop: 12, minHeight: 40 }}>
-            {postsQuery.isFetchingNextPage && <PostSkeleton />}
-          </div>
-        )}
-
-        {!postsQuery.hasNextPage && posts.length > 0 && (
-          <p style={styles.endText}>No more posts</p>
-        )}
+        <ProfilePostsGrid userId={userId} isOwnProfile={isOwnProfile} />
       </section>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  emptyPosts: {
-    textAlign: "center",
-    padding: "36px 24px",
-    background: "#fafafa",
-    borderRadius: 10,
-    border: "1px dashed #ddd",
-  },
-  emptyIcon: { fontSize: 32, display: "block", marginBottom: 8 },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#333",
-    margin: "0 0 4px",
-  },
-  emptyHint: { color: "#888", fontSize: 14, margin: 0 },
   mutedText: { color: "#999", fontSize: 14 },
   header: {
     background: "#fff",
@@ -471,13 +378,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     textDecoration: "none",
     border: "1px solid #e0defe",
-  },
-  postsList: { display: "flex", flexDirection: "column", gap: 12 },
-  endText: {
-    textAlign: "center",
-    color: "#bbb",
-    fontSize: 13,
-    padding: "12px 0 0",
   },
   error: {
     background: "#fff5f5",

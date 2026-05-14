@@ -49,9 +49,17 @@ class PostRepository:
         return result.scalar_one()
 
     async def list_by_author(
-        self, author_id: UUID, *, skip: int = 0, limit: int = 20,
+        self,
+        author_id: UUID,
+        *,
+        skip: int = 0,
+        limit: int = 20,
+        post_type: str | None = None,
     ) -> list[Post]:
-        """Fetch posts created by a specific user, newest first."""
+        """Fetch posts created by a specific user, newest first.
+
+        Optionally filter by post_type (text, image, short).
+        """
         stmt = (
             select(Post)
             .where(Post.author_id == author_id, Post.is_deleted == False)  # noqa: E712
@@ -59,18 +67,46 @@ class PostRepository:
             .offset(skip)
             .limit(limit)
         )
+        if post_type is not None:
+            stmt = stmt.where(Post.post_type == post_type)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_by_author(self, author_id: UUID) -> int:
+    async def count_by_author(
+        self, author_id: UUID, *, post_type: str | None = None,
+    ) -> int:
         """Count non-deleted posts created by a specific user."""
         stmt = (
             select(func.count())
             .select_from(Post)
             .where(Post.author_id == author_id, Post.is_deleted == False)  # noqa: E712
         )
+        if post_type is not None:
+            stmt = stmt.where(Post.post_type == post_type)
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def list_candidates(
+        self, community_ids: list[UUID], *, limit: int = 500,
+    ) -> list[Post]:
+        """Fetch recent candidate posts for recommendation scoring.
+
+        Returns the most recent non-deleted posts from the given communities,
+        capped at ``limit``.  No complex scoring — that happens in Python.
+        """
+        if not community_ids:
+            return []
+        stmt = (
+            select(Post)
+            .where(
+                Post.community_id.in_(community_ids),
+                Post.is_deleted == False,  # noqa: E712
+            )
+            .order_by(Post.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
     async def list_by_communities(
         self, community_ids: list[UUID], *, skip: int = 0, limit: int = 20,
@@ -141,7 +177,7 @@ class PostRepository:
                 Post.community_id.in_(community_ids),
                 Post.is_deleted == False,  # noqa: E712
             )
-            .order_by(score.desc())
+            .order_by(score.desc(), Post.id.desc())
             .offset(skip)
             .limit(limit)
         )
@@ -224,7 +260,7 @@ class PostRepository:
                 Post.community_id.in_(community_ids),
                 Post.is_deleted == False,  # noqa: E712
             )
-            .order_by(score.desc())
+            .order_by(score.desc(), Post.id.desc())
             .offset(skip)
             .limit(limit)
         )
@@ -308,7 +344,7 @@ class PostRepository:
                 Community.is_deleted == False,  # noqa: E712
                 Community.is_public == True,  # noqa: E712
             )
-            .order_by(score.desc())
+            .order_by(score.desc(), Post.id.desc())
             .limit(limit)
         )
         result = await self.db.execute(stmt)

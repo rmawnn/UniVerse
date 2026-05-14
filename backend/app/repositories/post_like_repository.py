@@ -52,6 +52,67 @@ class PostLikeRepository:
         # Fill in zeros for posts with no likes
         return {pid: counts.get(pid, 0) for pid in post_ids}
 
+    async def count_received_by_author(self, author_id: UUID) -> int:
+        """Count total likes received on all non-deleted posts by an author."""
+        from app.models.post import Post
+
+        stmt = (
+            select(func.count())
+            .select_from(PostLike)
+            .join(Post, Post.id == PostLike.post_id)
+            .where(Post.author_id == author_id, Post.is_deleted == False)  # noqa: E712
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def author_affinity(
+        self, user_id: UUID, author_ids: set[UUID],
+    ) -> dict[UUID, int]:
+        """Count how many posts by each author the user has liked.
+
+        Returns {author_id: like_count} — only authors with > 0 likes.
+        """
+        if not author_ids:
+            return {}
+        from app.models.post import Post
+
+        stmt = (
+            select(Post.author_id, func.count())
+            .select_from(PostLike)
+            .join(Post, Post.id == PostLike.post_id)
+            .where(
+                PostLike.user_id == user_id,
+                Post.author_id.in_(author_ids),
+            )
+            .group_by(Post.author_id)
+        )
+        result = await self.db.execute(stmt)
+        return {row[0]: row[1] for row in result.all()}
+
+    async def community_affinity(
+        self, user_id: UUID, community_ids: list[UUID],
+    ) -> dict[UUID, int]:
+        """Count how many posts in each community the user has liked.
+
+        Returns {community_id: like_count} — only communities with > 0 likes.
+        """
+        if not community_ids:
+            return {}
+        from app.models.post import Post
+
+        stmt = (
+            select(Post.community_id, func.count())
+            .select_from(PostLike)
+            .join(Post, Post.id == PostLike.post_id)
+            .where(
+                PostLike.user_id == user_id,
+                Post.community_id.in_(community_ids),
+            )
+            .group_by(Post.community_id)
+        )
+        result = await self.db.execute(stmt)
+        return {row[0]: row[1] for row in result.all()}
+
     async def liked_by_user(self, post_ids: list[UUID], user_id: UUID) -> set[UUID]:
         """Return the set of post_ids the user has liked (batch)."""
         if not post_ids:

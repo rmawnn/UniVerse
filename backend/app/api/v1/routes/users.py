@@ -13,6 +13,7 @@ from app.schemas.user import (
     FollowResponse,
     MyProfileResponse,
     PublicUserProfileResponse,
+    UserInsightsResponse,
     UserResponse,
     UserSearchResponse,
     UserStatusResponse,
@@ -72,6 +73,30 @@ async def change_my_password(
 async def get_my_status(current_user: User = Depends(get_current_user)):
     """Lightweight check — returns auth status, role, and verification state."""
     return current_user
+
+
+@router.get("/suggestions", response_model=list[UserSearchResponse])
+async def get_follow_suggestions(
+    limit: int = Query(10, ge=1, le=30),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return users the current user might want to follow.
+
+    Prioritises same-university and verified students.
+    """
+    return await user_service.get_follow_suggestions(
+        db, current_user, limit=limit,
+    )
+
+
+@router.get("/me/insights", response_model=UserInsightsResponse)
+async def get_my_insights(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return simple activity insights for the authenticated user."""
+    return await user_service.get_user_insights(db, current_user)
 
 
 @router.get("/{user_id}", response_model=PublicUserProfileResponse)
@@ -137,10 +162,15 @@ async def list_user_posts(
     user_id: UUID,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    post_type: str | None = Query(None, pattern="^(text|image|short)$"),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """List posts created by a specific user, newest first."""
+    """List posts created by a specific user, newest first.
+
+    Optionally filter by post_type: text, image, or short.
+    """
     return await post_service.list_user_posts(
-        db, user_id, page=page, page_size=page_size, current_user=current_user,
+        db, user_id, page=page, page_size=page_size,
+        post_type=post_type, current_user=current_user,
     )

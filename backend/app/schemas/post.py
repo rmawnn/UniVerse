@@ -36,5 +36,6 @@ class PostResponse(BaseModel):
     liked_by_me: bool = False
     saved_by_me: bool = False
     feed_label: str | None = None
+    recommendation_score: float | None = None
     created_at: datetime
     updated_at: datetime

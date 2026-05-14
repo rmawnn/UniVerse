@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useMutation } from "@tanstack/react-query";
-import { updateProfile } from "@/api/users";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { updateProfile, getMyInsights } from "@/api/users";
 import type { UpdateProfileRequest } from "@/api/users";
 import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeTime } from "@/lib/format";
+import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 
 export default function ProfilePage() {
   const user = useAuthStore((s) => s.user);
@@ -128,6 +129,14 @@ export default function ProfilePage() {
         </div>
       </section>
 
+      {/* ── Activity insights ───────────────────────────────── */}
+      <InsightsSection />
+
+      {/* ── Posts grid (Instagram-style) ─────────────────────── */}
+      <section style={styles.postsSection}>
+        <ProfilePostsGrid userId={user.id} isOwnProfile />
+      </section>
+
       {/* ── Edit profile modal ──────────────────────────────── */}
       {showEdit && (
         <EditProfileModal
@@ -142,6 +151,89 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+/* ── Activity Insights ───────────────────────────────────────── */
+
+function InsightsSection() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["my-insights"],
+    queryFn: getMyInsights,
+    staleTime: 120_000,
+  });
+
+  const cards: { label: string; value: number | null; icon: string }[] = [
+    { label: "Posts", value: data?.total_posts ?? null, icon: "📝" },
+    { label: "Likes Received", value: data?.total_likes_received ?? null, icon: "♥" },
+    { label: "Comments Received", value: data?.total_comments_received ?? null, icon: "💬" },
+  ];
+
+  return (
+    <section style={insightStyles.section}>
+      <h3 style={insightStyles.heading}>Activity Insights</h3>
+      <div style={insightStyles.grid}>
+        {cards.map((c) => (
+          <div key={c.label} style={insightStyles.card}>
+            <span style={insightStyles.icon}>{c.icon}</span>
+            {isLoading || c.value === null ? (
+              <div
+                className="skeleton"
+                style={{ width: 48, height: 24, borderRadius: 6, margin: "4px auto" }}
+              />
+            ) : (
+              <span style={insightStyles.value}>{c.value.toLocaleString()}</span>
+            )}
+            <span style={insightStyles.label}>{c.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const insightStyles: Record<string, React.CSSProperties> = {
+  section: {
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  heading: {
+    fontSize: 16,
+    fontWeight: 600,
+    margin: "0 0 14px",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 12,
+  },
+  card: {
+    background: "#f9f8ff",
+    border: "1px solid #ede9fe",
+    borderRadius: 10,
+    padding: "16px 12px",
+    textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+  },
+  icon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: "#6C63FF",
+  },
+  label: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: 500,
+  },
+};
 
 /* ── Edit Profile Modal ──────────────────────────────────────── */
 
@@ -337,6 +429,13 @@ function EditProfileModal({
 /* ── Styles ──────────────────────────────────────────────────── */
 
 const styles: Record<string, React.CSSProperties> = {
+  postsSection: {
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
   header: {
     background: "#fff",
     border: "1px solid #eee",

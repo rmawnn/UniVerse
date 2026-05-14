@@ -12,11 +12,14 @@ from app.repositories.university_repository import UniversityRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.repositories.post_repository import PostRepository
+from app.repositories.comment_repository import CommentRepository
+from app.repositories.post_like_repository import PostLikeRepository
 from app.schemas.user import (
     ChangePasswordRequest,
     CommunitySummary,
     MyProfileResponse,
     PublicUserProfileResponse,
+    UserInsightsResponse,
     UserSearchResponse,
     UserUpdateRequest,
     UserResponse,
@@ -202,3 +205,50 @@ async def get_public_profile(
         is_following=is_following,
         created_at=user.created_at,
     )
+
+
+async def get_user_insights(
+    db: AsyncSession,
+    current_user: User,
+) -> UserInsightsResponse:
+    """Aggregate simple activity insights for the authenticated user.
+
+    Three counts, each a single aggregation query:
+      - total_posts: non-deleted posts authored
+      - total_likes_received: likes on non-deleted posts authored
+      - total_comments_received: comments by others on non-deleted posts authored
+    """
+    post_repo = PostRepository(db)
+    total_posts = await post_repo.count_by_author(current_user.id)
+
+    like_repo = PostLikeRepository(db)
+    total_likes_received = await like_repo.count_received_by_author(current_user.id)
+
+    comment_repo = CommentRepository(db)
+    total_comments_received = await comment_repo.count_received_by_author(current_user.id)
+
+    return UserInsightsResponse(
+        total_posts=total_posts,
+        total_likes_received=total_likes_received,
+        total_comments_received=total_comments_received,
+    )
+
+
+async def get_follow_suggestions(
+    db: AsyncSession,
+    current_user: User,
+    *,
+    limit: int = 10,
+) -> list[UserSearchResponse]:
+    """Return users the current user might want to follow.
+
+    Prioritises same-university, then verified students, with a random
+    tiebreaker so each request feels fresh.
+    """
+    user_repo = UserRepository(db)
+    users = await user_repo.list_suggested(
+        current_user.id,
+        university_id=current_user.university_id,
+        limit=limit,
+    )
+    return [UserSearchResponse.model_validate(u) for u in users]

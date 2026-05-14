@@ -59,7 +59,7 @@ export async function createComment(
 
 export async function listUserPosts(
   userId: string,
-  params?: PaginationParams
+  params?: PaginationParams & { post_type?: string }
 ): Promise<PaginatedResponse<PostResponse>> {
   const { data } = await api.get<PaginatedResponse<PostResponse>>(
     `/users/${userId}/posts`,

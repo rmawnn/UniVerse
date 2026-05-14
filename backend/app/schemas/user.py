@@ -132,3 +132,11 @@ class UserStatusResponse(BaseModel):
     role: str
 
     model_config = {"from_attributes": True}
+
+
+class UserInsightsResponse(BaseModel):
+    """Simple activity insights for the authenticated user."""
+
+    total_posts: int
+    total_likes_received: int
+    total_comments_received: int

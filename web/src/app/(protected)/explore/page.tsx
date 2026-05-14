@@ -11,13 +11,10 @@ import {
   CommunitySkeleton,
   SkeletonList,
 } from "@/components/skeletons/Skeletons";
+import SuggestedUsers from "@/components/users/SuggestedUsers";
 import type { ExploreResponse } from "@/types/api";
 
 const EXPLORE_KEY = ["explore"] as const;
-
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
-  "http://localhost:8000";
 
 export default function ExplorePage() {
   const qc = useQueryClient();
@@ -52,7 +49,6 @@ export default function ExplorePage() {
 
   const trendingPosts = data?.trending_posts ?? [];
   const suggestedCommunities = data?.suggested_communities ?? [];
-  const suggestedUsers = data?.suggested_users ?? [];
 
   return (
     <div>
@@ -88,8 +84,7 @@ export default function ExplorePage() {
       {!isLoading &&
         !isError &&
         trendingPosts.length === 0 &&
-        suggestedCommunities.length === 0 &&
-        suggestedUsers.length === 0 && (
+        suggestedCommunities.length === 0 && (
           <div style={styles.empty}>
             <span style={styles.emptyIcon}>🧭</span>
             <p style={styles.emptyTitle}>Nothing to explore yet</p>
@@ -167,46 +162,11 @@ export default function ExplorePage() {
         </section>
       )}
 
-      {/* ── Suggested Users ─────────────────────────────── */}
-      {!isLoading && suggestedUsers.length > 0 && (
+      {/* ── Suggested Users (with follow) ─────────────── */}
+      {!isLoading && (
         <section style={{ marginBottom: 32 }}>
-          <p style={styles.sectionTitle}>Suggested Users</p>
-          <div style={styles.grid}>
-            {suggestedUsers.map((u) => {
-              const profileUrl = u.profile_image_url
-                ? u.profile_image_url.startsWith("http")
-                  ? u.profile_image_url
-                  : `${BACKEND_URL}${u.profile_image_url}`
-                : null;
-
-              return (
-                <Link
-                  key={u.id}
-                  href={`/profile/${u.id}`}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <div style={styles.userCard} className="card-hover">
-                    {profileUrl ? (
-                      <img
-                        src={profileUrl}
-                        alt=""
-                        style={styles.userAvatar}
-                      />
-                    ) : (
-                      <div style={styles.userAvatarFallback}>
-                        {u.full_name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div style={styles.userName}>{u.full_name}</div>
-                    <div style={styles.userHandle}>@{u.username}</div>
-                    {u.is_verified_student && (
-                      <span style={styles.verifiedBadge}>Verified</span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          <p style={styles.sectionTitle}>People You May Know</p>
+          <SuggestedUsers variant="card" limit={6} />
         </section>
       )}
 
@@ -313,58 +273,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "6px 14px",
     fontSize: 13,
     fontWeight: 600,
-  },
-
-  /* ── User cards ───────────────────── */
-  userCard: {
-    background: "#fff",
-    border: "1px solid #eee",
-    borderRadius: 12,
-    padding: 20,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-    transition: "border-color 0.15s",
-  },
-  userAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: "50%",
-    objectFit: "cover" as const,
-    marginBottom: 10,
-  },
-  userAvatarFallback: {
-    width: 56,
-    height: 56,
-    borderRadius: "50%",
-    background: "#6C63FF",
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: 700,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#111",
-    marginBottom: 2,
-  },
-  userHandle: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 6,
-  },
-  verifiedBadge: {
-    fontSize: 11,
-    color: "#6C63FF",
-    background: "#f0efff",
-    borderRadius: 6,
-    padding: "2px 8px",
-    fontWeight: 500,
   },
 
   /* ── States ───────────────────────── */

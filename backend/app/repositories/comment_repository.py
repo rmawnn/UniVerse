@@ -91,6 +91,27 @@ class CommentRepository:
         counts = {row[0]: row[1] for row in result.all()}
         return {pid: counts.get(pid, 0) for pid in parent_ids}
 
+    async def count_received_by_author(self, author_id: UUID) -> int:
+        """Count total comments received on all non-deleted posts by an author.
+
+        Excludes the author's own comments and deleted comments.
+        """
+        from app.models.post import Post
+
+        stmt = (
+            select(func.count())
+            .select_from(Comment)
+            .join(Post, Post.id == Comment.post_id)
+            .where(
+                Post.author_id == author_id,
+                Post.is_deleted == False,  # noqa: E712
+                Comment.is_deleted == False,  # noqa: E712
+                Comment.author_id != author_id,
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
     async def count_by_post(self, post_id: UUID) -> int:
         """Count ALL comments (top-level + replies) for a post."""
         stmt = (

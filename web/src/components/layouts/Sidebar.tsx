@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { useUnreadCount } from "@/hooks/use-unread-count";
+import SuggestedUsers from "@/components/users/SuggestedUsers";
 
 const NAV_ITEMS = [
   { href: "/feed", label: "Feed", icon: "🏠" },
@@ -81,6 +82,12 @@ export default function Sidebar({
         </nav>
 
         {user && (
+          <div style={styles.suggestions}>
+            <SuggestedUsers variant="compact" limit={5} />
+          </div>
+        )}
+
+        {user && (
           <div style={styles.footer}>
             <div style={styles.userBox}>
               <div style={styles.avatar}>
@@ -136,6 +143,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     minWidth: 20,
     textAlign: "center",
+  },
+  suggestions: {
+    padding: "12px 12px 0",
+    borderTop: "1px solid #f0f0f0",
   },
   footer: { padding: "12px 16px", borderTop: "1px solid #f0f0f0" },
   userBox: {

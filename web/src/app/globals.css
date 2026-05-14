@@ -45,6 +45,12 @@ textarea {
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── App shell (sidebar + content) ─────────────────── */
 .app-shell {
   display: flex;
@@ -244,6 +250,11 @@ button:focus-visible {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+/* ── Profile grid thumbnail hover overlay ─────── */
+.grid-thumb-hover:hover .grid-overlay {
+  opacity: 1 !important;
 }
 
 /* ── Typing indicator dots ──────────────────────── */

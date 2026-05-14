@@ -180,14 +180,15 @@ async def list_user_posts(
     *,
     page: int = 1,
     page_size: int = 20,
+    post_type: str | None = None,
     current_user: User | None = None,
 ) -> PaginatedResponse[PostResponse]:
     """List posts created by a specific user, newest first, with like counts."""
     post_repo = PostRepository(db)
     skip = (page - 1) * page_size
 
-    total = await post_repo.count_by_author(author_id)
-    posts = await post_repo.list_by_author(author_id, skip=skip, limit=page_size)
+    total = await post_repo.count_by_author(author_id, post_type=post_type)
+    posts = await post_repo.list_by_author(author_id, skip=skip, limit=page_size, post_type=post_type)
 
     if not posts:
         return PaginatedResponse(
@@ -308,6 +309,7 @@ def _build_response(
     liked_by_me: bool = False,
     saved_by_me: bool = False,
     feed_label: str | None = None,
+    recommendation_score: float | None = None,
 ) -> PostResponse:
     """Build a PostResponse with embedded author summary, like, comment, and save data."""
     author_summary = PostAuthorSummary(
@@ -335,6 +337,7 @@ def _build_response(
         liked_by_me=liked_by_me,
         saved_by_me=saved_by_me,
         feed_label=feed_label,
+        recommendation_score=recommendation_score,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )

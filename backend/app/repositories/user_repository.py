@@ -209,17 +209,32 @@ class UserRepository:
         self,
         current_user_id: UUID,
         *,
+        university_id: UUID | None = None,
         limit: int = 10,
     ) -> list[User]:
         """Return active users that the current user is NOT following.
 
-        Ordered randomly (using SQL func.random()) so each request
-        returns a fresh set of suggestions. Excludes the current user.
+        Ordering priority:
+          1. Same university as the current user (if university_id given)
+          2. Verified students first
+          3. Random tiebreaker for variety
+
+        Excludes the current user.
         """
         following_ids = (
             select(UserFollow.following_id)
             .where(UserFollow.follower_id == current_user_id)
         ).subquery()
+
+        same_uni = case(
+            (User.university_id == university_id, 0),
+            else_=1,
+        ) if university_id else case(else_=1)
+
+        verified = case(
+            (User.is_verified_student == True, 0),  # noqa: E712
+            else_=1,
+        )
 
         stmt = (
             select(User)
@@ -228,7 +243,7 @@ class UserRepository:
                 User.id != current_user_id,
                 User.id.notin_(select(following_ids)),
             )
-            .order_by(func.random())
+            .order_by(same_uni, verified, func.random())
             .limit(limit)
         )
         result = await self.db.execute(stmt)
