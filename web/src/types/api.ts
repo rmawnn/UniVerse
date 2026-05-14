@@ -318,3 +318,57 @@ export interface UserStoriesResponse {
   user: StoryAuthorSummary;
   stories: StoryResponse[];
 }
+
+// ── Jobs ───────────────────────────────────────────────────
+
+export interface JobPostAuthorSummary {
+  id: string;
+  username: string;
+  full_name: string;
+  profile_image_url: string | null;
+}
+
+export interface JobPostResponse {
+  id: string;
+  author: JobPostAuthorSummary;
+  title: string;
+  description: string;
+  company_name: string | null;
+  location: string | null;
+  job_type: "internship" | "part-time" | "full-time" | "freelance";
+  is_active: boolean;
+  application_count: number;
+  has_applied: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateJobRequest {
+  title: string;
+  description: string;
+  company_name?: string;
+  location?: string;
+  job_type: "internship" | "part-time" | "full-time" | "freelance";
+}
+
+export interface JobApplyRequest {
+  message?: string;
+}
+
+export interface JobApplicationResponse {
+  id: string;
+  job_id: string;
+  applicant: JobPostAuthorSummary;
+  message: string | null;
+  created_at: string;
+}
+
+export interface MyApplicationResponse {
+  id: string;
+  job_id: string;
+  job_title: string;
+  company_name: string | null;
+  job_type: string;
+  message: string | null;
+  created_at: string;
+}
