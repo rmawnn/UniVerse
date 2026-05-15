@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   useQuery,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { listJobs, createJob, listMyApplications } from "@/api/jobs";
+import { listJobs, createJob, listMyApplications, listSavedJobs, saveJob, unsaveJob } from "@/api/jobs";
 import type {
   CreateJobRequest,
   JobPostResponse,
@@ -32,7 +32,22 @@ const JOB_TYPE_COLORS: Record<string, string> = {
 export default function JobsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [tab, setTab] = useState<"browse" | "my-applications">("browse");
+  const [tab, setTab] = useState<"browse" | "saved" | "my-applications">("browse");
+
+  // ── Filter state ────────────────────────────────────────
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
+  // Debounce search input → searchQuery (400ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const hasFilters = searchQuery || filterType || filterLocation;
 
   // ── Browse jobs ─────────────────────────────────────────
   const {
@@ -41,8 +56,25 @@ export default function JobsPage() {
     isError,
     refetch,
   } = useQuery<PaginatedResponse<JobPostResponse>>({
-    queryKey: ["jobs"],
-    queryFn: () => listJobs({ page: 1, page_size: 50 }),
+    queryKey: ["jobs", { q: searchQuery, job_type: filterType, location: filterLocation }],
+    queryFn: () =>
+      listJobs({
+        page: 1,
+        page_size: 50,
+        q: searchQuery || undefined,
+        job_type: filterType || undefined,
+        location: filterLocation || undefined,
+      }),
+  });
+
+  // ── Saved jobs ───────────────────────────────────────────
+  const {
+    data: savedData,
+    isLoading: savedLoading,
+  } = useQuery<PaginatedResponse<JobPostResponse>>({
+    queryKey: ["saved-jobs"],
+    queryFn: () => listSavedJobs({ page: 1, page_size: 50 }),
+    enabled: tab === "saved",
   });
 
   // ── My applications ─────────────────────────────────────
@@ -56,6 +88,7 @@ export default function JobsPage() {
   });
 
   const jobs = jobsData?.items ?? [];
+  const savedJobs = savedData?.items ?? [];
   const applications = appsData?.items ?? [];
 
   return (
@@ -93,6 +126,15 @@ export default function JobsPage() {
         <button
           style={{
             ...styles.tab,
+            ...(tab === "saved" ? styles.tabActive : {}),
+          }}
+          onClick={() => setTab("saved")}
+        >
+          Saved
+        </button>
+        <button
+          style={{
+            ...styles.tab,
             ...(tab === "my-applications" ? styles.tabActive : {}),
           }}
           onClick={() => setTab("my-applications")}
@@ -104,6 +146,60 @@ export default function JobsPage() {
       {/* ── Browse tab ───────────────────────────────────── */}
       {tab === "browse" && (
         <>
+          {/* ── Filter bar ─────────────────────────────── */}
+          <div style={styles.filterBar}>
+            <div style={styles.searchBox}>
+              <span style={styles.searchIcon}>🔍</span>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search jobs..."
+                style={styles.searchInput}
+              />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput("")}
+                  style={styles.clearBtn}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              style={styles.filterSelect}
+            >
+              <option value="">All Types</option>
+              <option value="internship">Internship</option>
+              <option value="part-time">Part-time</option>
+              <option value="full-time">Full-time</option>
+              <option value="freelance">Freelance</option>
+            </select>
+            <input
+              type="text"
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+              placeholder="Location..."
+              style={styles.filterLocationInput}
+            />
+            {hasFilters && (
+              <button
+                onClick={() => {
+                  setSearchInput("");
+                  setSearchQuery("");
+                  setFilterType("");
+                  setFilterLocation("");
+                }}
+                style={styles.clearFiltersBtn}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           {isError && (
             <div style={styles.error}>
               <span>Could not load jobs.</span>
@@ -123,10 +219,14 @@ export default function JobsPage() {
 
           {!isLoading && !isError && jobs.length === 0 && (
             <div style={styles.empty}>
-              <span style={styles.emptyIcon}>💼</span>
-              <p style={styles.emptyTitle}>No jobs posted yet</p>
+              <span style={styles.emptyIcon}>{hasFilters ? "🔍" : "💼"}</span>
+              <p style={styles.emptyTitle}>
+                {hasFilters ? "No jobs match your filters" : "No jobs posted yet"}
+              </p>
               <p style={styles.emptyHint}>
-                Be the first to post an opportunity for the community.
+                {hasFilters
+                  ? "Try adjusting your search or filters."
+                  : "Be the first to post an opportunity for the community."}
               </p>
             </div>
           )}
@@ -134,6 +234,37 @@ export default function JobsPage() {
           {!isLoading && jobs.length > 0 && (
             <div style={styles.jobList}>
               {jobs.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Saved tab ──────────────────────────────────────── */}
+      {tab === "saved" && (
+        <>
+          {savedLoading && (
+            <div style={styles.skeletonList}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={styles.skeleton} />
+              ))}
+            </div>
+          )}
+
+          {!savedLoading && savedJobs.length === 0 && (
+            <div style={styles.empty}>
+              <span style={styles.emptyIcon}>🔖</span>
+              <p style={styles.emptyTitle}>No saved jobs</p>
+              <p style={styles.emptyHint}>
+                Save jobs you&apos;re interested in to find them here later.
+              </p>
+            </div>
+          )}
+
+          {!savedLoading && savedJobs.length > 0 && (
+            <div style={styles.jobList}>
+              {savedJobs.map((job) => (
                 <JobCard key={job.id} job={job} />
               ))}
             </div>
@@ -211,6 +342,18 @@ export default function JobsPage() {
 /* ── Job Card ──────────────────────────────────────────────── */
 
 function JobCard({ job }: { job: JobPostResponse }) {
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState(job.saved_by_me);
+
+  const saveMutation = useMutation({
+    mutationFn: () => (saved ? unsaveJob(job.id) : saveJob(job.id)),
+    onMutate: () => setSaved((s) => !s),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["saved-jobs"] });
+    },
+    onError: () => setSaved((s) => !s),
+  });
+
   return (
     <Link
       href={`/jobs/${job.id}`}
@@ -219,16 +362,29 @@ function JobCard({ job }: { job: JobPostResponse }) {
     >
       <div style={styles.cardTop}>
         <h3 style={styles.cardTitle}>{job.title}</h3>
-        <span
-          style={{
-            ...styles.typeBadge,
-            background:
-              (JOB_TYPE_COLORS[job.job_type] ?? "#666") + "14",
-            color: JOB_TYPE_COLORS[job.job_type] ?? "#666",
-          }}
-        >
-          {JOB_TYPE_LABELS[job.job_type] ?? job.job_type}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              saveMutation.mutate();
+            }}
+            style={styles.saveBtn}
+            aria-label={saved ? "Unsave job" : "Save job"}
+          >
+            {saved ? "🔖" : "📑"}
+          </button>
+          <span
+            style={{
+              ...styles.typeBadge,
+              background:
+                (JOB_TYPE_COLORS[job.job_type] ?? "#666") + "14",
+              color: JOB_TYPE_COLORS[job.job_type] ?? "#666",
+            }}
+          >
+            {JOB_TYPE_LABELS[job.job_type] ?? job.job_type}
+          </span>
+        </div>
       </div>
 
       <div style={styles.cardMeta}>
@@ -414,6 +570,80 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
 
+  /* ── Filter bar ──────────────────────────── */
+  filterBar: {
+    display: "flex",
+    gap: 10,
+    marginBottom: 16,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  searchBox: {
+    position: "relative",
+    flex: "1 1 200px",
+    minWidth: 180,
+  },
+  searchIcon: {
+    position: "absolute",
+    left: 10,
+    top: "50%",
+    transform: "translateY(-50%)",
+    fontSize: 14,
+    pointerEvents: "none",
+  },
+  searchInput: {
+    width: "100%",
+    padding: "8px 32px 8px 32px",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  clearBtn: {
+    position: "absolute",
+    right: 6,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    fontSize: 18,
+    color: "#999",
+    cursor: "pointer",
+    padding: "0 4px",
+    lineHeight: 1,
+  },
+  filterSelect: {
+    padding: "8px 12px",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+    background: "#fff",
+    minWidth: 130,
+    boxSizing: "border-box",
+  },
+  filterLocationInput: {
+    padding: "8px 12px",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+    boxSizing: "border-box",
+    minWidth: 140,
+    flex: "0 1 160px",
+  },
+  clearFiltersBtn: {
+    background: "none",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    padding: "8px 14px",
+    fontSize: 13,
+    color: "#666",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+
   /* ── Job list ───────────────────────────── */
   jobList: {
     display: "flex",
@@ -451,6 +681,15 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "3px 10px",
     borderRadius: 20,
     whiteSpace: "nowrap",
+    flexShrink: 0,
+  },
+  saveBtn: {
+    background: "none",
+    border: "none",
+    fontSize: 18,
+    cursor: "pointer",
+    padding: "2px 4px",
+    lineHeight: 1,
     flexShrink: 0,
   },
   cardMeta: {

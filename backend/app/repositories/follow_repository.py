@@ -143,3 +143,11 @@ class FollowRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def get_follower_ids(self, user_id: UUID) -> set[UUID]:
+        """Return IDs of users who follow the given user."""
+        stmt = select(UserFollow.follower_id).where(
+            UserFollow.following_id == user_id,
+        )
+        result = await self.db.execute(stmt)
+        return {row[0] for row in result.all()}

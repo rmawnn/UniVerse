@@ -30,6 +30,10 @@ function iconForType(type: string): string {
       return "✉️";
     case "follow":
       return "👤";
+    case "job_application":
+      return "📋";
+    case "job_posted":
+      return "💼";
     default:
       return "🔔";
   }
@@ -45,6 +49,10 @@ function badgeColorForType(type: string): string {
       return "#10b981";
     case "follow":
       return "#8b5cf6";
+    case "job_application":
+      return "#f59e0b";
+    case "job_posted":
+      return "#0ea5e9";
     default:
       return "#6b7280";
   }
@@ -60,6 +68,10 @@ function actionTextForType(type: string): string {
       return "sent you a message";
     case "follow":
       return "started following you";
+    case "job_application":
+      return "applied to your job";
+    case "job_posted":
+      return "posted a new job";
     default:
       return "";
   }
@@ -75,6 +87,9 @@ function hrefForNotification(n: NotificationResponse): string | null {
       return `/messages/${n.reference_id}`;
     case "follow":
       return `/profile/${n.reference_id}`;
+    case "job_application":
+    case "job_posted":
+      return `/jobs/${n.reference_id}`;
     default:
       return null;
   }
@@ -365,8 +380,8 @@ export default function NotificationsPage() {
           <span style={styles.emptyIcon}>{"🔔"}</span>
           <p style={styles.emptyTitle}>No notifications yet</p>
           <p style={styles.emptyHint}>
-            When someone likes, comments, follows, or messages you, it will
-            show up here.
+            When someone likes, comments, follows, messages you, or applies to
+            your job, it will show up here.
           </p>
         </div>
       )}

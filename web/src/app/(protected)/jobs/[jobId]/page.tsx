@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getJob, applyToJob, deleteJob, listJobApplications } from "@/api/jobs";
+import { getJob, applyToJob, deleteJob, listJobApplications, saveJob, unsaveJob } from "@/api/jobs";
 import { useAuthStore } from "@/store/auth-store";
 import type {
   JobPostResponse,
@@ -87,6 +87,22 @@ export default function JobDetailPage({
       qc.invalidateQueries({ queryKey: ["jobs"] });
       router.push("/jobs");
     },
+  });
+
+  // ── Save mutation ────────────────────────────────────────
+  // Track optimistic override separately; null = use server value
+  const [savedOverride, setSavedOverride] = useState<boolean | null>(null);
+  const saved = savedOverride ?? job?.saved_by_me ?? false;
+
+  const saveMutation = useMutation({
+    mutationFn: () => (saved ? unsaveJob(jobId) : saveJob(jobId)),
+    onMutate: () => setSavedOverride(!saved),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["job", jobId] });
+      qc.invalidateQueries({ queryKey: ["saved-jobs"] });
+      setSavedOverride(null); // reset to server value on next render
+    },
+    onError: () => setSavedOverride(null),
   });
 
   const hasApplied = applied || (job?.has_applied ?? false);
@@ -216,6 +232,17 @@ export default function JobDetailPage({
               {showApply ? "Cancel" : "Apply Now"}
             </button>
           )}
+          <button
+            onClick={() => saveMutation.mutate()}
+            style={{
+              ...styles.saveToggleBtn,
+              background: saved ? "#f0efff" : "#fafafa",
+              color: saved ? "#6C63FF" : "#666",
+              borderColor: saved ? "#6C63FF" : "#ddd",
+            }}
+          >
+            {saved ? "🔖 Saved" : "📑 Save"}
+          </button>
         </div>
 
         {/* ── Apply form ───────────────────────────────── */}
@@ -436,6 +463,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     fontSize: 14,
     fontWeight: 500,
+  },
+
+  saveToggleBtn: {
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    padding: "10px 18px",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.15s",
   },
 
   /* ── Apply form ─────────────────────────── */

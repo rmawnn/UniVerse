@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AlreadyExists, BadRequest, Forbidden, NotFound
 from app.models.job_application import JobApplication
 from app.models.job_post import JobPost
+from app.models.saved_job import SavedJob
 from app.models.user import User
+from app.repositories.follow_repository import FollowRepository
 from app.repositories.job_repository import JobRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
@@ -17,7 +19,9 @@ from app.schemas.job import (
     JobPostCreateRequest,
     JobPostResponse,
     MyApplicationResponse,
+    SavedJobToggleResponse,
 )
+from app.services.notification_service import notify
 
 
 # ── Job CRUD ─────────────────────────────────────────────────
@@ -42,7 +46,20 @@ async def create_job(
     repo = JobRepository(db)
     job = await repo.create_job(job)
 
-    return _build_job_response(job, current_user, application_count=0, has_applied=False)
+    # Notify followers that this user posted a job
+    follow_repo = FollowRepository(db)
+    follower_ids = await follow_repo.get_follower_ids(current_user.id)
+    for fid in follower_ids:
+        await notify(
+            db,
+            user_id=fid,
+            actor_id=current_user.id,
+            type="job_posted",
+            reference_id=job.id,
+            content=f"{current_user.full_name} posted a new job: {job.title}",
+        )
+
+    return _build_job_response(job, current_user, application_count=0, has_applied=False, saved_by_me=False)
 
 
 async def get_job(
@@ -61,11 +78,17 @@ async def get_job(
     app_count = await repo.count_applications_for_job(job_id)
 
     has_applied = False
+    saved_by_me = False
     if current_user:
         existing = await repo.get_application(job_id, current_user.id)
         has_applied = existing is not None
+        saved_by_me = await repo.is_saved(current_user.id, job_id)
 
-    return _build_job_response(job, author, application_count=app_count, has_applied=has_applied)
+    return _build_job_response(
+        job, author,
+        application_count=app_count, has_applied=has_applied,
+        saved_by_me=saved_by_me,
+    )
 
 
 async def list_jobs(
@@ -74,13 +97,17 @@ async def list_jobs(
     page: int = 1,
     page_size: int = 20,
     current_user: User | None = None,
+    job_type: str | None = None,
+    location: str | None = None,
+    q: str | None = None,
 ) -> PaginatedResponse[JobPostResponse]:
-    """List active job posts, newest first."""
+    """List active job posts, newest first. Supports filtering."""
     repo = JobRepository(db)
     skip = (page - 1) * page_size
 
-    total = await repo.count_jobs(active_only=True)
-    jobs = await repo.list_jobs(skip=skip, limit=page_size, active_only=True)
+    filters = dict(active_only=True, job_type=job_type, location=location, q=q)
+    total = await repo.count_jobs(**filters)
+    jobs = await repo.list_jobs(skip=skip, limit=page_size, **filters)
 
     if not jobs:
         return PaginatedResponse(
@@ -97,12 +124,14 @@ async def list_jobs(
         if user:
             authors[aid] = user
 
-    # Batch-load application counts and user's applied set
+    # Batch-load application counts, applied set, and saved set
     job_ids = [j.id for j in jobs]
     app_counts = await repo.count_applications_by_jobs(job_ids)
     applied_set: set[UUID] = set()
+    saved_set: set[UUID] = set()
     if current_user:
         applied_set = await repo.applied_by_user(job_ids, current_user.id)
+        saved_set = await repo.saved_by_user(job_ids, current_user.id)
 
     items = [
         _build_job_response(
@@ -110,6 +139,7 @@ async def list_jobs(
             authors.get(j.author_id),
             application_count=app_counts.get(j.id, 0),
             has_applied=j.id in applied_set,
+            saved_by_me=j.id in saved_set,
         )
         for j in jobs
     ]
@@ -173,6 +203,16 @@ async def apply_to_job(
         message=data.message,
     )
     application = await repo.create_application(application)
+
+    # Notify the job owner about the new application
+    await notify(
+        db,
+        user_id=job.author_id,
+        actor_id=current_user.id,
+        type="job_application",
+        reference_id=job.id,
+        content=f"{current_user.full_name} applied to your job: {job.title}",
+    )
 
     return _build_application_response(application, current_user)
 
@@ -271,6 +311,96 @@ async def list_my_applications(
     )
 
 
+# ── Saved jobs ───────────────────────────────────────────────
+
+async def save_job(
+    db: AsyncSession,
+    job_id: UUID,
+    current_user: User,
+) -> SavedJobToggleResponse:
+    """Save a job post."""
+    repo = JobRepository(db)
+    job = await repo.get_job_by_id(job_id)
+    if not job:
+        raise NotFound("Job post")
+
+    if not job.is_active:
+        raise BadRequest("Cannot save an inactive job")
+
+    already = await repo.is_saved(current_user.id, job_id)
+    if already:
+        return SavedJobToggleResponse(saved=True)
+
+    saved = SavedJob(user_id=current_user.id, job_id=job_id)
+    await repo.save_job(saved)
+    return SavedJobToggleResponse(saved=True)
+
+
+async def unsave_job(
+    db: AsyncSession,
+    job_id: UUID,
+    current_user: User,
+) -> SavedJobToggleResponse:
+    """Unsave a job post."""
+    repo = JobRepository(db)
+    await repo.unsave_job(current_user.id, job_id)
+    return SavedJobToggleResponse(saved=False)
+
+
+async def list_saved_jobs(
+    db: AsyncSession,
+    current_user: User,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+) -> PaginatedResponse[JobPostResponse]:
+    """List the current user's saved job posts."""
+    repo = JobRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await repo.count_saved_jobs(current_user.id)
+    jobs = await repo.list_saved_jobs(current_user.id, skip=skip, limit=page_size)
+
+    if not jobs:
+        return PaginatedResponse(
+            items=[], total=total, page=page, page_size=page_size,
+            total_pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    # Batch-load authors
+    user_repo = UserRepository(db)
+    author_ids = {j.author_id for j in jobs}
+    authors: dict[UUID, User] = {}
+    for aid in author_ids:
+        user = await user_repo.get_by_id(aid)
+        if user:
+            authors[aid] = user
+
+    # Batch-load application counts and applied/saved sets
+    job_ids = [j.id for j in jobs]
+    app_counts = await repo.count_applications_by_jobs(job_ids)
+    applied_set = await repo.applied_by_user(job_ids, current_user.id)
+
+    items = [
+        _build_job_response(
+            j,
+            authors.get(j.author_id),
+            application_count=app_counts.get(j.id, 0),
+            has_applied=j.id in applied_set,
+            saved_by_me=True,  # all are saved since we're listing saved jobs
+        )
+        for j in jobs
+    ]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
 # ── Response builders ────────────────────────────────────────
 
 def _build_job_response(
@@ -279,6 +409,7 @@ def _build_job_response(
     *,
     application_count: int = 0,
     has_applied: bool = False,
+    saved_by_me: bool = False,
 ) -> JobPostResponse:
     author_summary = JobPostAuthorSummary(
         id=author.id,
@@ -303,6 +434,7 @@ def _build_job_response(
         is_active=job.is_active,
         application_count=application_count,
         has_applied=has_applied,
+        saved_by_me=saved_by_me,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )

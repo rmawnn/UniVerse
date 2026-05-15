@@ -7,12 +7,19 @@ import type {
   JobApplyRequest,
   JobApplicationResponse,
   MyApplicationResponse,
+  SavedJobToggleResponse,
 } from "@/types/api";
 
 // ── Job posts ──────────────────────────────────────────────
 
+export interface JobFilterParams extends PaginationParams {
+  job_type?: string;
+  location?: string;
+  q?: string;
+}
+
 export async function listJobs(
-  params?: PaginationParams
+  params?: JobFilterParams
 ): Promise<PaginatedResponse<JobPostResponse>> {
   const { data } = await api.get<PaginatedResponse<JobPostResponse>>(
     "/jobs",
@@ -66,6 +73,36 @@ export async function listMyApplications(
 ): Promise<PaginatedResponse<MyApplicationResponse>> {
   const { data } = await api.get<PaginatedResponse<MyApplicationResponse>>(
     "/jobs/my-applications",
+    { params }
+  );
+  return data;
+}
+
+// ── Saved jobs ─────────────────────────────────────────────
+
+export async function saveJob(
+  jobId: string
+): Promise<SavedJobToggleResponse> {
+  const { data } = await api.post<SavedJobToggleResponse>(
+    `/jobs/${jobId}/save`
+  );
+  return data;
+}
+
+export async function unsaveJob(
+  jobId: string
+): Promise<SavedJobToggleResponse> {
+  const { data } = await api.delete<SavedJobToggleResponse>(
+    `/jobs/${jobId}/save`
+  );
+  return data;
+}
+
+export async function listSavedJobs(
+  params?: PaginationParams
+): Promise<PaginatedResponse<JobPostResponse>> {
+  const { data } = await api.get<PaginatedResponse<JobPostResponse>>(
+    "/jobs/saved",
     { params }
   );
   return data;

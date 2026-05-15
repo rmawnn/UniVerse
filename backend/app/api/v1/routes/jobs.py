@@ -13,6 +13,7 @@ from app.schemas.job import (
     JobPostCreateRequest,
     JobPostResponse,
     MyApplicationResponse,
+    SavedJobToggleResponse,
 )
 from app.services import job_service
 
@@ -35,12 +36,29 @@ async def create_job(
 async def list_jobs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    job_type: str | None = Query(None, pattern=r"^(internship|part-time|full-time|freelance)$"),
+    location: str | None = Query(None, max_length=200),
+    q: str | None = Query(None, max_length=200),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """List active job posts, newest first."""
+    """List active job posts. Supports search (q) across title/company/description, plus type and location filters."""
     return await job_service.list_jobs(
         db, page=page, page_size=page_size, current_user=current_user,
+        job_type=job_type, location=location, q=q,
+    )
+
+
+@router.get("/jobs/saved", response_model=PaginatedResponse[JobPostResponse])
+async def list_saved_jobs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the current user's saved job posts."""
+    return await job_service.list_saved_jobs(
+        db, current_user, page=page, page_size=page_size,
     )
 
 
@@ -89,6 +107,26 @@ async def apply_to_job(
 ):
     """Apply to a job post."""
     return await job_service.apply_to_job(db, job_id, current_user, data)
+
+
+@router.post("/jobs/{job_id}/save", response_model=SavedJobToggleResponse)
+async def save_job(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save a job post for later."""
+    return await job_service.save_job(db, job_id, current_user)
+
+
+@router.delete("/jobs/{job_id}/save", response_model=SavedJobToggleResponse)
+async def unsave_job(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a saved job post."""
+    return await job_service.unsave_job(db, job_id, current_user)
 
 
 @router.get("/jobs/{job_id}/applications", response_model=PaginatedResponse[JobApplicationResponse])

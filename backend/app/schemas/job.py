@@ -37,8 +37,14 @@ class JobPostResponse(BaseModel):
     is_active: bool
     application_count: int = 0
     has_applied: bool = False
+    saved_by_me: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+class SavedJobToggleResponse(BaseModel):
+    """Response for save/unsave job toggle."""
+    saved: bool
 
 
 # ── Job Application schemas ──────────────────────────────────

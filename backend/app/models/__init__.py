@@ -24,3 +24,4 @@ from app.models.saved_post import SavedPost  # noqa: F401
 from app.models.saved_collection import SavedCollection, SavedCollectionItem  # noqa: F401
 from app.models.job_post import JobPost  # noqa: F401
 from app.models.job_application import JobApplication  # noqa: F401
+from app.models.saved_job import SavedJob  # noqa: F401

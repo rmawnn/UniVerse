@@ -339,6 +339,7 @@ export interface JobPostResponse {
   is_active: boolean;
   application_count: number;
   has_applied: boolean;
+  saved_by_me: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -371,4 +372,8 @@ export interface MyApplicationResponse {
   job_type: string;
   message: string | null;
   created_at: string;
+}
+
+export interface SavedJobToggleResponse {
+  saved: boolean;
 }
