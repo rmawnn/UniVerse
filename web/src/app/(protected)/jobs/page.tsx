@@ -7,7 +7,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { listJobs, createJob, listMyApplications, listSavedJobs, saveJob, unsaveJob } from "@/api/jobs";
+import { listJobs, createJob, listMyApplications, listSavedJobs, listRecommendedJobs, saveJob, unsaveJob } from "@/api/jobs";
 import type {
   CreateJobRequest,
   JobPostResponse,
@@ -32,7 +32,7 @@ const JOB_TYPE_COLORS: Record<string, string> = {
 export default function JobsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [tab, setTab] = useState<"browse" | "saved" | "my-applications">("browse");
+  const [tab, setTab] = useState<"browse" | "recommended" | "saved" | "my-applications">("browse");
 
   // ── Filter state ────────────────────────────────────────
   const [searchInput, setSearchInput] = useState("");
@@ -67,6 +67,16 @@ export default function JobsPage() {
       }),
   });
 
+  // ── Recommended jobs ─────────────────────────────────────
+  const {
+    data: recData,
+    isLoading: recLoading,
+  } = useQuery<JobPostResponse[]>({
+    queryKey: ["recommended-jobs"],
+    queryFn: () => listRecommendedJobs(10),
+    enabled: tab === "recommended",
+  });
+
   // ── Saved jobs ───────────────────────────────────────────
   const {
     data: savedData,
@@ -88,6 +98,7 @@ export default function JobsPage() {
   });
 
   const jobs = jobsData?.items ?? [];
+  const recommendedJobs = recData ?? [];
   const savedJobs = savedData?.items ?? [];
   const applications = appsData?.items ?? [];
 
@@ -122,6 +133,15 @@ export default function JobsPage() {
           onClick={() => setTab("browse")}
         >
           Browse Jobs
+        </button>
+        <button
+          style={{
+            ...styles.tab,
+            ...(tab === "recommended" ? styles.tabActive : {}),
+          }}
+          onClick={() => setTab("recommended")}
+        >
+          For You
         </button>
         <button
           style={{
@@ -241,6 +261,37 @@ export default function JobsPage() {
         </>
       )}
 
+      {/* ── Recommended tab ──────────────────────────────────── */}
+      {tab === "recommended" && (
+        <>
+          {recLoading && (
+            <div style={styles.skeletonList}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={styles.skeleton} />
+              ))}
+            </div>
+          )}
+
+          {!recLoading && recommendedJobs.length === 0 && (
+            <div style={styles.empty}>
+              <span style={styles.emptyIcon}>✨</span>
+              <p style={styles.emptyTitle}>No recommendations yet</p>
+              <p style={styles.emptyHint}>
+                Apply to jobs and follow users to get personalized recommendations.
+              </p>
+            </div>
+          )}
+
+          {!recLoading && recommendedJobs.length > 0 && (
+            <div style={styles.jobList}>
+              {recommendedJobs.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {/* ── Saved tab ──────────────────────────────────────── */}
       {tab === "saved" && (
         <>
@@ -304,16 +355,41 @@ export default function JobsPage() {
                 >
                   <div style={styles.appTop}>
                     <h3 style={styles.cardTitle}>{app.job_title}</h3>
-                    <span
-                      style={{
-                        ...styles.typeBadge,
-                        background:
-                          (JOB_TYPE_COLORS[app.job_type] ?? "#666") + "14",
-                        color: JOB_TYPE_COLORS[app.job_type] ?? "#666",
-                      }}
-                    >
-                      {JOB_TYPE_LABELS[app.job_type] ?? app.job_type}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span
+                        style={{
+                          ...styles.myStatusBadge,
+                          background:
+                            app.status === "accepted"
+                              ? "#ecfdf5"
+                              : app.status === "rejected"
+                              ? "#fff5f5"
+                              : "#f5f3ff",
+                          color:
+                            app.status === "accepted"
+                              ? "#059669"
+                              : app.status === "rejected"
+                              ? "#dc2626"
+                              : "#6C63FF",
+                        }}
+                      >
+                        {app.status === "accepted"
+                          ? "✓ Accepted"
+                          : app.status === "rejected"
+                          ? "✕ Rejected"
+                          : "⏳ Pending"}
+                      </span>
+                      <span
+                        style={{
+                          ...styles.typeBadge,
+                          background:
+                            (JOB_TYPE_COLORS[app.job_type] ?? "#666") + "14",
+                          color: JOB_TYPE_COLORS[app.job_type] ?? "#666",
+                        }}
+                      >
+                        {JOB_TYPE_LABELS[app.job_type] ?? app.job_type}
+                      </span>
+                    </div>
                   </div>
                   {app.company_name && (
                     <p style={styles.company}>{app.company_name}</p>
@@ -744,6 +820,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontStyle: "italic",
     margin: "0 0 8px",
     lineHeight: 1.5,
+  },
+  myStatusBadge: {
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "3px 10px",
+    borderRadius: 20,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
 
   /* ── States ─────────────────────────────── */

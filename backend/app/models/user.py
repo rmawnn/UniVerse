@@ -71,5 +71,9 @@ class User(BaseModel):
         default=UserRole.STUDENT.value,
     )
 
+    # ── Notification preferences ─────────────────────────────────
+    notify_job_applications: Mapped[bool] = mapped_column(default=True, server_default="true")
+    notify_new_jobs: Mapped[bool] = mapped_column(default=True, server_default="true")
+
     # ── Relationships (loaded lazily — defined here, queried in repos) ──
     # university = relationship("University", back_populates="students", lazy="raise")

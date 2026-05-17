@@ -22,6 +22,7 @@ const NAV_ITEMS = [
     badgeKey: "notifications" as const,
   },
   { href: "/profile", label: "Profile", icon: "👤" },
+  { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
 export default function Sidebar({

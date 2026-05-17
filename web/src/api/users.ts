@@ -7,6 +7,8 @@ import type {
   PublicUserProfile,
   FollowResponse,
   UserInsightsResponse,
+  NotificationSettingsResponse,
+  NotificationSettingsUpdateRequest,
 } from "@/types/api";
 
 export interface UpdateProfileRequest {
@@ -76,6 +78,23 @@ export async function listFollowing(
 
 export async function getMyInsights(): Promise<UserInsightsResponse> {
   const { data } = await api.get<UserInsightsResponse>("/users/me/insights");
+  return data;
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettingsResponse> {
+  const { data } = await api.get<NotificationSettingsResponse>(
+    "/users/me/notification-settings"
+  );
+  return data;
+}
+
+export async function updateNotificationSettings(
+  body: NotificationSettingsUpdateRequest
+): Promise<NotificationSettingsResponse> {
+  const { data } = await api.patch<NotificationSettingsResponse>(
+    "/users/me/notification-settings",
+    body
+  );
   return data;
 }
 

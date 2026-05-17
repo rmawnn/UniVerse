@@ -140,3 +140,17 @@ class UserInsightsResponse(BaseModel):
     total_posts: int
     total_likes_received: int
     total_comments_received: int
+
+
+class NotificationSettingsResponse(BaseModel):
+    """Current notification preference toggles."""
+    notify_job_applications: bool
+    notify_new_jobs: bool
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationSettingsUpdateRequest(BaseModel):
+    """Payload for updating notification preferences."""
+    notify_job_applications: bool | None = None
+    notify_new_jobs: bool | None = None

@@ -12,6 +12,8 @@ from app.schemas.user import (
     ChangePasswordRequest,
     FollowResponse,
     MyProfileResponse,
+    NotificationSettingsResponse,
+    NotificationSettingsUpdateRequest,
     PublicUserProfileResponse,
     UserInsightsResponse,
     UserResponse,
@@ -73,6 +75,24 @@ async def change_my_password(
 async def get_my_status(current_user: User = Depends(get_current_user)):
     """Lightweight check — returns auth status, role, and verification state."""
     return current_user
+
+
+@router.get("/me/notification-settings", response_model=NotificationSettingsResponse)
+async def get_notification_settings(
+    current_user: User = Depends(get_current_user),
+):
+    """Get the current user's notification preferences."""
+    return await user_service.get_notification_settings(current_user)
+
+
+@router.patch("/me/notification-settings", response_model=NotificationSettingsResponse)
+async def update_notification_settings(
+    data: NotificationSettingsUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the current user's notification preferences."""
+    return await user_service.update_notification_settings(db, current_user, data)
 
 
 @router.get("/suggestions", response_model=list[UserSearchResponse])

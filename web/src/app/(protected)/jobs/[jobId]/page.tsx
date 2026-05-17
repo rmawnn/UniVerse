@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getJob, applyToJob, deleteJob, listJobApplications, saveJob, unsaveJob } from "@/api/jobs";
+import { getJob, applyToJob, deleteJob, listJobApplications, saveJob, unsaveJob, updateApplicationStatus } from "@/api/jobs";
 import { useAuthStore } from "@/store/auth-store";
 import type {
   JobPostResponse,
@@ -77,6 +77,16 @@ export default function JobDetailPage({
     },
     onError: (err: { message?: string }) => {
       setApplyError(err?.message ?? "Failed to apply");
+    },
+  });
+
+  // ── Status mutation ─────────────────────────────────────
+  const statusMutation = useMutation({
+    mutationFn: ({ appId, status }: { appId: string; status: "accepted" | "rejected" }) =>
+      updateApplicationStatus(appId, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["job-applications", jobId] });
+      qc.invalidateQueries({ queryKey: ["job", jobId] });
     },
   });
 
@@ -307,29 +317,80 @@ export default function JobDetailPage({
             <div style={styles.appList}>
               {applications.map((app) => (
                 <div key={app.id} style={styles.appCard}>
-                  <Link
-                    href={`/profile/${app.applicant.id}`}
-                    style={styles.appUserLink}
-                  >
-                    <div style={styles.appAvatar}>
-                      {app.applicant.full_name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={styles.appName}>
-                        {app.applicant.full_name}
+                  <div style={styles.appCardHeader}>
+                    <Link
+                      href={`/profile/${app.applicant.id}`}
+                      style={styles.appUserLink}
+                    >
+                      <div style={styles.appAvatar}>
+                        {app.applicant.full_name.charAt(0).toUpperCase()}
                       </div>
-                      <div style={styles.appHandle}>
-                        @{app.applicant.username}
+                      <div>
+                        <div style={styles.appName}>
+                          {app.applicant.full_name}
+                        </div>
+                        <div style={styles.appHandle}>
+                          @{app.applicant.username}
+                        </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        background:
+                          app.status === "accepted"
+                            ? "#ecfdf5"
+                            : app.status === "rejected"
+                            ? "#fff5f5"
+                            : "#f5f3ff",
+                        color:
+                          app.status === "accepted"
+                            ? "#059669"
+                            : app.status === "rejected"
+                            ? "#dc2626"
+                            : "#6C63FF",
+                      }}
+                    >
+                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                    </span>
+                  </div>
                   {app.message && (
                     <p style={styles.appMessage}>{app.message}</p>
                   )}
-                  <p style={styles.appDate}>
-                    Applied{" "}
-                    {new Date(app.created_at).toLocaleDateString()}
-                  </p>
+                  <div style={styles.appFooter}>
+                    <p style={styles.appDate}>
+                      Applied{" "}
+                      {new Date(app.created_at).toLocaleDateString()}
+                    </p>
+                    {app.status === "pending" && (
+                      <div style={styles.statusActions}>
+                        <button
+                          onClick={() =>
+                            statusMutation.mutate({
+                              appId: app.id,
+                              status: "accepted",
+                            })
+                          }
+                          disabled={statusMutation.isPending}
+                          style={styles.acceptBtn}
+                        >
+                          ✓ Accept
+                        </button>
+                        <button
+                          onClick={() =>
+                            statusMutation.mutate({
+                              appId: app.id,
+                              status: "rejected",
+                            })
+                          }
+                          disabled={statusMutation.isPending}
+                          style={styles.rejectBtn}
+                        >
+                          ✕ Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -568,13 +629,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     padding: 16,
   },
+  appCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   appUserLink: {
     display: "inline-flex",
     alignItems: "center",
     gap: 10,
     textDecoration: "none",
     color: "inherit",
-    marginBottom: 8,
   },
   appAvatar: {
     width: 32,
@@ -603,6 +669,43 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "#999",
     margin: 0,
+  },
+  appFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  statusBadge: {
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "4px 12px",
+    borderRadius: 20,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+  },
+  statusActions: {
+    display: "flex",
+    gap: 8,
+  },
+  acceptBtn: {
+    background: "#ecfdf5",
+    color: "#059669",
+    border: "1px solid #d1fae5",
+    borderRadius: 6,
+    padding: "6px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  rejectBtn: {
+    background: "#fff5f5",
+    color: "#dc2626",
+    border: "1px solid #fed7d7",
+    borderRadius: 6,
+    padding: "6px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
   },
 
   /* ── States ─────────────────────────────── */

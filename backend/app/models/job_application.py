@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +12,7 @@ class JobApplication(BaseModel):
     A user's application to a job post.
 
     Unique constraint: one application per (job_id, applicant_id).
+    Status: pending → accepted | rejected
     """
 
     __tablename__ = "job_applications"
@@ -29,6 +30,12 @@ class JobApplication(BaseModel):
         nullable=False,
     )
     message: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
+        server_default="pending",
+        nullable=False,
+    )
 
     __table_args__ = (
         UniqueConstraint("job_id", "applicant_id", name="uq_job_application"),

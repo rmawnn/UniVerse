@@ -60,7 +60,13 @@ class JobApplicationResponse(BaseModel):
     job_id: uuid.UUID
     applicant: JobPostAuthorSummary
     message: str | None = None
+    status: str = "pending"
     created_at: datetime
+
+
+class UpdateApplicationStatusRequest(BaseModel):
+    """Payload for updating an application's status."""
+    status: str = Field(..., pattern=r"^(accepted|rejected)$")
 
 
 class MyApplicationResponse(BaseModel):
@@ -71,4 +77,5 @@ class MyApplicationResponse(BaseModel):
     company_name: str | None = None
     job_type: str
     message: str | None = None
+    status: str = "pending"
     created_at: datetime

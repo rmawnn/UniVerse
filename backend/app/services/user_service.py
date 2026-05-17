@@ -18,6 +18,8 @@ from app.schemas.user import (
     ChangePasswordRequest,
     CommunitySummary,
     MyProfileResponse,
+    NotificationSettingsResponse,
+    NotificationSettingsUpdateRequest,
     PublicUserProfileResponse,
     UserInsightsResponse,
     UserSearchResponse,
@@ -252,3 +254,25 @@ async def get_follow_suggestions(
         limit=limit,
     )
     return [UserSearchResponse.model_validate(u) for u in users]
+
+
+async def get_notification_settings(
+    current_user: User,
+) -> NotificationSettingsResponse:
+    """Return the current user's notification preferences."""
+    return NotificationSettingsResponse.model_validate(current_user)
+
+
+async def update_notification_settings(
+    db: AsyncSession,
+    current_user: User,
+    data: NotificationSettingsUpdateRequest,
+) -> NotificationSettingsResponse:
+    """Update the current user's notification preferences."""
+    fields = data.model_dump(exclude_unset=True)
+    if not fields:
+        raise BadRequest("No fields provided to update")
+
+    repo = UserRepository(db)
+    user = await repo.update(current_user, **fields)
+    return NotificationSettingsResponse.model_validate(user)

@@ -14,6 +14,7 @@ from app.schemas.job import (
     JobPostResponse,
     MyApplicationResponse,
     SavedJobToggleResponse,
+    UpdateApplicationStatusRequest,
 )
 from app.services import job_service
 
@@ -75,6 +76,18 @@ async def list_my_applications(
     )
 
 
+@router.get("/jobs/recommendations", response_model=list[JobPostResponse])
+async def list_recommended_jobs(
+    limit: int = Query(10, ge=1, le=30),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get personalized job recommendations for the current user."""
+    return await job_service.list_recommended_jobs(
+        db, current_user, limit=limit,
+    )
+
+
 @router.get("/jobs/{job_id}", response_model=JobPostResponse)
 async def get_job(
     job_id: UUID,
@@ -107,6 +120,19 @@ async def apply_to_job(
 ):
     """Apply to a job post."""
     return await job_service.apply_to_job(db, job_id, current_user, data)
+
+
+@router.patch("/jobs/applications/{application_id}", response_model=JobApplicationResponse)
+async def update_application_status(
+    application_id: UUID,
+    data: UpdateApplicationStatusRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Accept or reject a job application. Only the job owner can update."""
+    return await job_service.update_application_status(
+        db, application_id, current_user, data,
+    )
 
 
 @router.post("/jobs/{job_id}/save", response_model=SavedJobToggleResponse)

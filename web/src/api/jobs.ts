@@ -8,6 +8,7 @@ import type {
   JobApplicationResponse,
   MyApplicationResponse,
   SavedJobToggleResponse,
+  UpdateApplicationStatusRequest,
 } from "@/types/api";
 
 // ── Job posts ──────────────────────────────────────────────
@@ -68,6 +69,17 @@ export async function listJobApplications(
   return data;
 }
 
+export async function updateApplicationStatus(
+  applicationId: string,
+  body: UpdateApplicationStatusRequest
+): Promise<JobApplicationResponse> {
+  const { data } = await api.patch<JobApplicationResponse>(
+    `/jobs/applications/${applicationId}`,
+    body
+  );
+  return data;
+}
+
 export async function listMyApplications(
   params?: PaginationParams
 ): Promise<PaginatedResponse<MyApplicationResponse>> {
@@ -94,6 +106,16 @@ export async function unsaveJob(
 ): Promise<SavedJobToggleResponse> {
   const { data } = await api.delete<SavedJobToggleResponse>(
     `/jobs/${jobId}/save`
+  );
+  return data;
+}
+
+export async function listRecommendedJobs(
+  limit: number = 10
+): Promise<JobPostResponse[]> {
+  const { data } = await api.get<JobPostResponse[]>(
+    "/jobs/recommendations",
+    { params: { limit } }
   );
   return data;
 }

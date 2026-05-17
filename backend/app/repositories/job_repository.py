@@ -1,11 +1,15 @@
 from uuid import UUID
 
-from sqlalchemy import or_, select, func, delete
+from sqlalchemy import or_, select, func, delete, case, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job_application import JobApplication
 from app.models.job_post import JobPost
+from app.models.post import Post
+from app.models.post_like import PostLike
 from app.models.saved_job import SavedJob
+from app.models.user import User
+from app.models.user_follow import UserFollow
 
 
 class JobRepository:
@@ -98,6 +102,17 @@ class JobRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_application_by_id(self, app_id: UUID) -> JobApplication | None:
+        return await self.db.get(JobApplication, app_id)
+
+    async def update_application_status(
+        self, application: JobApplication, status: str,
+    ) -> JobApplication:
+        application.status = status
+        await self.db.flush()
+        await self.db.refresh(application)
+        return application
 
     async def list_applications_for_job(
         self, job_id: UUID, *, skip: int = 0, limit: int = 50,
@@ -243,3 +258,93 @@ class JobRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    # ── Recommendations ─────────────────────────────────────
+
+    async def get_user_applied_job_types(self, user_id: UUID) -> set[str]:
+        """Return the set of job_types the user has previously applied to."""
+        stmt = (
+            select(JobPost.job_type)
+            .join(JobApplication, JobApplication.job_id == JobPost.id)
+            .where(JobApplication.applicant_id == user_id)
+            .distinct()
+        )
+        result = await self.db.execute(stmt)
+        return {row[0] for row in result.all()}
+
+    async def list_recommended_jobs(
+        self,
+        user_id: UUID,
+        *,
+        university_id: UUID | None = None,
+        preferred_types: set[str] | None = None,
+        following_ids: set[UUID] | None = None,
+        user_post_count: int = 0,
+        limit: int = 10,
+    ) -> list[JobPost]:
+        """
+        Return active jobs scored by relevance signals:
+          +10  author is at the same university
+          +5   job_type matches a type the user has applied to before
+          +3   user follows the job author
+          +2   user is active (post_count > 5)
+          +1   baseline so every job has a nonzero score
+        Excludes jobs authored by the user and already-applied jobs.
+        """
+        # ── Subquery: jobs user already applied to ──────────
+        applied_sub = (
+            select(JobApplication.job_id)
+            .where(JobApplication.applicant_id == user_id)
+        ).subquery()
+
+        # ── Same-university signal ──────────────────────────
+        if university_id:
+            author_uni = (
+                select(User.id)
+                .where(User.university_id == university_id)
+            ).subquery()
+            uni_score = case(
+                (JobPost.author_id.in_(select(author_uni)), 10),
+                else_=0,
+            )
+        else:
+            uni_score = literal(0)
+
+        # ── Job-type preference signal ──────────────────────
+        if preferred_types:
+            type_score = case(
+                (JobPost.job_type.in_(preferred_types), 5),
+                else_=0,
+            )
+        else:
+            type_score = literal(0)
+
+        # ── Following signal ────────────────────────────────
+        if following_ids:
+            follow_score = case(
+                (JobPost.author_id.in_(following_ids), 3),
+                else_=0,
+            )
+        else:
+            follow_score = literal(0)
+
+        # ── Activity signal ─────────────────────────────────
+        activity_score = literal(2) if user_post_count > 5 else literal(0)
+
+        total_score = (
+            uni_score + type_score + follow_score + activity_score + literal(1)
+        ).label("score")
+
+        stmt = (
+            select(JobPost, total_score)
+            .where(
+                JobPost.is_active == True,  # noqa: E712
+                JobPost.author_id != user_id,
+                JobPost.id.notin_(select(applied_sub)),
+            )
+            .order_by(total_score.desc(), JobPost.created_at.desc())
+            .limit(limit)
+        )
+
+        result = await self.db.execute(stmt)
+        return [row[0] for row in result.all()]

@@ -289,6 +289,16 @@ export interface UserInsightsResponse {
   total_comments_received: number;
 }
 
+export interface NotificationSettingsResponse {
+  notify_job_applications: boolean;
+  notify_new_jobs: boolean;
+}
+
+export interface NotificationSettingsUpdateRequest {
+  notify_job_applications?: boolean;
+  notify_new_jobs?: boolean;
+}
+
 // ── Explore ─────────────────────────────────────────────────
 
 export interface ExploreResponse {
@@ -361,7 +371,12 @@ export interface JobApplicationResponse {
   job_id: string;
   applicant: JobPostAuthorSummary;
   message: string | null;
+  status: "pending" | "accepted" | "rejected";
   created_at: string;
+}
+
+export interface UpdateApplicationStatusRequest {
+  status: "accepted" | "rejected";
 }
 
 export interface MyApplicationResponse {
@@ -371,6 +386,7 @@ export interface MyApplicationResponse {
   company_name: string | null;
   job_type: string;
   message: string | null;
+  status: "pending" | "accepted" | "rejected";
   created_at: string;
 }
 

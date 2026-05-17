@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AlreadyExists, BadRequest, Forbidden, NotFound
 from app.models.job_application import JobApplication
 from app.models.job_post import JobPost
+from app.models.post import Post
 from app.models.saved_job import SavedJob
 from app.models.user import User
 from app.repositories.follow_repository import FollowRepository
@@ -20,6 +21,7 @@ from app.schemas.job import (
     JobPostResponse,
     MyApplicationResponse,
     SavedJobToggleResponse,
+    UpdateApplicationStatusRequest,
 )
 from app.services.notification_service import notify
 
@@ -46,18 +48,21 @@ async def create_job(
     repo = JobRepository(db)
     job = await repo.create_job(job)
 
-    # Notify followers that this user posted a job
+    # Notify followers that this user posted a job (respecting preferences)
     follow_repo = FollowRepository(db)
+    user_repo = UserRepository(db)
     follower_ids = await follow_repo.get_follower_ids(current_user.id)
     for fid in follower_ids:
-        await notify(
-            db,
-            user_id=fid,
-            actor_id=current_user.id,
-            type="job_posted",
-            reference_id=job.id,
-            content=f"{current_user.full_name} posted a new job: {job.title}",
-        )
+        follower = await user_repo.get_by_id(fid)
+        if follower and follower.notify_new_jobs:
+            await notify(
+                db,
+                user_id=fid,
+                actor_id=current_user.id,
+                type="job_posted",
+                reference_id=job.id,
+                content=f"{current_user.full_name} posted a new job: {job.title}",
+            )
 
     return _build_job_response(job, current_user, application_count=0, has_applied=False, saved_by_me=False)
 
@@ -204,17 +209,63 @@ async def apply_to_job(
     )
     application = await repo.create_application(application)
 
-    # Notify the job owner about the new application
+    # Notify the job owner about the new application (respecting preferences)
+    user_repo = UserRepository(db)
+    job_owner = await user_repo.get_by_id(job.author_id)
+    if job_owner and job_owner.notify_job_applications:
+        await notify(
+            db,
+            user_id=job.author_id,
+            actor_id=current_user.id,
+            type="job_application",
+            reference_id=job.id,
+            content=f"{current_user.full_name} applied to your job: {job.title}",
+        )
+
+    return _build_application_response(application, current_user)
+
+
+async def update_application_status(
+    db: AsyncSession,
+    application_id: UUID,
+    current_user: User,
+    data: UpdateApplicationStatusRequest,
+) -> JobApplicationResponse:
+    """Accept or reject an application. Only the job owner can update."""
+    repo = JobRepository(db)
+
+    application = await repo.get_application_by_id(application_id)
+    if not application:
+        raise NotFound("Application")
+
+    job = await repo.get_job_by_id(application.job_id)
+    if not job:
+        raise NotFound("Job post")
+
+    if job.author_id != current_user.id:
+        raise Forbidden("Only the job owner can update application status")
+
+    if application.status != "pending":
+        raise BadRequest("This application has already been reviewed")
+
+    application = await repo.update_application_status(application, data.status)
+
+    # Notify the applicant about the decision
+    status_text = "accepted" if data.status == "accepted" else "rejected"
     await notify(
         db,
-        user_id=job.author_id,
+        user_id=application.applicant_id,
         actor_id=current_user.id,
         type="job_application",
         reference_id=job.id,
-        content=f"{current_user.full_name} applied to your job: {job.title}",
+        content=f"Your application for {job.title} has been {status_text}",
     )
 
-    return _build_application_response(application, current_user)
+    # Load applicant user for the response
+    user_repo = UserRepository(db)
+    applicant = await user_repo.get_by_id(application.applicant_id)
+
+    return _build_application_response(application, applicant)
 
 
 async def list_job_applications(
@@ -401,6 +452,82 @@ async def list_saved_jobs(
     )
 
 
+# ── Recommendations ─────────────────────────────────────────
+
+async def list_recommended_jobs(
+    db: AsyncSession,
+    current_user: User,
+    *,
+    limit: int = 10,
+) -> list[JobPostResponse]:
+    """
+    Return scored job recommendations for the current user.
+
+    Scoring signals (no ML — simple heuristics):
+      +10  author is at the same university
+      +5   job_type matches a type the user previously applied to
+      +3   user follows the job author
+      +2   user is active (has > 5 posts)
+      +1   baseline
+
+    Excludes the user's own jobs and already-applied jobs.
+    """
+    from sqlalchemy import select, func as sa_func
+
+    repo = JobRepository(db)
+    user_repo = UserRepository(db)
+    follow_repo = FollowRepository(db)
+
+    # Gather scoring inputs
+    preferred_types = await repo.get_user_applied_job_types(current_user.id)
+    following_ids = await user_repo.get_following_ids(current_user.id)
+
+    # Count user's posts for the activity signal
+    post_count_stmt = (
+        select(sa_func.count())
+        .select_from(Post)
+        .where(Post.author_id == current_user.id, Post.is_deleted == False)  # noqa: E712
+    )
+    post_count_result = await db.execute(post_count_stmt)
+    user_post_count = post_count_result.scalar_one()
+
+    jobs = await repo.list_recommended_jobs(
+        current_user.id,
+        university_id=current_user.university_id,
+        preferred_types=preferred_types if preferred_types else None,
+        following_ids=following_ids if following_ids else None,
+        user_post_count=user_post_count,
+        limit=limit,
+    )
+
+    if not jobs:
+        return []
+
+    # Batch-load enrichment (same pattern as list_jobs)
+    author_ids = {j.author_id for j in jobs}
+    authors: dict[UUID, User] = {}
+    for aid in author_ids:
+        user = await user_repo.get_by_id(aid)
+        if user:
+            authors[aid] = user
+
+    job_ids = [j.id for j in jobs]
+    app_counts = await repo.count_applications_by_jobs(job_ids)
+    applied_set = await repo.applied_by_user(job_ids, current_user.id)
+    saved_set = await repo.saved_by_user(job_ids, current_user.id)
+
+    return [
+        _build_job_response(
+            j,
+            authors.get(j.author_id),
+            application_count=app_counts.get(j.id, 0),
+            has_applied=j.id in applied_set,
+            saved_by_me=j.id in saved_set,
+        )
+        for j in jobs
+    ]
+
+
 # ── Response builders ────────────────────────────────────────
 
 def _build_job_response(
@@ -461,6 +588,7 @@ def _build_application_response(
         job_id=application.job_id,
         applicant=applicant_summary,
         message=application.message,
+        status=application.status,
         created_at=application.created_at,
     )
 
@@ -476,5 +604,6 @@ def _build_my_application_response(
         company_name=job.company_name if job else None,
         job_type=job.job_type if job else "unknown",
         message=application.message,
+        status=application.status,
         created_at=application.created_at,
     )
