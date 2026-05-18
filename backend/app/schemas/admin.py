@@ -43,13 +43,15 @@ class AdminVerificationResponse(BaseModel):
     user_id: UUID
     username: str
     full_name: str
-    university_email: str
+    verification_method: str
+    university_email: str | None = None
+    document_url: str | None = None
     university_id: UUID
     university_name: str | None = None
     status: str
     rejection_reason: str | None = None
     created_at: datetime
-    expires_at: datetime
+    expires_at: datetime | None = None
     verified_at: datetime | None = None
 
 

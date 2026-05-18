@@ -46,12 +46,19 @@ def _user_response(u: User) -> AdminUserResponse:
 
 
 def _verification_response(req, user, university) -> AdminVerificationResponse:
+    # For document verifications, build a protected URL (not the raw file path)
+    doc_url = None
+    if req.document_url:
+        doc_url = f"/api/v1/verification/document/{req.id}"
+
     return AdminVerificationResponse(
         id=req.id,
         user_id=req.user_id,
         username=user.username if user else "deleted",
         full_name=user.full_name if user else "deleted",
+        verification_method=req.verification_method,
         university_email=req.university_email,
+        document_url=doc_url,
         university_id=req.university_id,
         university_name=university.name if university else None,
         status=req.status,
@@ -310,14 +317,18 @@ async def list_verifications(
     page: int = 1,
     page_size: int = 50,
     status: str | None = None,
+    method: str | None = None,
+    university_id: UUID | None = None,
+    search: str | None = None,
 ) -> PaginatedResponse[AdminVerificationResponse]:
     ver_repo = VerificationRepository(db)
     user_repo = UserRepository(db)
     uni_repo = UniversityRepository(db)
     skip = (page - 1) * page_size
 
-    total = await ver_repo.count_all(status=status)
-    requests = await ver_repo.list_all(status=status, skip=skip, limit=page_size)
+    filters = dict(status=status, method=method, university_id=university_id, search=search)
+    total = await ver_repo.count_all(**filters)
+    requests = await ver_repo.list_all(**filters, skip=skip, limit=page_size)
 
     items = []
     for req in requests:

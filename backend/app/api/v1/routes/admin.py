@@ -118,10 +118,16 @@ async def list_verifications(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     status: str | None = Query(None),
+    method: str | None = Query(None, pattern=r"^(email|document)$"),
+    university_id: UUID | None = Query(None),
+    search: str | None = Query(None, max_length=200),
     admin_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    return await admin_service.list_verifications(db, page=page, page_size=page_size, status=status)
+    return await admin_service.list_verifications(
+        db, page=page, page_size=page_size,
+        status=status, method=method, university_id=university_id, search=search,
+    )
 
 
 @router.get("/verifications/{verification_id}", response_model=AdminVerificationResponse)

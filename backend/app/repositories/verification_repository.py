@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.user import User
 from app.models.verification_request import VerificationRequest
 from app.utils.constants import VerificationStatus
 
@@ -20,15 +21,17 @@ class VerificationRepository:
         await self.db.refresh(request)
         return request
 
+    async def get_by_id(self, request_id: UUID) -> VerificationRequest | None:
+        return await self.db.get(VerificationRequest, request_id)
+
     async def get_latest_pending(
-        self, user_id: UUID, university_email: str,
+        self, user_id: UUID,
     ) -> VerificationRequest | None:
-        """Find the most recent pending request for this user + email."""
+        """Find the most recent pending request for this user."""
         stmt = (
             select(VerificationRequest)
             .where(
                 VerificationRequest.user_id == user_id,
-                VerificationRequest.university_email == university_email,
                 VerificationRequest.status == VerificationStatus.PENDING.value,
             )
             .order_by(VerificationRequest.created_at.desc())
@@ -55,6 +58,13 @@ class VerificationRepository:
         request.verified_at = datetime.now(timezone.utc)
         await self.db.flush()
 
+    async def mark_rejected(
+        self, request: VerificationRequest, reason: str | None = None,
+    ) -> None:
+        request.status = VerificationStatus.REJECTED.value
+        request.rejection_reason = reason
+        await self.db.flush()
+
     async def get_latest_for_user(self, user_id: UUID) -> VerificationRequest | None:
         """Get the most recent verification request for a user (any status)."""
         stmt = (
@@ -66,13 +76,43 @@ class VerificationRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, request_id: UUID) -> VerificationRequest | None:
-        return await self.db.get(VerificationRequest, request_id)
+    # ── Admin listing ────────────────────────────────────────
+
+    def _apply_admin_filters(self, stmt, *, status, method, university_id, search):
+        """Shared filter logic for admin list and count queries."""
+        if status:
+            stmt = stmt.where(VerificationRequest.status == status)
+        if method:
+            stmt = stmt.where(VerificationRequest.verification_method == method)
+        if university_id:
+            stmt = stmt.where(VerificationRequest.university_id == university_id)
+        if search:
+            pattern = f"%{search}%"
+            user_ids_sub = (
+                select(User.id)
+                .where(
+                    or_(
+                        User.username.ilike(pattern),
+                        User.email.ilike(pattern),
+                        User.full_name.ilike(pattern),
+                    )
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    VerificationRequest.user_id.in_(user_ids_sub),
+                    VerificationRequest.university_email.ilike(pattern),
+                )
+            )
+        return stmt
 
     async def list_all(
         self,
         *,
         status: str | None = None,
+        method: str | None = None,
+        university_id: UUID | None = None,
+        search: str | None = None,
         skip: int = 0,
         limit: int = 50,
     ) -> list[VerificationRequest]:
@@ -82,21 +122,25 @@ class VerificationRepository:
             .offset(skip)
             .limit(limit)
         )
-        if status:
-            stmt = stmt.where(VerificationRequest.status == status)
+        stmt = self._apply_admin_filters(
+            stmt, status=status, method=method,
+            university_id=university_id, search=search,
+        )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_all(self, *, status: str | None = None) -> int:
+    async def count_all(
+        self,
+        *,
+        status: str | None = None,
+        method: str | None = None,
+        university_id: UUID | None = None,
+        search: str | None = None,
+    ) -> int:
         stmt = select(func.count()).select_from(VerificationRequest)
-        if status:
-            stmt = stmt.where(VerificationRequest.status == status)
+        stmt = self._apply_admin_filters(
+            stmt, status=status, method=method,
+            university_id=university_id, search=search,
+        )
         result = await self.db.execute(stmt)
         return result.scalar_one()
-
-    async def mark_rejected(
-        self, request: VerificationRequest, reason: str | None = None,
-    ) -> None:
-        request.status = VerificationStatus.REJECTED.value
-        request.rejection_reason = reason
-        await self.db.flush()

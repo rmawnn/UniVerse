@@ -14,6 +14,7 @@ export default function VerificationsTab() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [methodFilter, setMethodFilter] = useState<string>("");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -28,12 +29,13 @@ export default function VerificationsTab() {
   }, []);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-verifications", page, statusFilter],
+    queryKey: ["admin-verifications", page, statusFilter, methodFilter],
     queryFn: () =>
       listVerifications({
         page,
         page_size: 50,
         status: statusFilter || undefined,
+        method: methodFilter || undefined,
       }),
   });
 
@@ -117,6 +119,15 @@ export default function VerificationsTab() {
           <option value="expired">Expired</option>
           <option value="cancelled">Cancelled</option>
         </select>
+        <select
+          value={methodFilter}
+          onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }}
+          style={styles.select}
+        >
+          <option value="">All methods</option>
+          <option value="email">Email</option>
+          <option value="document">Document</option>
+        </select>
         {pendingCount > 0 && (
           <span style={styles.pendingCount}>{pendingCount} pending on this page</span>
         )}
@@ -139,7 +150,8 @@ export default function VerificationsTab() {
               <thead>
                 <tr>
                   <th style={styles.th}>User</th>
-                  <th style={styles.th}>University Email</th>
+                  <th style={styles.th}>Method</th>
+                  <th style={styles.th}>Detail</th>
                   <th style={styles.th}>University</th>
                   <th style={styles.th}>Status</th>
                   <th style={styles.th}>Submitted</th>
@@ -163,7 +175,29 @@ export default function VerificationsTab() {
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <span style={{ fontSize: 13 }}>{v.university_email}</span>
+                        <span style={{
+                          ...styles.methodBadge,
+                          background: v.verification_method === "email" ? "#eff6ff" : "#fdf4ff",
+                          color: v.verification_method === "email" ? "#2563eb" : "#a855f7",
+                        }}>
+                          {v.verification_method === "email" ? "📧 Email" : "📄 Document"}
+                        </span>
+                      </td>
+                      <td style={styles.td}>
+                        {v.verification_method === "email" && v.university_email ? (
+                          <span style={{ fontSize: 13 }}>{v.university_email}</span>
+                        ) : v.verification_method === "document" && v.document_url ? (
+                          <a
+                            href={v.document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={styles.docLink}
+                          >
+                            View Document
+                          </a>
+                        ) : (
+                          <span style={{ color: "#999", fontSize: 13 }}>—</span>
+                        )}
                       </td>
                       <td style={styles.td}>{v.university_name ?? "—"}</td>
                       <td style={styles.td}>
@@ -263,7 +297,23 @@ export default function VerificationsTab() {
                 : `Reject "${confirmAction.verification.username}"'s verification request?`}
             </p>
             <div style={modalStyles.detail}>
-              <span>Email: {confirmAction.verification.university_email}</span>
+              <span>Method: {confirmAction.verification.verification_method === "email" ? "📧 Email" : "📄 Document"}</span>
+              {confirmAction.verification.university_email && (
+                <span>Email: {confirmAction.verification.university_email}</span>
+              )}
+              {confirmAction.verification.document_url && (
+                <span>
+                  Document:{" "}
+                  <a
+                    href={confirmAction.verification.document_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#6C63FF" }}
+                  >
+                    View Document
+                  </a>
+                </span>
+              )}
               <span>University: {confirmAction.verification.university_name ?? "—"}</span>
             </div>
 
@@ -417,6 +467,20 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 13,
     fontWeight: 600, cursor: "pointer", background: "#fee2e2", color: "#dc2626",
     transition: "opacity 0.2s",
+  },
+  methodBadge: {
+    display: "inline-block",
+    padding: "3px 10px",
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+  docLink: {
+    color: "#6C63FF",
+    fontSize: 13,
+    fontWeight: 500,
+    textDecoration: "none",
   },
   doneLabel: { fontSize: 13, color: "#999", fontStyle: "italic" },
   empty: { textAlign: "center", padding: 32, color: "#999", fontSize: 14 },

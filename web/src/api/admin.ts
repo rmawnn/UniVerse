@@ -35,13 +35,15 @@ export interface AdminVerification {
   user_id: string;
   username: string;
   full_name: string;
-  university_email: string;
+  verification_method: string;
+  university_email: string | null;
+  document_url: string | null;
   university_id: string;
   university_name: string | null;
   status: string;
   rejection_reason: string | null;
   created_at: string;
-  expires_at: string;
+  expires_at: string | null;
   verified_at: string | null;
 }
 
@@ -198,6 +200,9 @@ export async function listVerifications(params: {
   page?: number;
   page_size?: number;
   status?: string;
+  method?: string;
+  university_id?: string;
+  search?: string;
 }): Promise<PaginatedResponse<AdminVerification>> {
   const { data } = await api.get<PaginatedResponse<AdminVerification>>(
     "/admin/verifications",
