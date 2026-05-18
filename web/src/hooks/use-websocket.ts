@@ -15,26 +15,48 @@ import { getToken } from "@/lib/api-client";
  * Also exposes a `send` function so components can push events upstream
  * (used for typing indicators).
  *
- * Includes event deduplication: events with the same type + key within a short
- * window are coalesced to prevent redundant cache invalidations.
+ * Reconnection strategy:
+ * - Exponential backoff starting at 3 s, doubling up to 30 s
+ * - Max 12 consecutive failures → stop reconnecting (avoids infinite spam)
+ * - Counter resets on successful connection
+ * - Auth failure (4001) → no reconnect
  *
  * Falls back gracefully: if the WS can't connect, polling (still configured
  * on the pages with longer intervals) acts as the safety net.
  */
 
-const WS_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"
-).replace(/^http/, "ws");
+const __DEV__ = process.env.NODE_ENV === "development";
 
-const RECONNECT_DELAY_MS = 5_000;
-const MAX_RECONNECT_DELAY_MS = 30_000;
+/**
+ * Build the WebSocket URL.
+ *
+ * Priority:
+ *   1. NEXT_PUBLIC_WS_URL  (e.g. "wss://api.example.com/api/v1")
+ *   2. Derive from NEXT_PUBLIC_API_URL by swapping http→ws / https→wss
+ *   3. Fallback to ws://localhost:8000/api/v1
+ */
+function getWsBase(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+  return apiUrl.replace(/^http(s?)/, "ws$1");
+}
+
+const WS_BASE = getWsBase();
+
+const INITIAL_DELAY_MS = 3_000;
+const MAX_DELAY_MS = 30_000;
+const MAX_RETRIES = 12;
 const DEDUP_WINDOW_MS = 2_000;
 
 export function useWebSocket() {
   const qc = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const delayRef = useRef(RECONNECT_DELAY_MS);
+  const delayRef = useRef(INITIAL_DELAY_MS);
+  const retriesRef = useRef(0);
   const recentEvents = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
@@ -60,10 +82,42 @@ export function useWebSocket() {
       return false;
     }
 
+    function scheduleReconnect() {
+      if (!mounted) return;
+
+      retriesRef.current += 1;
+
+      if (retriesRef.current > MAX_RETRIES) {
+        if (__DEV__) {
+          console.warn(
+            `[WS] Gave up after ${MAX_RETRIES} failed attempts. Polling will act as fallback.`,
+          );
+        }
+        return;
+      }
+
+      const jitter = Math.random() * 1000; // 0–1 s jitter
+      const delay = delayRef.current + jitter;
+
+      if (__DEV__) {
+        console.debug(
+          "[WS] Reconnecting in %dms (attempt %d/%d)",
+          Math.round(delay),
+          retriesRef.current,
+          MAX_RETRIES,
+        );
+      }
+
+      reconnectTimer.current = setTimeout(() => {
+        delayRef.current = Math.min(delayRef.current * 2, MAX_DELAY_MS);
+        connect();
+      }, delay);
+    }
+
     function connect() {
       const token = getToken();
       if (!token || !mounted) {
-        console.debug("[WS] No token available — skipping connection");
+        if (__DEV__) console.debug("[WS] No token — skipping connection");
         return;
       }
 
@@ -77,13 +131,21 @@ export function useWebSocket() {
       }
 
       const wsUrl = `${WS_BASE}/ws?token=${token}`;
-      console.debug("[WS] Connecting to", wsUrl.replace(/token=.*/, "token=<redacted>"));
+      if (__DEV__) {
+        console.debug(
+          "[WS] Connecting to",
+          wsUrl.replace(/token=.*/, "token=<redacted>"),
+        );
+      }
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.debug("[WS] Connected");
-        delayRef.current = RECONNECT_DELAY_MS; // reset backoff
+        if (__DEV__) console.debug("[WS] Connected");
+        // Reset backoff on successful connection
+        delayRef.current = INITIAL_DELAY_MS;
+        retriesRef.current = 0;
       };
 
       ws.onmessage = (evt) => {
@@ -108,9 +170,8 @@ export function useWebSocket() {
             event.type === "typing_start" ||
             event.type === "typing_stop"
           ) {
-            // Dispatch as a DOM CustomEvent so chat components can listen
             window.dispatchEvent(
-              new CustomEvent("ws:typing", { detail: event })
+              new CustomEvent("ws:typing", { detail: event }),
             );
           }
         } catch {
@@ -120,28 +181,28 @@ export function useWebSocket() {
 
       ws.onclose = (evt) => {
         wsRef.current = null;
-        console.debug("[WS] Closed — code=%d reason=%s", evt.code, evt.reason || "(none)");
+
+        if (__DEV__) {
+          console.debug(
+            "[WS] Closed — code=%d reason=%s",
+            evt.code,
+            evt.reason || "(none)",
+          );
+        }
 
         // Auth failure (4001) — don't reconnect with the same bad token
         if (evt.code === 4001) {
-          console.warn("[WS] Auth failed — not reconnecting");
+          if (__DEV__) console.warn("[WS] Auth failed — not reconnecting");
           return;
         }
 
-        if (mounted) {
-          console.debug("[WS] Reconnecting in %dms", delayRef.current);
-          reconnectTimer.current = setTimeout(() => {
-            delayRef.current = Math.min(
-              delayRef.current * 2,
-              MAX_RECONNECT_DELAY_MS
-            );
-            connect();
-          }, delayRef.current);
-        }
+        scheduleReconnect();
       };
 
       ws.onerror = () => {
-        console.error("[WS] Connection error");
+        // The onerror event fires *before* onclose, so we don't log here to
+        // avoid double-logging. onclose will handle the reconnect scheduling.
+        // Just force-close so onclose fires.
         ws.close();
       };
     }

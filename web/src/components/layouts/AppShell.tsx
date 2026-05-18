@@ -4,6 +4,7 @@ import { useState } from "react";
 import Sidebar from "./Sidebar";
 import MobileTopBar from "./MobileTopBar";
 import CreatePostModal from "@/components/post/CreatePostModal";
+import NetworkStatusBanner from "@/components/NetworkStatusBanner";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,6 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           flexDirection: "column",
         }}
       >
+        <NetworkStatusBanner />
         <MobileTopBar onMenu={() => setSidebarOpen(true)} />
         <main className="content-area">{children}</main>
       </div>
