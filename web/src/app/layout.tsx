@@ -20,7 +20,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable}`} suppressHydrationWarning>
-      <body style={{ margin: 0, fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}>
+      {/*
+        suppressHydrationWarning on <body> prevents false-positive mismatch
+        warnings caused by browser extensions (e.g. Grammarly) that inject
+        attributes like data-new-gr-c-s-check-loaded and data-gr-ext-installed
+        into the <body> element at runtime. These attributes are not present in
+        the server-rendered HTML, so React would otherwise flag a mismatch.
+        This does NOT disable hydration — it only silences the attribute diff
+        warning on this single element.
+      */}
+      <body
+        suppressHydrationWarning
+        style={{ margin: 0, fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>
