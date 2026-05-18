@@ -42,7 +42,7 @@ export default function DashboardTab({
 
       {statsLoading && (
         <div style={s.grid}>
-          {Array.from({ length: 8 }).map((_, i) => (
+          {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} style={s.cardSkeleton}>
               <div className="skeleton" style={{ width: 80, height: 14, borderRadius: 4 }} />
               <div className="skeleton" style={{ width: 50, height: 28, borderRadius: 4, marginTop: 8 }} />
@@ -52,54 +52,86 @@ export default function DashboardTab({
       )}
 
       {stats && (
-        <div style={s.grid}>
-          <StatCard
-            label="Total Users"
-            value={stats.total_users}
-            color="#6C63FF"
-            onClick={() => onNavigate("users")}
-          />
-          <StatCard
-            label="Active Users"
-            value={stats.active_users}
-            color="#22c55e"
-          />
-          <StatCard
-            label="Verified Students"
-            value={stats.verified_students}
-            color="#0ea5e9"
-          />
-          <StatCard
-            label="Pending Verifications"
-            value={stats.pending_verifications}
-            color="#f59e0b"
-            highlight={stats.pending_verifications > 0}
-            onClick={() => onNavigate("verifications")}
-          />
-          <StatCard
-            label="Communities"
-            value={stats.total_communities}
-            color="#8b5cf6"
-            sub={`${stats.active_communities} active`}
-            onClick={() => onNavigate("communities")}
-          />
-          <StatCard
-            label="Total Posts"
-            value={stats.total_posts}
-            color="#ec4899"
-            onClick={() => onNavigate("posts")}
-          />
-          <StatCard
-            label="Hidden Posts"
-            value={stats.hidden_posts}
-            color="#ef4444"
-          />
-          <StatCard
-            label="Messages"
-            value={stats.total_messages}
-            color="#14b8a6"
-          />
-        </div>
+        <>
+          <div style={s.grid}>
+            <StatCard
+              label="Total Users"
+              value={stats.total_users}
+              color="#6C63FF"
+              trend={stats.users_this_week}
+              onClick={() => onNavigate("users")}
+            />
+            <StatCard
+              label="Active Users"
+              value={stats.active_users}
+              color="#22c55e"
+            />
+            <StatCard
+              label="Verified Students"
+              value={stats.verified_students}
+              color="#0ea5e9"
+            />
+            <StatCard
+              label="Pending Verifications"
+              value={stats.pending_verifications}
+              color="#f59e0b"
+              trend={stats.verifications_this_week}
+              highlight={stats.pending_verifications > 0}
+              onClick={() => onNavigate("verifications")}
+            />
+            <StatCard
+              label="Communities"
+              value={stats.total_communities}
+              color="#8b5cf6"
+              sub={`${stats.active_communities} active`}
+              trend={stats.communities_this_week}
+              onClick={() => onNavigate("communities")}
+            />
+            <StatCard
+              label="Total Posts"
+              value={stats.total_posts}
+              color="#ec4899"
+              trend={stats.posts_this_week}
+              onClick={() => onNavigate("posts")}
+            />
+            <StatCard
+              label="Hidden Posts"
+              value={stats.hidden_posts}
+              color="#ef4444"
+            />
+            <StatCard
+              label="Messages"
+              value={stats.total_messages}
+              color="#14b8a6"
+            />
+            <StatCard
+              label="Total Jobs"
+              value={stats.total_jobs}
+              color="#7c3aed"
+              sub={`${stats.active_jobs} active`}
+              trend={stats.jobs_this_week}
+            />
+            <StatCard
+              label="Applications"
+              value={stats.total_applications}
+              color="#2563eb"
+              trend={stats.applications_this_week}
+            />
+          </div>
+
+          {/* ── Weekly Activity Summary ───────────────── */}
+          <div style={s.weeklySummary}>
+            <h3 style={s.weeklyTitle}>This Week</h3>
+            <div style={s.weeklyGrid}>
+              <WeeklyPill label="Users" count={stats.users_this_week} icon="👤" />
+              <WeeklyPill label="Posts" count={stats.posts_this_week} icon="📝" />
+              <WeeklyPill label="Jobs" count={stats.jobs_this_week} icon="💼" />
+              <WeeklyPill label="Applications" count={stats.applications_this_week} icon="📩" />
+              <WeeklyPill label="Verifications" count={stats.verifications_this_week} icon="✅" />
+              <WeeklyPill label="Communities" count={stats.communities_this_week} icon="👥" />
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Recent Activity ──────────────────────────── */}
@@ -244,11 +276,14 @@ export default function DashboardTab({
   );
 }
 
+/* ── StatCard with optional trend badge ─────────────────────── */
+
 function StatCard({
   label,
   value,
   color,
   sub,
+  trend,
   highlight,
   onClick,
 }: {
@@ -256,6 +291,7 @@ function StatCard({
   value: number;
   color: string;
   sub?: string;
+  trend?: number;
   highlight?: boolean;
   onClick?: () => void;
 }) {
@@ -264,7 +300,9 @@ function StatCard({
       onClick={onClick}
       style={{
         ...s.statCard,
-        borderLeft: `4px solid ${color}`,
+        borderLeftWidth: 4,
+        borderLeftStyle: "solid" as const,
+        borderLeftColor: color,
         cursor: onClick ? "pointer" : "default",
         background: highlight ? "#fffbeb" : "#fff",
       }}
@@ -272,20 +310,49 @@ function StatCard({
       <span style={s.statLabel}>{label}</span>
       <span style={{ ...s.statValue, color }}>{value.toLocaleString()}</span>
       {sub && <span style={s.statSub}>{sub}</span>}
+      {trend !== undefined && trend > 0 && (
+        <span style={s.trendBadge}>+{trend} this week</span>
+      )}
     </div>
   );
 }
+
+/* ── Weekly summary pill ────────────────────────────────────── */
+
+function WeeklyPill({
+  label,
+  count,
+  icon,
+}: {
+  label: string;
+  count: number;
+  icon: string;
+}) {
+  return (
+    <div style={s.weeklyPill}>
+      <span style={s.weeklyIcon}>{icon}</span>
+      <div>
+        <span style={s.weeklyCount}>{count}</span>
+        <span style={s.weeklyLabel}>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Styles ─────────────────────────────────────────────────── */
 
 const s: Record<string, React.CSSProperties> = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
     gap: 16,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   statCard: {
     background: "#fff",
-    border: "1px solid #eee",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#eee",
     borderRadius: 12,
     padding: "18px 20px",
     display: "flex",
@@ -308,12 +375,71 @@ const s: Record<string, React.CSSProperties> = {
     color: "#aaa",
     marginTop: 4,
   },
+  trendBadge: {
+    display: "inline-block",
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#16a34a",
+    background: "#dcfce7",
+    borderRadius: 6,
+    padding: "2px 8px",
+    alignSelf: "flex-start",
+  },
   cardSkeleton: {
     background: "#fff",
     border: "1px solid #eee",
     borderRadius: 12,
     padding: "18px 20px",
   },
+
+  /* ── Weekly summary section ───────────────── */
+  weeklySummary: {
+    background: "#fafafa",
+    border: "1px solid #eee",
+    borderRadius: 12,
+    padding: "18px 20px",
+    marginBottom: 32,
+  },
+  weeklyTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#333",
+    margin: "0 0 14px",
+  },
+  weeklyGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+    gap: 12,
+  },
+  weeklyPill: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 10,
+    padding: "12px 14px",
+  },
+  weeklyIcon: {
+    fontSize: 20,
+    flexShrink: 0,
+  },
+  weeklyCount: {
+    display: "block",
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#1a1a1a",
+    lineHeight: 1.2,
+  },
+  weeklyLabel: {
+    display: "block",
+    fontSize: 12,
+    color: "#888",
+    fontWeight: 500,
+  },
+
+  /* ── Activity section ─────────────────────── */
   activityGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",

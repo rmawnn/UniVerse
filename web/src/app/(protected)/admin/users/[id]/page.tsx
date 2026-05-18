@@ -125,6 +125,7 @@ export default function AdminUserDetailPage({
   }
 
   const isSelf = currentUser?.id === user.id;
+  const ac = user.activity_counts;
 
   return (
     <div>
@@ -134,6 +135,7 @@ export default function AdminUserDetailPage({
       <div style={s.header}>
         <div style={s.avatar}>
           {user.profile_image_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img src={user.profile_image_url} alt="" style={s.avatarImg} />
           ) : (
             user.username.charAt(0).toUpperCase()
@@ -145,9 +147,9 @@ export default function AdminUserDetailPage({
         </div>
       </div>
 
-      {/* ── Info Card ─────────────────────── */}
+      {/* ── 1. Account Overview ───────────── */}
       <div style={s.card}>
-        <h3 style={s.sectionTitle}>Profile Information</h3>
+        <h3 style={s.sectionTitle}>Account Overview</h3>
         <div style={s.grid}>
           <InfoRow label="Email" value={user.email} />
           <InfoRow label="Role">
@@ -173,10 +175,165 @@ export default function AdminUserDetailPage({
         </div>
       </div>
 
-      {/* ── Actions ───────────────────────── */}
+      {/* ── 2. Activity Summary ───────────── */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Activity Summary</h3>
+        <div style={s.countsGrid}>
+          <CountCard label="Posts" value={ac.posts_count} color="#ec4899" />
+          <CountCard label="Comments" value={ac.comments_count} color="#f59e0b" />
+          <CountCard label="Likes Given" value={ac.likes_given} color="#ef4444" />
+          <CountCard label="Followers" value={ac.followers_count} color="#6C63FF" />
+          <CountCard label="Following" value={ac.following_count} color="#0ea5e9" />
+          <CountCard label="Jobs Posted" value={ac.jobs_posted} color="#7c3aed" />
+          <CountCard label="Applications" value={ac.applications_submitted} color="#2563eb" />
+        </div>
+      </div>
+
+      {/* ── 3. Recent Activity ────────────── */}
+
+      {/* Recent Posts */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Recent Posts ({user.recent_posts.length})</h3>
+        {user.recent_posts.length === 0 ? (
+          <p style={s.empty}>No posts yet.</p>
+        ) : (
+          <div style={s.listGrid}>
+            {user.recent_posts.map((p) => (
+              <Link key={p.id} href={`/admin/posts/${p.id}`} style={{ ...s.listItem, opacity: p.is_deleted ? 0.5 : 1 }}>
+                <div style={{ flex: 1 }}>
+                  <span style={s.postPreview}>{p.content_preview || "—"}</span>
+                  <span style={s.itemMeta}>
+                    {formatRelativeTime(p.created_at)}
+                    {p.is_deleted && " · Hidden"}
+                  </span>
+                </div>
+                <span style={s.arrow}>&rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Comments */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Recent Comments ({user.recent_comments.length})</h3>
+        {user.recent_comments.length === 0 ? (
+          <p style={s.empty}>No comments yet.</p>
+        ) : (
+          <div style={s.listGrid}>
+            {user.recent_comments.map((c) => (
+              <Link key={c.id} href={`/admin/posts/${c.post_id}`} style={s.listItem}>
+                <div style={{ flex: 1 }}>
+                  <span style={s.postPreview}>{c.content}</span>
+                  <span style={s.itemMeta}>
+                    on: {c.post_preview} · {formatRelativeTime(c.created_at)}
+                  </span>
+                </div>
+                <span style={s.arrow}>&rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Jobs */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Jobs Posted ({user.recent_jobs.length})</h3>
+        {user.recent_jobs.length === 0 ? (
+          <p style={s.empty}>No jobs posted.</p>
+        ) : (
+          <div style={s.listGrid}>
+            {user.recent_jobs.map((j) => (
+              <Link key={j.id} href={`/jobs/${j.id}`} style={s.listItem}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={s.listItemName}>{j.title}</span>
+                    <JobTypeBadge type={j.job_type} />
+                    {!j.is_active && <span style={s.deletedTag}>Inactive</span>}
+                  </div>
+                  <span style={s.itemMeta}>
+                    {j.company_name ?? "No company"} · {formatRelativeTime(j.created_at)}
+                  </span>
+                </div>
+                <span style={s.arrow}>&rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Applications */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Applications ({user.recent_applications.length})</h3>
+        {user.recent_applications.length === 0 ? (
+          <p style={s.empty}>No applications submitted.</p>
+        ) : (
+          <div style={s.listGrid}>
+            {user.recent_applications.map((a) => (
+              <Link key={a.id} href={`/jobs/${a.job_id}`} style={s.listItem}>
+                <div style={{ flex: 1 }}>
+                  <span style={s.listItemName}>{a.job_title}</span>
+                  <span style={s.itemMeta}>
+                    <AppStatusPill status={a.status} /> · {formatRelativeTime(a.created_at)}
+                  </span>
+                </div>
+                <span style={s.arrow}>&rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Verification History */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Verification History ({user.verification_history.length})</h3>
+        {user.verification_history.length === 0 ? (
+          <p style={s.empty}>No verification attempts.</p>
+        ) : (
+          <div style={s.listGrid}>
+            {user.verification_history.map((v) => (
+              <div key={v.id} style={{ ...s.listItem, cursor: "default" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <VerStatusPill status={v.status} />
+                    <MethodBadge method={v.method} />
+                    {v.university_name && (
+                      <span style={s.itemMeta}>{v.university_name}</span>
+                    )}
+                  </div>
+                  <span style={s.itemMeta}>
+                    {formatRelativeTime(v.created_at)}
+                    {v.verified_at && ` · verified ${formatRelativeTime(v.verified_at)}`}
+                    {v.rejection_reason && ` · reason: ${v.rejection_reason}`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Communities */}
+      <div style={s.card}>
+        <h3 style={s.sectionTitle}>Communities ({user.communities.length})</h3>
+        {user.communities.length === 0 ? (
+          <p style={s.empty}>No communities joined.</p>
+        ) : (
+          <div style={s.listGrid}>
+            {user.communities.map((c) => (
+              <Link key={c.id} href={`/admin/communities/${c.id}`} style={s.listItem}>
+                <span style={s.listItemName}>{c.name}</span>
+                <span style={s.arrow}>&rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── 4. Admin Actions ──────────────── */}
       {!isSelf && (
         <div style={s.card}>
-          <h3 style={s.sectionTitle}>Actions</h3>
+          <h3 style={s.sectionTitle}>Admin Actions</h3>
           <div style={s.actions}>
             <button
               onClick={() =>
@@ -224,61 +381,6 @@ export default function AdminUserDetailPage({
           </div>
         </div>
       )}
-
-      {/* ── Communities ───────────────────── */}
-      <div style={s.card}>
-        <h3 style={s.sectionTitle}>
-          Communities ({user.communities.length})
-        </h3>
-        {user.communities.length === 0 ? (
-          <p style={s.empty}>No communities joined.</p>
-        ) : (
-          <div style={s.listGrid}>
-            {user.communities.map((c) => (
-              <Link
-                key={c.id}
-                href={`/admin/communities/${c.id}`}
-                style={s.listItem}
-              >
-                <span style={s.listItemName}>{c.name}</span>
-                <span style={s.arrow}>&rarr;</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Recent Posts ──────────────────── */}
-      <div style={s.card}>
-        <h3 style={s.sectionTitle}>
-          Recent Posts ({user.recent_posts.length})
-        </h3>
-        {user.recent_posts.length === 0 ? (
-          <p style={s.empty}>No posts yet.</p>
-        ) : (
-          <div style={s.listGrid}>
-            {user.recent_posts.map((p) => (
-              <Link
-                key={p.id}
-                href={`/admin/posts/${p.id}`}
-                style={{
-                  ...s.listItem,
-                  opacity: p.is_deleted ? 0.5 : 1,
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <span style={s.postPreview}>{p.content_preview || "—"}</span>
-                  <span style={s.postMeta}>
-                    {formatRelativeTime(p.created_at)}
-                    {p.is_deleted && " · Hidden"}
-                  </span>
-                </div>
-                <span style={s.arrow}>&rarr;</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* ── Confirm Modal ─────────────────── */}
       {confirmAction && (
@@ -349,19 +451,20 @@ function BackLink() {
   );
 }
 
-function InfoRow({
-  label,
-  value,
-  children,
-}: {
-  label: string;
-  value?: string;
-  children?: React.ReactNode;
-}) {
+function InfoRow({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
   return (
     <div style={s.infoRow}>
       <span style={s.infoLabel}>{label}</span>
       {children ?? <span style={s.infoValue}>{value}</span>}
+    </div>
+  );
+}
+
+function CountCard({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div style={s.countCard}>
+      <span style={{ ...s.countValue, color }}>{value.toLocaleString()}</span>
+      <span style={s.countLabel}>{label}</span>
     </div>
   );
 }
@@ -374,10 +477,7 @@ function RoleBadge({ role }: { role: string }) {
   };
   const c = config[role] ?? config.student;
   return (
-    <span style={{
-      display: "inline-block", padding: "3px 10px", borderRadius: 12,
-      fontSize: 12, fontWeight: 600, background: c.bg, color: c.fg,
-    }}>
+    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: c.bg, color: c.fg }}>
       {role}
     </span>
   );
@@ -392,6 +492,74 @@ function StatusPill({ active }: { active: boolean }) {
       color: active ? "#16a34a" : "#dc2626",
     }}>
       {active ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+function AppStatusPill({ status }: { status: string }) {
+  const config: Record<string, { bg: string; fg: string }> = {
+    pending: { bg: "#fef3c7", fg: "#d97706" },
+    accepted: { bg: "#dcfce7", fg: "#16a34a" },
+    rejected: { bg: "#fee2e2", fg: "#dc2626" },
+  };
+  const c = config[status] ?? { bg: "#f3f4f6", fg: "#6b7280" };
+  return (
+    <span style={{
+      display: "inline-block", padding: "1px 8px", borderRadius: 8,
+      fontSize: 11, fontWeight: 600, background: c.bg, color: c.fg,
+      textTransform: "capitalize" as const,
+    }}>
+      {status}
+    </span>
+  );
+}
+
+function VerStatusPill({ status }: { status: string }) {
+  const config: Record<string, { bg: string; fg: string }> = {
+    pending: { bg: "#fef3c7", fg: "#d97706" },
+    verified: { bg: "#dcfce7", fg: "#16a34a" },
+    rejected: { bg: "#fee2e2", fg: "#dc2626" },
+    expired: { bg: "#f3f4f6", fg: "#6b7280" },
+  };
+  const c = config[status] ?? { bg: "#f3f4f6", fg: "#6b7280" };
+  return (
+    <span style={{
+      display: "inline-block", padding: "1px 8px", borderRadius: 8,
+      fontSize: 11, fontWeight: 600, background: c.bg, color: c.fg,
+      textTransform: "capitalize" as const,
+    }}>
+      {status}
+    </span>
+  );
+}
+
+function MethodBadge({ method }: { method: string }) {
+  const isEmail = method === "email";
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 6,
+      background: isEmail ? "#dbeafe" : "#fce7f3",
+      color: isEmail ? "#1d4ed8" : "#be185d",
+    }}>
+      {isEmail ? "Email" : "Document"}
+    </span>
+  );
+}
+
+function JobTypeBadge({ type }: { type: string }) {
+  const colors: Record<string, { bg: string; fg: string }> = {
+    internship: { bg: "#dbeafe", fg: "#1d4ed8" },
+    "part-time": { bg: "#fef3c7", fg: "#d97706" },
+    "full-time": { bg: "#dcfce7", fg: "#16a34a" },
+    freelance: { bg: "#f3e8ff", fg: "#7c3aed" },
+  };
+  const c = colors[type] ?? { bg: "#f3f4f6", fg: "#6b7280" };
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 6,
+      background: c.bg, color: c.fg, textTransform: "capitalize" as const,
+    }}>
+      {type}
     </span>
   );
 }
@@ -448,6 +616,50 @@ const s: Record<string, React.CSSProperties> = {
     display: "inline-block", padding: "3px 10px", borderRadius: 12,
     fontSize: 12, fontWeight: 600, background: "#dcfce7", color: "#16a34a",
   },
+
+  /* ── Activity counts grid ──────────── */
+  countsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+    gap: 10,
+  },
+  countCard: {
+    background: "#fafafa",
+    borderRadius: 10,
+    padding: "14px 12px",
+    textAlign: "center",
+    border: "1px solid #f0f0f0",
+  },
+  countValue: {
+    display: "block",
+    fontSize: 22,
+    fontWeight: 700,
+    lineHeight: 1.2,
+  },
+  countLabel: {
+    display: "block",
+    fontSize: 12,
+    color: "#888",
+    fontWeight: 500,
+    marginTop: 2,
+  },
+
+  /* ── Lists ──────────────────────────── */
+  listGrid: { display: "flex", flexDirection: "column", gap: 0 },
+  listItem: {
+    display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
+    borderBottom: "1px solid #f5f5f5", textDecoration: "none", color: "inherit",
+  },
+  listItemName: { fontSize: 14, fontWeight: 600, color: "#1a1a1a" },
+  arrow: { color: "#ccc", fontSize: 14 },
+  postPreview: { fontSize: 13, color: "#444", display: "block" },
+  itemMeta: { fontSize: 12, color: "#999", display: "block", marginTop: 2 },
+  deletedTag: {
+    fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
+    background: "#fee2e2", color: "#dc2626",
+  },
+
+  /* ── Actions ────────────────────────── */
   actions: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
   actionBtn: {
     border: "none", borderRadius: 8, padding: "8px 18px",
@@ -459,15 +671,8 @@ const s: Record<string, React.CSSProperties> = {
     padding: "6px 10px", fontSize: 13, border: "1px solid #ddd",
     borderRadius: 6, background: "#fff", cursor: "pointer",
   },
-  listGrid: { display: "flex", flexDirection: "column", gap: 0 },
-  listItem: {
-    display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
-    borderBottom: "1px solid #f5f5f5", textDecoration: "none", color: "inherit",
-  },
-  listItemName: { fontSize: 14, fontWeight: 600, color: "#1a1a1a" },
-  arrow: { color: "#ccc", fontSize: 14 },
-  postPreview: { fontSize: 13, color: "#444", display: "block" },
-  postMeta: { fontSize: 12, color: "#999", display: "block", marginTop: 2 },
+
+  /* ── States ─────────────────────────── */
   empty: { textAlign: "center", padding: "20px 0", color: "#ccc", fontSize: 13 },
   errorBox: { background: "#fff5f5", border: "1px solid #fed7d7", borderRadius: 12, padding: 20 },
   errorText: { color: "#c53030", fontSize: 14, margin: 0 },

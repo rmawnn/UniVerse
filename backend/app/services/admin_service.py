@@ -1,4 +1,5 @@
 import math
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select, func
@@ -7,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequest, NotFound
 from app.models.comment import Comment
 from app.models.community import Community, CommunityMember
+from app.models.job_application import JobApplication
+from app.models.job_post import JobPost
 from app.models.message import Message
 from app.models.post import Post
 from app.models.post_like import PostLike
 from app.models.user import User
+from app.models.verification_request import VerificationRequest
 from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_repository import PostRepository
 from app.repositories.university_repository import UniversityRepository
@@ -22,9 +26,12 @@ from app.schemas.admin import (
     AdminPostDetailResponse,
     AdminPostResponse,
     AdminStatsResponse,
+    AdminUserActivityCounts,
     AdminUserDetailResponse,
     AdminUserResponse,
     AdminVerificationResponse,
+    ModerationJobItem,
+    ModerationQueueResponse,
     RecentActivityResponse,
 )
 from app.schemas.common import PaginatedResponse
@@ -73,6 +80,9 @@ def _verification_response(req, user, university) -> AdminVerificationResponse:
 
 
 async def get_stats(db: AsyncSession) -> AdminStatsResponse:
+    one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+
+    # ── Totals ──────────────────────────────────────────────
     total_users = (await db.execute(
         select(func.count()).select_from(User)
     )).scalar_one()
@@ -104,6 +114,37 @@ async def get_stats(db: AsyncSession) -> AdminStatsResponse:
         select(func.count()).select_from(Message)
     )).scalar_one()
 
+    total_jobs = (await db.execute(
+        select(func.count()).select_from(JobPost)
+    )).scalar_one()
+    active_jobs = (await db.execute(
+        select(func.count()).select_from(JobPost).where(JobPost.is_active == True)  # noqa: E712
+    )).scalar_one()
+
+    total_applications = (await db.execute(
+        select(func.count()).select_from(JobApplication)
+    )).scalar_one()
+
+    # ── Weekly trends (created in the last 7 days) ──────────
+    users_this_week = (await db.execute(
+        select(func.count()).select_from(User).where(User.created_at >= one_week_ago)
+    )).scalar_one()
+    posts_this_week = (await db.execute(
+        select(func.count()).select_from(Post).where(Post.created_at >= one_week_ago)
+    )).scalar_one()
+    jobs_this_week = (await db.execute(
+        select(func.count()).select_from(JobPost).where(JobPost.created_at >= one_week_ago)
+    )).scalar_one()
+    applications_this_week = (await db.execute(
+        select(func.count()).select_from(JobApplication).where(JobApplication.created_at >= one_week_ago)
+    )).scalar_one()
+    verifications_this_week = (await db.execute(
+        select(func.count()).select_from(VerificationRequest).where(VerificationRequest.created_at >= one_week_ago)
+    )).scalar_one()
+    communities_this_week = (await db.execute(
+        select(func.count()).select_from(Community).where(Community.created_at >= one_week_ago)
+    )).scalar_one()
+
     return AdminStatsResponse(
         total_users=total_users,
         active_users=active_users,
@@ -114,6 +155,15 @@ async def get_stats(db: AsyncSession) -> AdminStatsResponse:
         total_posts=total_posts,
         hidden_posts=hidden_posts,
         total_messages=total_messages,
+        total_jobs=total_jobs,
+        active_jobs=active_jobs,
+        total_applications=total_applications,
+        users_this_week=users_this_week,
+        posts_this_week=posts_this_week,
+        jobs_this_week=jobs_this_week,
+        applications_this_week=applications_this_week,
+        verifications_this_week=verifications_this_week,
+        communities_this_week=communities_this_week,
     )
 
 
@@ -127,7 +177,6 @@ async def get_recent_activity(db: AsyncSession) -> RecentActivityResponse:
         for u in users_result.scalars().all()
     ]
 
-    from app.models.verification_request import VerificationRequest
     ver_result = await db.execute(
         select(VerificationRequest).order_by(VerificationRequest.created_at.desc()).limit(5)
     )
@@ -173,6 +222,99 @@ async def get_recent_activity(db: AsyncSession) -> RecentActivityResponse:
     )
 
 
+async def get_moderation_queue(db: AsyncSession) -> ModerationQueueResponse:
+    """
+    Aggregate items needing admin attention into a single response:
+    - pending verification requests (all)
+    - hidden/flagged posts (up to 20)
+    - communities created in the last 7 days (up to 10)
+    - jobs created in the last 7 days (up to 10)
+    """
+    one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    user_repo = UserRepository(db)
+    uni_repo = UniversityRepository(db)
+
+    # ── Pending verifications ───────────────────────────────
+    ver_repo = VerificationRepository(db)
+    pending_reqs = await ver_repo.list_all(status="pending", skip=0, limit=20)
+    pending_verifications = []
+    for req in pending_reqs:
+        user = await user_repo.get_by_id(req.user_id)
+        university = await uni_repo.get_by_id(req.university_id)
+        pending_verifications.append(_verification_response(req, user, university))
+
+    # ── Hidden posts ────────────────────────────────────────
+    hidden_result = await db.execute(
+        select(Post)
+        .where(Post.is_deleted == True)  # noqa: E712
+        .order_by(Post.created_at.desc())
+        .limit(20)
+    )
+    hidden_posts = []
+    for p in hidden_result.scalars().all():
+        author = await user_repo.get_by_id(p.author_id)
+        comm_r = await db.execute(select(Community).where(Community.id == p.community_id))
+        comm = comm_r.scalar_one_or_none()
+        hidden_posts.append(AdminPostResponse(
+            id=p.id,
+            author_username=author.username if author else "deleted",
+            author_full_name=author.full_name if author else "deleted",
+            community_id=p.community_id,
+            community_name=comm.name if comm else "deleted",
+            content_preview=(p.content or "")[:120],
+            image_url=p.image_url,
+            is_deleted=p.is_deleted,
+            created_at=p.created_at,
+        ))
+
+    # ── Recent communities (last 7 days) ────────────────────
+    comm_repo = CommunityRepository(db)
+    comm_result = await db.execute(
+        select(Community)
+        .where(Community.created_at >= one_week_ago)
+        .order_by(Community.created_at.desc())
+        .limit(10)
+    )
+    recent_communities = []
+    comm_list = comm_result.scalars().all()
+    comm_ids = [c.id for c in comm_list]
+    member_counts = await comm_repo.member_counts_batch(comm_ids) if comm_ids else {}
+    for c in comm_list:
+        recent_communities.append(AdminCommunityResponse(
+            id=c.id, name=c.name, description=c.description,
+            university_id=c.university_id,
+            member_count=member_counts.get(c.id, 0),
+            is_deleted=c.is_deleted, created_at=c.created_at,
+        ))
+
+    # ── Recent jobs (last 7 days) ───────────────────────────
+    job_result = await db.execute(
+        select(JobPost)
+        .where(JobPost.created_at >= one_week_ago)
+        .order_by(JobPost.created_at.desc())
+        .limit(10)
+    )
+    recent_jobs = []
+    for j in job_result.scalars().all():
+        author = await user_repo.get_by_id(j.author_id)
+        recent_jobs.append(ModerationJobItem(
+            id=j.id,
+            title=j.title,
+            company_name=j.company_name,
+            job_type=j.job_type,
+            author_username=author.username if author else "deleted",
+            is_active=j.is_active,
+            created_at=j.created_at,
+        ))
+
+    return ModerationQueueResponse(
+        pending_verifications=pending_verifications,
+        hidden_posts=hidden_posts,
+        recent_communities=recent_communities,
+        recent_jobs=recent_jobs,
+    )
+
+
 # ── Users ────────────────────────────────────────────────────
 
 
@@ -210,6 +352,9 @@ async def get_user_detail(
     db: AsyncSession,
     user_id: UUID,
 ) -> AdminUserDetailResponse:
+    from app.models.user_follow import UserFollow
+    from app.repositories.follow_repository import FollowRepository
+
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
     if not user:
@@ -222,6 +367,7 @@ async def get_user_detail(
         if uni:
             university_name = uni.name
 
+    # ── Communities ──────────────────────────────────────────
     comm_repo = CommunityRepository(db)
     communities = await comm_repo.list_by_user(user_id)
     comm_list = [
@@ -229,6 +375,7 @@ async def get_user_detail(
         for c in communities
     ]
 
+    # ── Recent posts ────────────────────────────────────────
     post_repo = PostRepository(db)
     posts = await post_repo.list_by_author(user_id, skip=0, limit=10)
     post_list = [
@@ -236,6 +383,116 @@ async def get_user_detail(
          "is_deleted": p.is_deleted, "created_at": p.created_at.isoformat()}
         for p in posts
     ]
+
+    # ── Activity counts ─────────────────────────────────────
+    posts_count = await post_repo.count_by_author(user_id)
+
+    comments_count = (await db.execute(
+        select(func.count()).select_from(Comment)
+        .where(Comment.author_id == user_id, Comment.is_deleted == False)  # noqa: E712
+    )).scalar_one()
+
+    likes_given = (await db.execute(
+        select(func.count()).select_from(PostLike)
+        .where(PostLike.user_id == user_id)
+    )).scalar_one()
+
+    follow_repo = FollowRepository(db)
+    followers_count = await follow_repo.count_followers(user_id)
+    following_count = await follow_repo.count_following(user_id)
+
+    jobs_posted = (await db.execute(
+        select(func.count()).select_from(JobPost)
+        .where(JobPost.author_id == user_id)
+    )).scalar_one()
+
+    applications_submitted = (await db.execute(
+        select(func.count()).select_from(JobApplication)
+        .where(JobApplication.applicant_id == user_id)
+    )).scalar_one()
+
+    activity_counts = AdminUserActivityCounts(
+        posts_count=posts_count,
+        comments_count=comments_count,
+        likes_given=likes_given,
+        followers_count=followers_count,
+        following_count=following_count,
+        jobs_posted=jobs_posted,
+        applications_submitted=applications_submitted,
+    )
+
+    # ── Recent comments ─────────────────────────────────────
+    comments_result = await db.execute(
+        select(Comment)
+        .where(Comment.author_id == user_id, Comment.is_deleted == False)  # noqa: E712
+        .order_by(Comment.created_at.desc())
+        .limit(5)
+    )
+    recent_comments = []
+    for c in comments_result.scalars().all():
+        comm_post = await post_repo.get_by_id_admin(c.post_id)
+        recent_comments.append({
+            "id": str(c.id),
+            "content": (c.content or "")[:100],
+            "post_id": str(c.post_id),
+            "post_preview": (comm_post.content or "")[:60] if comm_post else "deleted",
+            "created_at": c.created_at.isoformat(),
+        })
+
+    # ── Recent jobs posted ──────────────────────────────────
+    jobs_result = await db.execute(
+        select(JobPost)
+        .where(JobPost.author_id == user_id)
+        .order_by(JobPost.created_at.desc())
+        .limit(5)
+    )
+    recent_jobs = [
+        {
+            "id": str(j.id), "title": j.title, "company_name": j.company_name,
+            "job_type": j.job_type, "is_active": j.is_active,
+            "created_at": j.created_at.isoformat(),
+        }
+        for j in jobs_result.scalars().all()
+    ]
+
+    # ── Recent applications ─────────────────────────────────
+    apps_result = await db.execute(
+        select(JobApplication)
+        .where(JobApplication.applicant_id == user_id)
+        .order_by(JobApplication.created_at.desc())
+        .limit(5)
+    )
+    recent_applications = []
+    for a in apps_result.scalars().all():
+        job_r = await db.execute(select(JobPost).where(JobPost.id == a.job_id))
+        job = job_r.scalar_one_or_none()
+        recent_applications.append({
+            "id": str(a.id),
+            "job_id": str(a.job_id),
+            "job_title": job.title if job else "deleted",
+            "status": a.status,
+            "created_at": a.created_at.isoformat(),
+        })
+
+    # ── Verification history ────────────────────────────────
+    ver_result = await db.execute(
+        select(VerificationRequest)
+        .where(VerificationRequest.user_id == user_id)
+        .order_by(VerificationRequest.created_at.desc())
+        .limit(5)
+    )
+    verification_history = []
+    for v in ver_result.scalars().all():
+        uni = await uni_repo.get_by_id(v.university_id) if v.university_id else None
+        verification_history.append({
+            "id": str(v.id),
+            "method": v.verification_method,
+            "status": v.status,
+            "university_name": uni.name if uni else None,
+            "rejection_reason": v.rejection_reason,
+            "created_at": v.created_at.isoformat(),
+            "verified_at": v.verified_at.isoformat() if v.verified_at else None,
+        })
 
     return AdminUserDetailResponse(
         id=user.id,
@@ -253,6 +510,11 @@ async def get_user_detail(
         profile_image_url=user.profile_image_url,
         communities=comm_list,
         recent_posts=post_list,
+        activity_counts=activity_counts,
+        recent_comments=recent_comments,
+        recent_jobs=recent_jobs,
+        recent_applications=recent_applications,
+        verification_history=verification_history,
         created_at=user.created_at,
     )
 

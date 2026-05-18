@@ -15,6 +15,7 @@ from app.schemas.admin import (
     AdminUserDetailResponse,
     AdminUserResponse,
     AdminVerificationResponse,
+    ModerationQueueResponse,
     RecentActivityResponse,
     RejectRequest,
     RoleUpdateRequest,
@@ -42,6 +43,14 @@ async def get_recent_activity(
     db: AsyncSession = Depends(get_db),
 ):
     return await admin_service.get_recent_activity(db)
+
+
+@router.get("/moderation", response_model=ModerationQueueResponse)
+async def get_moderation_queue(
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await admin_service.get_moderation_queue(db)
 
 
 # ── Users ────────────────────────────────────────────────────

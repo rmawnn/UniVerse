@@ -15,6 +15,16 @@ export interface AdminUser {
   created_at: string;
 }
 
+export interface AdminUserActivityCounts {
+  posts_count: number;
+  comments_count: number;
+  likes_given: number;
+  followers_count: number;
+  following_count: number;
+  jobs_posted: number;
+  applications_submitted: number;
+}
+
 export interface AdminUserDetail extends AdminUser {
   bio: string | null;
   department: string | null;
@@ -27,6 +37,38 @@ export interface AdminUserDetail extends AdminUser {
     content_preview: string;
     is_deleted: boolean;
     created_at: string;
+  }[];
+  activity_counts: AdminUserActivityCounts;
+  recent_comments: {
+    id: string;
+    content: string;
+    post_id: string;
+    post_preview: string;
+    created_at: string;
+  }[];
+  recent_jobs: {
+    id: string;
+    title: string;
+    company_name: string | null;
+    job_type: string;
+    is_active: boolean;
+    created_at: string;
+  }[];
+  recent_applications: {
+    id: string;
+    job_id: string;
+    job_title: string;
+    status: string;
+    created_at: string;
+  }[];
+  verification_history: {
+    id: string;
+    method: string;
+    status: string;
+    university_name: string | null;
+    rejection_reason: string | null;
+    created_at: string;
+    verified_at: string | null;
   }[];
 }
 
@@ -109,6 +151,17 @@ export interface AdminStats {
   total_posts: number;
   hidden_posts: number;
   total_messages: number;
+  total_jobs: number;
+  active_jobs: number;
+  total_applications: number;
+
+  // Weekly trends
+  users_this_week: number;
+  posts_this_week: number;
+  jobs_this_week: number;
+  applications_this_week: number;
+  verifications_this_week: number;
+  communities_this_week: number;
 }
 
 export interface RecentActivity {
@@ -141,6 +194,25 @@ export interface RecentActivity {
   }[];
 }
 
+// ── Moderation Queue ──────────────────────────────────────
+
+export interface ModerationJobItem {
+  id: string;
+  title: string;
+  company_name: string | null;
+  job_type: string;
+  author_username: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ModerationQueue {
+  pending_verifications: AdminVerification[];
+  hidden_posts: AdminPost[];
+  recent_communities: AdminCommunity[];
+  recent_jobs: ModerationJobItem[];
+}
+
 // ── Stats & Activity ───────────────────────────────────────
 
 export async function getStats(): Promise<AdminStats> {
@@ -150,6 +222,11 @@ export async function getStats(): Promise<AdminStats> {
 
 export async function getRecentActivity(): Promise<RecentActivity> {
   const { data } = await api.get<RecentActivity>("/admin/recent-activity");
+  return data;
+}
+
+export async function getModerationQueue(): Promise<ModerationQueue> {
+  const { data } = await api.get<ModerationQueue>("/admin/moderation");
   return data;
 }
 

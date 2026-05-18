@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useAuthStore } from "@/store/auth-store";
 import DashboardTab from "./DashboardTab";
+import ModerationTab from "./ModerationTab";
 import UsersTab from "./UsersTab";
 import VerificationsTab from "./VerificationsTab";
 import CommunitiesTab from "./CommunitiesTab";
 import PostsTab from "./PostsTab";
 
-type Tab = "dashboard" | "users" | "verifications" | "communities" | "posts";
+type Tab = "dashboard" | "moderation" | "users" | "verifications" | "communities" | "posts";
 
 export default function AdminPage() {
   const user = useAuthStore((s) => s.user);
@@ -24,6 +25,7 @@ export default function AdminPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "dashboard", label: "Dashboard" },
+    { key: "moderation", label: "Moderation" },
     { key: "users", label: "Users" },
     { key: "verifications", label: "Verifications" },
     { key: "communities", label: "Communities" },
@@ -53,6 +55,7 @@ export default function AdminPage() {
         {tab === "dashboard" && (
           <DashboardTab onNavigate={(t) => setTab(t as Tab)} />
         )}
+        {tab === "moderation" && <ModerationTab />}
         {tab === "users" && <UsersTab currentUserId={user.id} />}
         {tab === "verifications" && <VerificationsTab />}
         {tab === "communities" && <CommunitiesTab />}

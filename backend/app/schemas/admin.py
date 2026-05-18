@@ -25,6 +25,16 @@ class RoleUpdateRequest(BaseModel):
     role: str
 
 
+class AdminUserActivityCounts(BaseModel):
+    posts_count: int = 0
+    comments_count: int = 0
+    likes_given: int = 0
+    followers_count: int = 0
+    following_count: int = 0
+    jobs_posted: int = 0
+    applications_submitted: int = 0
+
+
 class AdminUserDetailResponse(AdminUserResponse):
     bio: str | None = None
     department: str | None = None
@@ -33,6 +43,15 @@ class AdminUserDetailResponse(AdminUserResponse):
     university_name: str | None = None
     communities: list[dict] = []
     recent_posts: list[dict] = []
+
+    # Activity counts
+    activity_counts: AdminUserActivityCounts = AdminUserActivityCounts()
+
+    # Recent activity items
+    recent_comments: list[dict] = []
+    recent_jobs: list[dict] = []
+    recent_applications: list[dict] = []
+    verification_history: list[dict] = []
 
 
 # ── Verifications ────────────────────────────────────────────
@@ -113,6 +132,17 @@ class AdminStatsResponse(BaseModel):
     total_posts: int
     hidden_posts: int
     total_messages: int
+    total_jobs: int
+    active_jobs: int
+    total_applications: int
+
+    # Weekly trend counts (created in the last 7 days)
+    users_this_week: int
+    posts_this_week: int
+    jobs_this_week: int
+    applications_this_week: int
+    verifications_this_week: int
+    communities_this_week: int
 
 
 class RecentActivityResponse(BaseModel):
@@ -120,3 +150,23 @@ class RecentActivityResponse(BaseModel):
     latest_verifications: list[dict]
     latest_posts: list[dict]
     latest_communities: list[dict]
+
+
+# ── Moderation Queue ────────────────────────────────────────
+
+
+class ModerationJobItem(BaseModel):
+    id: UUID
+    title: str
+    company_name: str | None = None
+    job_type: str
+    author_username: str
+    is_active: bool
+    created_at: datetime
+
+
+class ModerationQueueResponse(BaseModel):
+    pending_verifications: list[AdminVerificationResponse]
+    hidden_posts: list[AdminPostResponse]
+    recent_communities: list[AdminCommunityResponse]
+    recent_jobs: list[ModerationJobItem]
