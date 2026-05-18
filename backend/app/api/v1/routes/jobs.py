@@ -8,10 +8,12 @@ from app.core.dependencies import get_current_user, get_current_user_optional
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.schemas.job import (
+    JobActivityEvent,
     JobApplicationResponse,
     JobApplyRequest,
     JobPostCreateRequest,
     JobPostResponse,
+    JobStatsResponse,
     MyApplicationResponse,
     SavedJobToggleResponse,
     UpdateApplicationStatusRequest,
@@ -88,6 +90,16 @@ async def list_recommended_jobs(
     )
 
 
+@router.get("/jobs/{job_id}/activity", response_model=list[JobActivityEvent])
+async def get_job_activity(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the activity timeline for a job. Only the job owner can view."""
+    return await job_service.get_job_activity(db, job_id, current_user)
+
+
 @router.get("/jobs/{job_id}", response_model=JobPostResponse)
 async def get_job(
     job_id: UUID,
@@ -133,6 +145,16 @@ async def update_application_status(
     return await job_service.update_application_status(
         db, application_id, current_user, data,
     )
+
+
+@router.get("/jobs/{job_id}/stats", response_model=JobStatsResponse)
+async def get_job_stats(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get application statistics for a job. Only the job owner can view."""
+    return await job_service.get_job_stats(db, job_id, current_user)
 
 
 @router.post("/jobs/{job_id}/save", response_model=SavedJobToggleResponse)

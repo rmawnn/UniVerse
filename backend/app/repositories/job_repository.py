@@ -136,6 +136,26 @@ class JobRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one()
 
+    async def get_application_stats(self, job_id: UUID) -> dict[str, int]:
+        """Return {total, pending, accepted, rejected} counts for a job."""
+        stmt = (
+            select(
+                JobApplication.status,
+                func.count().label("cnt"),
+            )
+            .where(JobApplication.job_id == job_id)
+            .group_by(JobApplication.status)
+        )
+        result = await self.db.execute(stmt)
+        counts = {row.status: row.cnt for row in result}
+        total = sum(counts.values())
+        return {
+            "total_applications": total,
+            "pending_count": counts.get("pending", 0),
+            "accepted_count": counts.get("accepted", 0),
+            "rejected_count": counts.get("rejected", 0),
+        }
+
     async def list_applications_by_user(
         self, user_id: UUID, *, skip: int = 0, limit: int = 50,
     ) -> list[JobApplication]:
@@ -271,6 +291,18 @@ class JobRepository:
         )
         result = await self.db.execute(stmt)
         return {row[0] for row in result.all()}
+
+    async def list_applications_for_activity(
+        self, job_id: UUID,
+    ) -> list[JobApplication]:
+        """Return all applications for a job, oldest first (timeline order)."""
+        stmt = (
+            select(JobApplication)
+            .where(JobApplication.job_id == job_id)
+            .order_by(JobApplication.created_at.asc())
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
     async def list_recommended_jobs(
         self,

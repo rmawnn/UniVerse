@@ -4,11 +4,13 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getJob, applyToJob, deleteJob, listJobApplications, saveJob, unsaveJob, updateApplicationStatus } from "@/api/jobs";
+import { getJob, applyToJob, deleteJob, listJobApplications, getJobStats, getJobActivity, saveJob, unsaveJob, updateApplicationStatus } from "@/api/jobs";
 import { useAuthStore } from "@/store/auth-store";
 import type {
   JobPostResponse,
   JobApplicationResponse,
+  JobActivityEvent,
+  JobStatsResponse,
   PaginatedResponse,
 } from "@/types/api";
 
@@ -65,6 +67,20 @@ export default function JobDetailPage({
 
   const applications = appsData?.items ?? [];
 
+  // ── Stats (owner only) ─────────────────────────────────
+  const { data: stats } = useQuery<JobStatsResponse>({
+    queryKey: ["job-stats", jobId],
+    queryFn: () => getJobStats(jobId),
+    enabled: isOwner,
+  });
+
+  // ── Activity timeline (owner only) ────────────────────
+  const { data: activity } = useQuery<JobActivityEvent[]>({
+    queryKey: ["job-activity", jobId],
+    queryFn: () => getJobActivity(jobId),
+    enabled: isOwner,
+  });
+
   // ── Apply mutation ──────────────────────────────────────
   const applyMutation = useMutation({
     mutationFn: () => applyToJob(jobId, { message: message || undefined }),
@@ -86,6 +102,8 @@ export default function JobDetailPage({
       updateApplicationStatus(appId, { status }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["job-applications", jobId] });
+      qc.invalidateQueries({ queryKey: ["job-stats", jobId] });
+      qc.invalidateQueries({ queryKey: ["job-activity", jobId] });
       qc.invalidateQueries({ queryKey: ["job", jobId] });
     },
   });
@@ -297,6 +315,142 @@ export default function JobDetailPage({
           </div>
         )}
       </div>
+
+      {/* ── Stats dashboard (owner view) ─────────────────── */}
+      {isOwner && stats && (
+        <div style={styles.statsSection}>
+          <h3 style={styles.sectionTitle}>Dashboard</h3>
+          <div style={styles.statsGrid}>
+            <div style={styles.statCard}>
+              <span style={styles.statValue}>{stats.total_applications}</span>
+              <span style={styles.statLabel}>Total</span>
+            </div>
+            <div style={{ ...styles.statCard, borderLeftColor: "#6C63FF" }}>
+              <span style={{ ...styles.statValue, color: "#6C63FF" }}>
+                {stats.pending_count}
+              </span>
+              <span style={styles.statLabel}>Pending</span>
+            </div>
+            <div style={{ ...styles.statCard, borderLeftColor: "#059669" }}>
+              <span style={{ ...styles.statValue, color: "#059669" }}>
+                {stats.accepted_count}
+              </span>
+              <span style={styles.statLabel}>Accepted</span>
+            </div>
+            <div style={{ ...styles.statCard, borderLeftColor: "#dc2626" }}>
+              <span style={{ ...styles.statValue, color: "#dc2626" }}>
+                {stats.rejected_count}
+              </span>
+              <span style={styles.statLabel}>Rejected</span>
+            </div>
+          </div>
+
+          {/* ── Simple bar chart ────────────────────────── */}
+          {stats.total_applications > 0 && (
+            <div style={styles.chartWrap}>
+              <div style={styles.chartBar}>
+                {stats.accepted_count > 0 && (
+                  <div
+                    style={{
+                      ...styles.chartSegment,
+                      background: "#059669",
+                      width: `${(stats.accepted_count / stats.total_applications) * 100}%`,
+                    }}
+                    title={`Accepted: ${stats.accepted_count}`}
+                  />
+                )}
+                {stats.pending_count > 0 && (
+                  <div
+                    style={{
+                      ...styles.chartSegment,
+                      background: "#6C63FF",
+                      width: `${(stats.pending_count / stats.total_applications) * 100}%`,
+                    }}
+                    title={`Pending: ${stats.pending_count}`}
+                  />
+                )}
+                {stats.rejected_count > 0 && (
+                  <div
+                    style={{
+                      ...styles.chartSegment,
+                      background: "#dc2626",
+                      width: `${(stats.rejected_count / stats.total_applications) * 100}%`,
+                    }}
+                    title={`Rejected: ${stats.rejected_count}`}
+                  />
+                )}
+              </div>
+              <div style={styles.chartLegend}>
+                <span style={styles.legendItem}>
+                  <span style={{ ...styles.legendDot, background: "#059669" }} />
+                  Accepted
+                </span>
+                <span style={styles.legendItem}>
+                  <span style={{ ...styles.legendDot, background: "#6C63FF" }} />
+                  Pending
+                </span>
+                <span style={styles.legendItem}>
+                  <span style={{ ...styles.legendDot, background: "#dc2626" }} />
+                  Rejected
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Activity timeline (owner view) ─────────────── */}
+      {isOwner && activity && activity.length > 0 && (
+        <div style={styles.timelineSection}>
+          <h3 style={styles.sectionTitle}>Activity Timeline</h3>
+          <div style={styles.timeline}>
+            {activity.map((event, idx) => {
+              const isLast = idx === activity.length - 1;
+              const icon =
+                event.event_type === "applied"
+                  ? "📋"
+                  : event.event_type === "accepted"
+                  ? "✅"
+                  : "❌";
+              const label =
+                event.event_type === "applied"
+                  ? `${event.user.full_name} applied`
+                  : event.event_type === "accepted"
+                  ? `${event.user.full_name} accepted`
+                  : `${event.user.full_name} rejected`;
+              const dotColor =
+                event.event_type === "applied"
+                  ? "#6C63FF"
+                  : event.event_type === "accepted"
+                  ? "#059669"
+                  : "#dc2626";
+
+              return (
+                <div key={`${event.event_type}-${event.user.id}-${event.timestamp}`} style={styles.timelineItem}>
+                  <div style={styles.timelineLine}>
+                    <div
+                      style={{
+                        ...styles.timelineDot,
+                        background: dotColor,
+                      }}
+                    />
+                    {!isLast && <div style={styles.timelineConnector} />}
+                  </div>
+                  <div style={styles.timelineContent}>
+                    <div style={styles.timelineLabel}>
+                      <span style={{ marginRight: 6 }}>{icon}</span>
+                      <span>{label}</span>
+                    </div>
+                    <span style={styles.timelineDate}>
+                      {new Date(event.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Applications (owner view) ──────────────────── */}
       {isOwner && (
@@ -527,7 +681,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   saveToggleBtn: {
-    border: "1px solid #ddd",
+    borderWidth: 1,
+    borderStyle: "solid" as const,
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: "10px 18px",
     fontSize: 14,
@@ -598,6 +754,135 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 500,
     margin: 0,
+  },
+
+  /* ── Stats dashboard ────────────────────── */
+  statsSection: {
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 12,
+    padding: 24,
+    marginBottom: 20,
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+    gap: 12,
+    marginBottom: 16,
+  },
+  statCard: {
+    background: "#fafafa",
+    borderRadius: 10,
+    padding: "16px 14px",
+    textAlign: "center",
+    borderLeftWidth: 3,
+    borderLeftStyle: "solid" as const,
+    borderLeftColor: "#333",
+  },
+  statValue: {
+    display: "block",
+    fontSize: 28,
+    fontWeight: 700,
+    color: "#333",
+    lineHeight: 1.2,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#888",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  chartWrap: {
+    marginTop: 4,
+  },
+  chartBar: {
+    display: "flex",
+    height: 12,
+    borderRadius: 6,
+    overflow: "hidden",
+    background: "#f0f0f0",
+    marginBottom: 8,
+  },
+  chartSegment: {
+    height: "100%",
+    transition: "width 0.3s",
+  },
+  chartLegend: {
+    display: "flex",
+    gap: 16,
+    justifyContent: "center",
+  },
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    fontSize: 12,
+    color: "#666",
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+
+  /* ── Activity timeline ──────────────────── */
+  timelineSection: {
+    background: "#fff",
+    border: "1px solid #eee",
+    borderRadius: 12,
+    padding: 24,
+    marginBottom: 20,
+  },
+  timeline: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  timelineItem: {
+    display: "flex",
+    gap: 14,
+    minHeight: 48,
+  },
+  timelineLine: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    width: 16,
+    flexShrink: 0,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
+    flexShrink: 0,
+    marginTop: 3,
+  },
+  timelineConnector: {
+    width: 2,
+    flex: 1,
+    background: "#e5e5e5",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingBottom: 16,
+  },
+  timelineLabel: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#222",
+    display: "flex",
+    alignItems: "center",
+    lineHeight: 1.3,
+  },
+  timelineDate: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 2,
+    display: "block",
   },
 
   /* ── Applications section ───────────────── */

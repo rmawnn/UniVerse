@@ -69,6 +69,14 @@ class UpdateApplicationStatusRequest(BaseModel):
     status: str = Field(..., pattern=r"^(accepted|rejected)$")
 
 
+class JobStatsResponse(BaseModel):
+    """Application statistics for a job post (owner only)."""
+    total_applications: int = 0
+    pending_count: int = 0
+    accepted_count: int = 0
+    rejected_count: int = 0
+
+
 class MyApplicationResponse(BaseModel):
     """Application visible to the applicant themselves."""
     id: uuid.UUID
@@ -79,3 +87,12 @@ class MyApplicationResponse(BaseModel):
     message: str | None = None
     status: str = "pending"
     created_at: datetime
+
+
+# ── Activity timeline ───────────────────────────────────────
+
+class JobActivityEvent(BaseModel):
+    """A single event in a job's activity timeline."""
+    event_type: str  # "applied" | "accepted" | "rejected"
+    user: JobPostAuthorSummary
+    timestamp: datetime

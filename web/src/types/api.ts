@@ -390,6 +390,19 @@ export interface MyApplicationResponse {
   created_at: string;
 }
 
+export interface JobStatsResponse {
+  total_applications: number;
+  pending_count: number;
+  accepted_count: number;
+  rejected_count: number;
+}
+
 export interface SavedJobToggleResponse {
   saved: boolean;
+}
+
+export interface JobActivityEvent {
+  event_type: "applied" | "accepted" | "rejected";
+  user: JobPostAuthorSummary;
+  timestamp: string;
 }

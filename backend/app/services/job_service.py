@@ -14,11 +14,13 @@ from app.repositories.job_repository import JobRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.job import (
+    JobActivityEvent,
     JobApplicationResponse,
     JobApplyRequest,
     JobPostAuthorSummary,
     JobPostCreateRequest,
     JobPostResponse,
+    JobStatsResponse,
     MyApplicationResponse,
     SavedJobToggleResponse,
     UpdateApplicationStatusRequest,
@@ -173,6 +175,97 @@ async def delete_job(
         raise Forbidden("You can only delete your own job posts")
 
     await repo.delete_job(job)
+
+
+async def get_job_stats(
+    db: AsyncSession,
+    job_id: UUID,
+    current_user: User,
+) -> JobStatsResponse:
+    """Get application stats for a job. Only the job owner can view."""
+    repo = JobRepository(db)
+    job = await repo.get_job_by_id(job_id)
+    if not job:
+        raise NotFound("Job post")
+
+    if job.author_id != current_user.id:
+        raise Forbidden("Only the job owner can view stats")
+
+    stats = await repo.get_application_stats(job_id)
+    return JobStatsResponse(**stats)
+
+
+async def get_job_activity(
+    db: AsyncSession,
+    job_id: UUID,
+    current_user: User,
+) -> list[JobActivityEvent]:
+    """
+    Build a chronological activity timeline for a job.
+
+    Derives events from application records:
+      - "applied"  → each application's created_at
+      - "accepted" / "rejected" → application's updated_at when status changed
+
+    Only the job owner can view.
+    """
+    repo = JobRepository(db)
+    job = await repo.get_job_by_id(job_id)
+    if not job:
+        raise NotFound("Job post")
+
+    if job.author_id != current_user.id:
+        raise Forbidden("Only the job owner can view the activity timeline")
+
+    applications = await repo.list_applications_for_activity(job_id)
+
+    if not applications:
+        return []
+
+    # Batch-load applicant users
+    user_repo = UserRepository(db)
+    applicant_ids = {a.applicant_id for a in applications}
+    applicants: dict[UUID, User] = {}
+    for uid in applicant_ids:
+        u = await user_repo.get_by_id(uid)
+        if u:
+            applicants[uid] = u
+
+    events: list[JobActivityEvent] = []
+
+    for app in applications:
+        applicant = applicants.get(app.applicant_id)
+        user_summary = JobPostAuthorSummary(
+            id=applicant.id,
+            username=applicant.username,
+            full_name=applicant.full_name,
+            profile_image_url=applicant.profile_image_url,
+        ) if applicant else JobPostAuthorSummary(
+            id=app.applicant_id,
+            username="[deleted]",
+            full_name="Deleted User",
+            profile_image_url=None,
+        )
+
+        # "applied" event
+        events.append(JobActivityEvent(
+            event_type="applied",
+            user=user_summary,
+            timestamp=app.created_at,
+        ))
+
+        # status-change event (only if decision was made)
+        if app.status in ("accepted", "rejected"):
+            events.append(JobActivityEvent(
+                event_type=app.status,
+                user=user_summary,
+                timestamp=app.updated_at,
+            ))
+
+    # Sort chronologically (newest first for display)
+    events.sort(key=lambda e: e.timestamp, reverse=True)
+
+    return events
 
 
 # ── Applications ─────────────────────────────────────────────

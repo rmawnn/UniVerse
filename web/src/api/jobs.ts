@@ -6,6 +6,8 @@ import type {
   CreateJobRequest,
   JobApplyRequest,
   JobApplicationResponse,
+  JobActivityEvent,
+  JobStatsResponse,
   MyApplicationResponse,
   SavedJobToggleResponse,
   UpdateApplicationStatusRequest,
@@ -65,6 +67,24 @@ export async function listJobApplications(
   const { data } = await api.get<PaginatedResponse<JobApplicationResponse>>(
     `/jobs/${jobId}/applications`,
     { params }
+  );
+  return data;
+}
+
+export async function getJobStats(
+  jobId: string
+): Promise<JobStatsResponse> {
+  const { data } = await api.get<JobStatsResponse>(
+    `/jobs/${jobId}/stats`
+  );
+  return data;
+}
+
+export async function getJobActivity(
+  jobId: string
+): Promise<JobActivityEvent[]> {
+  const { data } = await api.get<JobActivityEvent[]>(
+    `/jobs/${jobId}/activity`
   );
   return data;
 }
