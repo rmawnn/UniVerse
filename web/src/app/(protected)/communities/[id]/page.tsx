@@ -814,7 +814,9 @@ const styles: Record<string, React.CSSProperties> = {
   toggleBtn: {
     flex: 1,
     padding: "10px 0",
-    border: "1px solid #ddd",
+    borderWidth: 1,
+    borderStyle: "solid" as const,
+    borderColor: "#ddd",
     borderRadius: 8,
     fontSize: 14,
     fontWeight: 500,

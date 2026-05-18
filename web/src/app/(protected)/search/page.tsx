@@ -162,7 +162,9 @@ const styles: Record<string, React.CSSProperties> = {
   tab: {
     padding: "8px 20px",
     borderRadius: 8,
-    border: "1px solid #ddd",
+    borderWidth: 1,
+    borderStyle: "solid" as const,
+    borderColor: "#ddd",
     background: "#fff",
     cursor: "pointer",
     fontSize: 14,

@@ -407,7 +407,9 @@ const styles: Record<string, React.CSSProperties> = {
   tab: {
     padding: "6px 14px",
     borderRadius: 20,
-    border: "1px solid #ddd",
+    borderWidth: 1,
+    borderStyle: "solid" as const,
+    borderColor: "#ddd",
     background: "#fff",
     fontSize: 13,
     fontWeight: 500,
