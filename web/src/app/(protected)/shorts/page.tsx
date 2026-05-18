@@ -301,14 +301,14 @@ function ShortCard({
 const styles: Record<string, React.CSSProperties> = {
   heading: { fontSize: 22, fontWeight: 700, marginBottom: 16 },
   viewer: {
-    height: "calc(100vh - 160px)",
+    height: "calc(100dvh - 160px)",
     overflowY: "auto",
     scrollSnapType: "y mandatory",
     borderRadius: 12,
     background: "#000",
   },
   shortCard: {
-    height: "calc(100vh - 160px)",
+    height: "calc(100dvh - 160px)",
     scrollSnapAlign: "start",
     position: "relative",
   },

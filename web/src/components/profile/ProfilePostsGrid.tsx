@@ -331,7 +331,9 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     padding: "12px 0",
     border: "none",
-    borderBottom: "2px solid transparent",
+    borderBottomWidth: 2,
+    borderBottomStyle: "solid" as const,
+    borderBottomColor: "transparent",
     background: "none",
     fontSize: 14,
     fontWeight: 500,
@@ -347,7 +349,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
     gap: 3,
   },
   gridItem: {

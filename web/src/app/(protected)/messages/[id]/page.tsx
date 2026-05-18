@@ -237,7 +237,7 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     display: "flex",
     flexDirection: "column",
-    height: "calc(100vh - 120px)",
+    height: "calc(100dvh - 120px)",
     background: "#fff",
     border: "1px solid #eee",
     borderRadius: 10,

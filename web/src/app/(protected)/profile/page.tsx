@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { updateProfile, getMyInsights } from "@/api/users";
 import type { UpdateProfileRequest } from "@/api/users";
+import { getVerificationStatus } from "@/api/verification";
+import type { VerificationStatusResponse } from "@/api/verification";
 import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeTime } from "@/lib/format";
 import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
@@ -68,16 +70,7 @@ export default function ProfilePage() {
         {user.bio && <p style={styles.bio}>{user.bio}</p>}
 
         {!user.is_verified_student && (
-          <Link href="/verification" style={styles.verifyBanner}>
-            <span style={styles.verifyIcon}>!</span>
-            <div style={styles.verifyText}>
-              <strong>Verify your student status</strong>
-              <span style={styles.verifyHint}>
-                Unlock communities and posting
-              </span>
-            </div>
-            <span style={styles.verifyArrow}>&rarr;</span>
-          </Link>
+          <VerificationBanner />
         )}
 
         <div style={styles.info}>
@@ -154,6 +147,69 @@ export default function ProfilePage() {
 
 /* ── Activity Insights ───────────────────────────────────────── */
 
+function VerificationBanner() {
+  const { data: verStatus } = useQuery<VerificationStatusResponse>({
+    queryKey: ["verification-status"],
+    queryFn: getVerificationStatus,
+    staleTime: 60_000,
+  });
+
+  const isPending =
+    verStatus?.verification_status === "pending";
+  const isRejected =
+    verStatus?.verification_status === "rejected";
+
+  if (isPending) {
+    return (
+      <div style={{
+        ...styles.verifyBanner,
+        background: "#fffbeb",
+        borderColor: "#fde68a",
+      }}>
+        <span style={{ ...styles.verifyIcon, background: "#f59e0b" }}>⏳</span>
+        <div style={styles.verifyText}>
+          <strong style={{ color: "#92400e" }}>Pending Review</strong>
+          <span style={{ ...styles.verifyHint, color: "#a16207" }}>
+            Your document is being reviewed
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRejected) {
+    return (
+      <Link href="/verification" style={{
+        ...styles.verifyBanner,
+        background: "#fff5f5",
+        borderColor: "#fed7d7",
+      }}>
+        <span style={{ ...styles.verifyIcon, background: "#ef4444" }}>✕</span>
+        <div style={styles.verifyText}>
+          <strong style={{ color: "#c53030" }}>Verification Rejected</strong>
+          <span style={{ ...styles.verifyHint, color: "#e53e3e" }}>
+            {verStatus?.rejection_reason || "Tap to try again"}
+          </span>
+        </div>
+        <span style={styles.verifyArrow}>&rarr;</span>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href="/verification" style={styles.verifyBanner}>
+      <span style={styles.verifyIcon}>!</span>
+      <div style={styles.verifyText}>
+        <strong>Verify your student status</strong>
+        <span style={styles.verifyHint}>
+          Unlock communities and posting
+        </span>
+      </div>
+      <span style={styles.verifyArrow}>&rarr;</span>
+    </Link>
+  );
+}
+
 function InsightsSection() {
   const { data, isLoading } = useQuery({
     queryKey: ["my-insights"],
@@ -205,7 +261,7 @@ const insightStyles: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
     gap: 12,
   },
   card: {
@@ -529,7 +585,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 12,
     background: "#fffbeb",
-    border: "1px solid #fde68a",
+    borderWidth: 1,
+    borderStyle: "solid" as const,
+    borderColor: "#fde68a",
     borderRadius: 10,
     padding: "12px 16px",
     marginBottom: 16,

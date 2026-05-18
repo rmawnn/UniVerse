@@ -629,16 +629,22 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 4,
     marginBottom: 20,
     borderBottom: "1px solid #eee",
+    overflowX: "auto",
+    WebkitOverflowScrolling: "touch",
   },
   tab: {
     background: "none",
     border: "none",
-    borderBottom: "2px solid transparent",
+    borderBottomWidth: 2,
+    borderBottomStyle: "solid" as const,
+    borderBottomColor: "transparent",
     padding: "10px 16px",
     fontSize: 14,
     fontWeight: 500,
     color: "#888",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   tabActive: {
     color: "#6C63FF",
@@ -657,7 +663,7 @@ const styles: Record<string, React.CSSProperties> = {
   searchBox: {
     position: "relative",
     flex: "1 1 200px",
-    minWidth: 180,
+    minWidth: 0,
   },
   searchIcon: {
     position: "absolute",
@@ -696,7 +702,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     outline: "none",
     background: "#fff",
-    minWidth: 130,
+    minWidth: 0,
+    flex: "0 1 140px",
     boxSizing: "border-box",
   },
   filterLocationInput: {
@@ -706,8 +713,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     outline: "none",
     boxSizing: "border-box",
-    minWidth: 140,
-    flex: "0 1 160px",
+    minWidth: 0,
+    flex: "0 1 150px",
   },
   clearFiltersBtn: {
     background: "none",
@@ -905,7 +912,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
     gap: 14,
   },
   label: {
