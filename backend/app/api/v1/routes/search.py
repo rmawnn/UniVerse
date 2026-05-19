@@ -1,0 +1,25 @@
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.models.user import User
+from app.schemas.search import UnifiedSearchResponse
+from app.services import search_service
+
+router = APIRouter()
+
+
+@router.get("/search", response_model=UnifiedSearchResponse)
+async def search(
+    q: str = Query(..., min_length=2, max_length=200),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unified search across users, communities, posts, and jobs."""
+    return await search_service.unified_search(
+        db,
+        q,
+        current_user_id=current_user.id,
+        limit_per_type=6,
+    )

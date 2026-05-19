@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getJob, applyToJob, deleteJob, listJobApplications, getJobStats, getJobActivity, saveJob, unsaveJob, updateApplicationStatus } from "@/api/jobs";
 import { useAuthStore } from "@/store/auth-store";
+import ReportModal from "@/components/ReportModal";
 import type {
   JobPostResponse,
   JobApplicationResponse,
@@ -42,6 +43,7 @@ export default function JobDetailPage({
   const [message, setMessage] = useState("");
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const {
     data: job,
@@ -271,7 +273,23 @@ export default function JobDetailPage({
           >
             {saved ? "🔖 Saved" : "📑 Save"}
           </button>
+          {!isOwner && (
+            <button
+              onClick={() => setShowReport(true)}
+              style={styles.reportBtn}
+            >
+              ⚑ Report
+            </button>
+          )}
         </div>
+
+        {showReport && (
+          <ReportModal
+            targetType="job"
+            targetId={jobId}
+            onClose={() => setShowReport(false)}
+          />
+        )}
 
         {/* ── Apply form ───────────────────────────────── */}
         {showApply && !hasApplied && (
@@ -690,6 +708,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.15s",
+  },
+  reportBtn: {
+    background: "#fff",
+    color: "#999",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    padding: "10px 18px",
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
   },
 
   /* ── Apply form ─────────────────────────── */

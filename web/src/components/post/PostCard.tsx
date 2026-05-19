@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toggleLike, savePost, unsavePost } from "@/api/posts";
 import { formatRelativeTime } from "@/lib/format";
+import ReportModal from "@/components/ReportModal";
 import type { PostResponse } from "@/types/api";
 
 interface Props {
@@ -74,6 +75,7 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const [imgBroken, setImgBroken] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const patchPost = usePatchPost(qc, invalidateKeys);
 
   const likeMutation = useMutation({
@@ -203,7 +205,28 @@ function PostCardInner({ post, invalidateKeys = [] }: Props) {
         >
           {post.saved_by_me ? "🔖" : "🏷️"}
         </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setShowReport(true);
+          }}
+          style={styles.reportBtn}
+          title="Report"
+        >
+          ⚑
+        </button>
       </div>
+
+      {showReport && (
+        <ReportModal
+          targetType="post"
+          targetId={post.id}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </article>
   );
 }
@@ -293,5 +316,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 4,
+  },
+  reportBtn: {
+    background: "none",
+    border: "none",
+    padding: "4px 6px",
+    fontSize: 14,
+    cursor: "pointer",
+    borderRadius: 6,
+    color: "#bbb",
   },
 };

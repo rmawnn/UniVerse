@@ -135,6 +135,8 @@ class AdminStatsResponse(BaseModel):
     total_jobs: int
     active_jobs: int
     total_applications: int
+    total_reports: int
+    pending_reports: int
 
     # Weekly trend counts (created in the last 7 days)
     users_this_week: int
@@ -143,6 +145,7 @@ class AdminStatsResponse(BaseModel):
     applications_this_week: int
     verifications_this_week: int
     communities_this_week: int
+    reports_this_week: int
 
 
 class RecentActivityResponse(BaseModel):
@@ -150,6 +153,7 @@ class RecentActivityResponse(BaseModel):
     latest_verifications: list[dict]
     latest_posts: list[dict]
     latest_communities: list[dict]
+    latest_reports: list[dict]
 
 
 # ── Moderation Queue ────────────────────────────────────────

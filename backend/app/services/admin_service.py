@@ -13,6 +13,7 @@ from app.models.job_post import JobPost
 from app.models.message import Message
 from app.models.post import Post
 from app.models.post_like import PostLike
+from app.models.report import Report
 from app.models.user import User
 from app.models.verification_request import VerificationRequest
 from app.repositories.community_repository import CommunityRepository
@@ -125,6 +126,13 @@ async def get_stats(db: AsyncSession) -> AdminStatsResponse:
         select(func.count()).select_from(JobApplication)
     )).scalar_one()
 
+    total_reports = (await db.execute(
+        select(func.count()).select_from(Report)
+    )).scalar_one()
+    pending_reports = (await db.execute(
+        select(func.count()).select_from(Report).where(Report.status == "pending")
+    )).scalar_one()
+
     # ── Weekly trends (created in the last 7 days) ──────────
     users_this_week = (await db.execute(
         select(func.count()).select_from(User).where(User.created_at >= one_week_ago)
@@ -144,6 +152,9 @@ async def get_stats(db: AsyncSession) -> AdminStatsResponse:
     communities_this_week = (await db.execute(
         select(func.count()).select_from(Community).where(Community.created_at >= one_week_ago)
     )).scalar_one()
+    reports_this_week = (await db.execute(
+        select(func.count()).select_from(Report).where(Report.created_at >= one_week_ago)
+    )).scalar_one()
 
     return AdminStatsResponse(
         total_users=total_users,
@@ -158,12 +169,15 @@ async def get_stats(db: AsyncSession) -> AdminStatsResponse:
         total_jobs=total_jobs,
         active_jobs=active_jobs,
         total_applications=total_applications,
+        total_reports=total_reports,
+        pending_reports=pending_reports,
         users_this_week=users_this_week,
         posts_this_week=posts_this_week,
         jobs_this_week=jobs_this_week,
         applications_this_week=applications_this_week,
         verifications_this_week=verifications_this_week,
         communities_this_week=communities_this_week,
+        reports_this_week=reports_this_week,
     )
 
 
@@ -214,11 +228,28 @@ async def get_recent_activity(db: AsyncSession) -> RecentActivityResponse:
         for c in comm_result.scalars().all()
     ]
 
+    # Latest reports
+    reports_result = await db.execute(
+        select(Report).order_by(Report.created_at.desc()).limit(5)
+    )
+    latest_reports = []
+    for r in reports_result.scalars().all():
+        reporter = await user_repo.get_by_id(r.reporter_id)
+        latest_reports.append({
+            "id": str(r.id),
+            "reporter_username": reporter.username if reporter else "unknown",
+            "target_type": r.target_type,
+            "reason": (r.reason or "")[:80],
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+        })
+
     return RecentActivityResponse(
         latest_users=latest_users,
         latest_verifications=latest_verifications,
         latest_posts=latest_posts,
         latest_communities=latest_communities,
+        latest_reports=latest_reports,
     )
 
 

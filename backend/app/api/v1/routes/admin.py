@@ -21,7 +21,8 @@ from app.schemas.admin import (
     RoleUpdateRequest,
 )
 from app.schemas.common import PaginatedResponse
-from app.services import admin_service
+from app.schemas.report import AdminReportResponse, ReportStatusUpdate
+from app.services import admin_service, report_service
 
 router = APIRouter()
 
@@ -246,3 +247,32 @@ async def restore_post(
     db: AsyncSession = Depends(get_db),
 ):
     return await admin_service.restore_post(db, post_id)
+
+
+# ── Reports ─────────────────────────────────────────────────
+
+
+@router.get("/reports", response_model=PaginatedResponse[AdminReportResponse])
+async def list_reports(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    status: str | None = Query(None),
+    target_type: str | None = Query(None),
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await report_service.list_reports(
+        db, page=page, page_size=page_size, status=status, target_type=target_type,
+    )
+
+
+@router.patch("/reports/{report_id}/status", response_model=AdminReportResponse)
+async def update_report_status(
+    report_id: UUID,
+    body: ReportStatusUpdate,
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await report_service.update_report_status(
+        db, report_id, body.status, admin_user,
+    )

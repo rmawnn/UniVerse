@@ -8,6 +8,7 @@ import { getUserProfile, followUser, unfollowUser } from "@/api/users";
 import { createConversation } from "@/api/messaging";
 import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeTime } from "@/lib/format";
+import ReportModal from "@/components/ReportModal";
 import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 
 export default function PublicProfilePage({
@@ -21,6 +22,7 @@ export default function PublicProfilePage({
   const isOwnProfile = currentUser?.id === userId;
   const [msgError, setMsgError] = useState<string | null>(null);
   const [followError, setFollowError] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
   const queryClient = useQueryClient();
 
   const followMutation = useMutation({
@@ -132,37 +134,54 @@ export default function PublicProfilePage({
         </div>
 
         {!isOwnProfile && (
-          <div style={styles.actionRow}>
-            <button
-              type="button"
-              onClick={() => followMutation.mutate(data.is_following)}
-              disabled={followMutation.isPending}
-              style={{
-                ...(data.is_following ? styles.unfollowBtn : styles.followBtn),
-                opacity: followMutation.isPending ? 0.6 : 1,
-              }}
-            >
-              {followMutation.isPending
-                ? "..."
-                : data.is_following
-                  ? "Unfollow"
-                  : "Follow"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMsgError(null);
-                messageMutation.mutate();
-              }}
-              disabled={messageMutation.isPending}
-              style={{
-                ...styles.messageBtn,
-                opacity: messageMutation.isPending ? 0.6 : 1,
-              }}
-            >
-              {messageMutation.isPending ? "Opening..." : "Message"}
-            </button>
-          </div>
+          <>
+            <div style={styles.actionRow}>
+              <button
+                type="button"
+                onClick={() => followMutation.mutate(data.is_following)}
+                disabled={followMutation.isPending}
+                style={{
+                  ...(data.is_following ? styles.unfollowBtn : styles.followBtn),
+                  opacity: followMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {followMutation.isPending
+                  ? "..."
+                  : data.is_following
+                    ? "Unfollow"
+                    : "Follow"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMsgError(null);
+                  messageMutation.mutate();
+                }}
+                disabled={messageMutation.isPending}
+                style={{
+                  ...styles.messageBtn,
+                  opacity: messageMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {messageMutation.isPending ? "Opening..." : "Message"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReport(true)}
+                style={styles.reportBtn}
+                title="Report user"
+              >
+                ⚑
+              </button>
+            </div>
+            {showReport && (
+              <ReportModal
+                targetType="user"
+                targetId={userId}
+                onClose={() => setShowReport(false)}
+              />
+            )}
+          </>
         )}
         {followError && (
           <p style={{ color: "#c53030", fontSize: 12, margin: "6px 0 0" }}>
@@ -337,6 +356,15 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 20px",
     fontSize: 14,
     fontWeight: 500,
+    cursor: "pointer",
+  },
+  reportBtn: {
+    background: "#fff",
+    color: "#bbb",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    padding: "8px 12px",
+    fontSize: 14,
     cursor: "pointer",
   },
   bio: {

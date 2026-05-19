@@ -154,6 +154,8 @@ export interface AdminStats {
   total_jobs: number;
   active_jobs: number;
   total_applications: number;
+  total_reports: number;
+  pending_reports: number;
 
   // Weekly trends
   users_this_week: number;
@@ -162,6 +164,7 @@ export interface AdminStats {
   applications_this_week: number;
   verifications_this_week: number;
   communities_this_week: number;
+  reports_this_week: number;
 }
 
 export interface RecentActivity {
@@ -190,6 +193,14 @@ export interface RecentActivity {
     id: string;
     name: string;
     is_deleted: boolean;
+    created_at: string;
+  }[];
+  latest_reports: {
+    id: string;
+    reporter_username: string;
+    target_type: string;
+    reason: string;
+    status: string;
     created_at: string;
   }[];
 }

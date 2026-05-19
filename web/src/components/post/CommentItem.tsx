@@ -1,8 +1,9 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import { formatRelativeTime } from "@/lib/format";
+import ReportModal from "@/components/ReportModal";
 import type { CommentResponse } from "@/types/api";
 
 const BACKEND_URL =
@@ -16,6 +17,7 @@ interface Props {
 }
 
 function CommentItemInner({ comment, onReply, isReply = false }: Props) {
+  const [showReport, setShowReport] = useState(false);
   const profileUrl = comment.author.profile_image_url
     ? comment.author.profile_image_url.startsWith("http")
       ? comment.author.profile_image_url
@@ -69,7 +71,22 @@ function CommentItemInner({ comment, onReply, isReply = false }: Props) {
                 Reply
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setShowReport(true)}
+              style={styles.reportBtn}
+            >
+              Report
+            </button>
           </div>
+
+          {showReport && (
+            <ReportModal
+              targetType="comment"
+              targetId={comment.id}
+              onClose={() => setShowReport(false)}
+            />
+          )}
 
           {/* Nested replies (1 level only) */}
           {!isReply && comment.replies && comment.replies.length > 0 && (
@@ -194,6 +211,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 600,
     color: "#6C63FF",
+    cursor: "pointer",
+  },
+  reportBtn: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    fontSize: 12,
+    fontWeight: 500,
+    color: "#bbb",
     cursor: "pointer",
   },
   repliesWrap: {
