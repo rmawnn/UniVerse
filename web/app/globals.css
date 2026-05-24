@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── UniVerse design tokens ────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg-0: #07070c;
+  --bg-1: #0e0e18;
+  --bg-2: #15151f;
+  --bg-3: #1c1c28;
+  --bg-4: #262634;
+  --bg-elev: #1a1a26;
+
+  /* Borders */
+  --line-1: rgba(255, 255, 255, 0.05);
+  --line-2: rgba(255, 255, 255, 0.08);
+  --line-3: rgba(255, 255, 255, 0.14);
+
+  /* Text */
+  --fg-1: #f2f2f7;
+  --fg-2: #b4b4c2;
+  --fg-3: #7a7a8a;
+  --fg-4: #4d4d5c;
+
+  /* Accents */
+  --acc-purple: #8b5cf6;
+  --acc-blue: #4f8ff7;
+  --acc-gradient: linear-gradient(135deg, #9b6cff 0%, #5c8fff 100%);
+  --acc-gradient-soft: linear-gradient(
+    135deg,
+    rgba(155, 108, 255, 0.22),
+    rgba(92, 143, 255, 0.18)
+  );
+
+  /* Semantic */
+  --success: #2fd17a;
+  --warn: #ffb547;
+  --danger: #ff5a6a;
+  --verified: #4f8ff7;
+
+  /* Shadows */
+  --sh-1: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --sh-acc: 0 10px 30px rgba(124, 82, 255, 0.35),
+    0 4px 12px rgba(80, 140, 255, 0.2);
+}
+
+/* Force dark mode app-wide (no light variant designed yet) */
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg-1);
+  color: var(--fg-1);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.32);
+}
+
+/* Hide scrollbars but keep scroll behavior */
+.scroll-hidden {
+  scrollbar-width: none;
+}
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
+}

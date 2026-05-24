@@ -212,12 +212,14 @@ async def verified_user_header(
         "university_email": uni_email,
     }, headers=headers)
     assert resp.status_code == 200, resp.text
-    code = resp.json()["debug_code"]
+    send_data = resp.json()
+    verification_id = send_data["verification_id"]
+    code = send_data["debug_code"]
 
     # Confirm verification
     resp = await client.post("/api/v1/verification/confirm", json={
-        "university_email": uni_email,
-        "verification_code": code,
+        "verification_id": verification_id,
+        "code": code,
     }, headers=headers)
     assert resp.status_code == 200, resp.text
 

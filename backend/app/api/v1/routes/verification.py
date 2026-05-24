@@ -108,3 +108,15 @@ async def send_verification_code_legacy(
     return await verification_service.send_verification_code(
         db, current_user, data.university_email,
     )
+
+
+@router.post("/confirm", response_model=VerificationConfirmResponse, include_in_schema=False)
+async def confirm_verification_code_legacy(
+    data: VerificationConfirmRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Legacy route — use /email/confirm instead."""
+    return await verification_service.confirm_verification_code(
+        db, current_user, data.verification_id, data.code,
+    )

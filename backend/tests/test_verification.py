@@ -14,6 +14,7 @@ class TestVerification:
         assert data["status"] == "pending"
         assert data["debug_code"] is not None
         assert len(data["debug_code"]) == 6
+        assert data["verification_id"] is not None
 
     async def test_confirm_verification_code(self, client: AsyncClient, auth_header, university):
         uni_email = f"student@{university.domain}"
@@ -22,12 +23,14 @@ class TestVerification:
         resp = await client.post("/api/v1/verification/send", json={
             "university_email": uni_email,
         }, headers=auth_header)
-        code = resp.json()["debug_code"]
+        send_data = resp.json()
+        verification_id = send_data["verification_id"]
+        code = send_data["debug_code"]
 
         # Confirm
         resp = await client.post("/api/v1/verification/confirm", json={
-            "university_email": uni_email,
-            "verification_code": code,
+            "verification_id": verification_id,
+            "code": code,
         }, headers=auth_header)
         assert resp.status_code == 200
         data = resp.json()
@@ -47,11 +50,13 @@ class TestVerification:
         resp = await client.post("/api/v1/verification/send", json={
             "university_email": uni_email,
         }, headers=auth_header)
-        code = resp.json()["debug_code"]
+        send_data = resp.json()
+        verification_id = send_data["verification_id"]
+        code = send_data["debug_code"]
 
         await client.post("/api/v1/verification/confirm", json={
-            "university_email": uni_email,
-            "verification_code": code,
+            "verification_id": verification_id,
+            "code": code,
         }, headers=auth_header)
 
         # After: verified
@@ -62,13 +67,14 @@ class TestVerification:
     async def test_wrong_code_rejected(self, client: AsyncClient, auth_header, university):
         uni_email = f"student@{university.domain}"
 
-        await client.post("/api/v1/verification/send", json={
+        resp = await client.post("/api/v1/verification/send", json={
             "university_email": uni_email,
         }, headers=auth_header)
+        verification_id = resp.json()["verification_id"]
 
         resp = await client.post("/api/v1/verification/confirm", json={
-            "university_email": uni_email,
-            "verification_code": "000000",
+            "verification_id": verification_id,
+            "code": "000000",
         }, headers=auth_header)
         assert resp.status_code == 400
 
