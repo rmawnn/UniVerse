@@ -1,24 +1,32 @@
+"use client";
+
 import { Edit, Mail, Search } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { ConversationRow } from "./ConversationRow";
-import { CONVERSATIONS } from "@/lib/mock-data-extra";
+import type { ConversationResponse } from "@/lib/api/conversations";
 
 interface MessagesSidebarProps {
+  conversations: ConversationResponse[];
   activeId?: string;
+  currentUserId?: string;
 }
 
 /**
  * Left sidebar of the messages surface — filters + conversation list.
  * Rendered by both `/messages` (with no active id) and `/messages/[id]`.
  */
-export function MessagesSidebar({ activeId }: MessagesSidebarProps) {
+export function MessagesSidebar({
+  conversations,
+  activeId,
+  currentUserId,
+}: MessagesSidebarProps) {
   return (
     <aside className="scroll-hidden flex h-full flex-col overflow-y-auto border-r border-line-1">
       <div className="px-4 pb-3.5 pt-5">
         <div className="flex items-center justify-between">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-fg-3">
-              Inbox · 9 active
+              Inbox · {conversations.length} active
             </div>
             <h2 className="mt-0.5 text-[22px] font-bold tracking-tighter">
               Messages
@@ -50,18 +58,29 @@ export function MessagesSidebar({ activeId }: MessagesSidebarProps) {
         </div>
         <div className="flex-1">
           <div className="text-[13px] font-semibold">Message requests</div>
-          <div className="text-[11px] text-fg-3">3 verified students</div>
+          <div className="text-[11px] text-fg-3">
+            {conversations.filter((c) => c.unread_count > 0).length > 0
+              ? `${conversations.filter((c) => c.unread_count > 0).length} unread`
+              : "No new requests"}
+          </div>
         </div>
       </div>
 
       <div className="flex-1">
-        {CONVERSATIONS.map((c) => (
-          <ConversationRow
-            key={c.id}
-            conversation={c}
-            active={c.id === activeId}
-          />
-        ))}
+        {conversations.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[13px] text-fg-3">
+            No conversations yet
+          </div>
+        ) : (
+          conversations.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conversation={c}
+              active={c.id === activeId}
+              currentUserId={currentUserId}
+            />
+          ))
+        )}
       </div>
     </aside>
   );

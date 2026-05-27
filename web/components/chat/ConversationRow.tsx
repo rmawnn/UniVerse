@@ -1,16 +1,30 @@
+"use client";
+
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
-import type { Conversation } from "@/lib/mock-data-extra";
-import { cn } from "@/lib/utils";
-import { TypingDots } from "./TypingDots";
+import type { ConversationResponse } from "@/lib/api/conversations";
+import { cn, formatRelativeTime } from "@/lib/utils";
 
 interface ConversationRowProps {
-  conversation: Conversation;
+  conversation: ConversationResponse;
   active?: boolean;
+  currentUserId?: string;
 }
 
 /** Single row in the chat list sidebar. */
-export function ConversationRow({ conversation: c, active }: ConversationRowProps) {
+export function ConversationRow({
+  conversation: c,
+  active,
+  currentUserId,
+}: ConversationRowProps) {
+  // Resolve the "other" participant (not the current user)
+  const other = c.participants.find((p) => p.id !== currentUserId) ?? c.participants[0];
+  const displayName = other?.full_name ?? "Unknown";
+  const lastText = c.last_message?.content ?? "No messages yet";
+  const timeStr = c.last_message
+    ? formatRelativeTime(c.last_message.created_at)
+    : "";
+
   return (
     <Link
       href={`/messages/${c.id}`}
@@ -21,57 +35,39 @@ export function ConversationRow({ conversation: c, active }: ConversationRowProp
           : "border-l-[2px] border-l-transparent hover:bg-bg-2",
       )}
     >
-      {c.group ? (
-        <div className="relative h-[42px] w-[42px] shrink-0">
-          <span className="absolute left-0 top-0">
-            <Avatar name={c.name.split(" ")[0] ?? "G"} size={28} />
-          </span>
-          <span className="absolute bottom-0 right-0 rounded-full ring-2 ring-bg-1">
-            <Avatar name={c.name.split(" ")[1] ?? "X"} size={24} />
-          </span>
-        </div>
-      ) : (
-        <Avatar name={c.name} size={42} online={c.online} />
-      )}
+      <Avatar name={displayName} size={42} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
               "truncate text-[13.5px]",
-              c.unread ? "font-semibold" : "font-medium",
+              c.unread_count > 0 ? "font-semibold" : "font-medium",
             )}
           >
-            {c.name}
+            {displayName}
           </span>
         </div>
         <div
           className={cn(
             "mt-1 max-w-[220px] truncate text-[12px]",
-            c.unread ? "text-fg-1" : "text-fg-3",
+            c.unread_count > 0 ? "text-fg-1" : "text-fg-3",
           )}
         >
-          {c.typing ? (
-            <span className="inline-flex items-center gap-1 italic text-brand-purple">
-              typing
-              <TypingDots />
-            </span>
-          ) : (
-            c.last
-          )}
+          {lastText}
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
         <span
           className={cn(
             "text-[11px]",
-            c.unread ? "font-semibold text-brand-purple" : "text-fg-3",
+            c.unread_count > 0 ? "font-semibold text-brand-purple" : "text-fg-3",
           )}
         >
-          {c.time}
+          {timeStr}
         </span>
-        {c.unread > 0 && (
+        {c.unread_count > 0 && (
           <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-acc-gradient px-1.5 text-[10.5px] font-bold text-white">
-            {c.unread}
+            {c.unread_count}
           </span>
         )}
       </div>
