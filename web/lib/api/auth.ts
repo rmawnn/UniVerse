@@ -3,7 +3,7 @@ import api from "./client";
 /* ── Request shapes ──────────────────────────────────────── */
 
 export interface LoginRequest {
-  email: string;
+  identifier: string;
   password: string;
 }
 

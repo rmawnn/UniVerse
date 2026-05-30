@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, GraduationCap, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Lock, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -12,7 +12,7 @@ import { ApiError } from "@/lib/api/client";
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +21,16 @@ export default function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      setError("Please enter your username or university email.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await login({ email, password });
+      await login({ identifier: trimmed, password });
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -56,13 +63,14 @@ export default function LoginPage() {
 
       <form className="mt-8 flex flex-col gap-3.5" onSubmit={handleSubmit}>
         <Field
-          label="University email"
-          type="email"
-          name="email"
-          placeholder="you@stanford.edu"
-          icon={<Mail className="h-4 w-4" />}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          label="Username or university email"
+          type="text"
+          name="identifier"
+          placeholder="Username or you@stanford.edu"
+          autoComplete="username"
+          icon={<UserCircle className="h-4 w-4" />}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           required
         />
         <Field
@@ -108,7 +116,7 @@ export default function LoginPage() {
           full
           type="submit"
           className="mt-3"
-          disabled={loading || !email || !password}
+          disabled={loading || !identifier.trim() || !password}
         >
           {loading ? "Signing in..." : "Sign in"}
         </Button>

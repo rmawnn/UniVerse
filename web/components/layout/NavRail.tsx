@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   Bookmark,
+  Briefcase,
   Compass,
   Hash,
   Home,
   MessageCircle,
-  MoreVertical,
   Plus,
-  Search,
+  Settings,
+  ShieldAlert,
   User,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -32,14 +33,20 @@ type NavItem = {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", icon: Home, label: "Home" },
-  { href: "/communities", icon: Compass, label: "Explore" },
-  { href: "/search", icon: Search, label: "Search" },
+  { href: "/explore", icon: Compass, label: "Explore" },
   { href: "/communities", icon: Hash, label: "Communities" },
+  { href: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
   { href: "/messages", icon: MessageCircle, label: "Messages", badge: 4 },
   { href: "/notifications", icon: Bell, label: "Notifications", badge: 12 },
-  { href: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
+  { href: "/jobs", icon: Briefcase, label: "Jobs" },
   { href: "/profile/mayac", icon: User, label: "Profile" },
 ];
+
+const ADMIN_ITEM: NavItem = {
+  href: "/admin",
+  icon: ShieldAlert,
+  label: "Admin",
+};
 
 const PINNED = COMMUNITIES.filter((c) => c.joined).slice(0, 4);
 
@@ -50,7 +57,7 @@ export function NavRail() {
   return (
     <aside
       className={cn(
-        "z-10 flex h-full flex-col gap-1 border-r border-line-1 bg-bg-1 px-3.5 py-[18px]",
+        "z-10 hidden h-full flex-col gap-1 border-r border-line-1 bg-bg-1 px-3.5 py-[18px] md:flex",
         // Icon-only on tablet, full on desktop
         "w-[72px] lg:w-[248px]",
       )}
@@ -114,22 +121,33 @@ export function NavRail() {
         </div>
       </div>
 
+      {/* Staff section */}
+      <div className="mt-4">
+        <div className="hidden px-2 pb-1.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3 lg:block">
+          Staff
+        </div>
+        <NavLink item={ADMIN_ITEM} active={isActive(pathname, ADMIN_ITEM.href)} />
+      </div>
+
       {/* User card pinned to bottom */}
       <div className="mt-auto hidden items-center gap-2.5 rounded-md border border-line-1 bg-bg-2 p-2 lg:flex">
-        <Avatar name={CURRENT_USER.name} size={36} online />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 text-[13px] font-semibold">
-            <span className="truncate">{CURRENT_USER.name}</span>
-            <ShieldCheck className="h-3 w-3 shrink-0 text-verified" />
+        <Link href="/profile/mayac" className="flex min-w-0 flex-1 items-center gap-2.5">
+          <Avatar name={CURRENT_USER.name} size={36} online />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1 text-[13px] font-semibold">
+              <span className="truncate">{CURRENT_USER.name}</span>
+              <ShieldCheck className="h-3 w-3 shrink-0 text-verified" />
+            </div>
+            <div className="text-[11px] text-fg-3">@{CURRENT_USER.handle}</div>
           </div>
-          <div className="text-[11px] text-fg-3">@{CURRENT_USER.handle}</div>
-        </div>
-        <button
-          className="text-fg-3 hover:text-fg-1"
-          aria-label="Account menu"
+        </Link>
+        <Link
+          href="/settings"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-fg-3 hover:bg-bg-3 hover:text-fg-1"
+          aria-label="Settings"
         >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+          <Settings className="h-4 w-4" />
+        </Link>
       </div>
     </aside>
   );

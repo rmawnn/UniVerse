@@ -165,7 +165,7 @@ async def auth_header(client: AsyncClient, registered_user):
     """Register + login a user and return the Authorization header dict."""
     user_data, password = registered_user
     resp = await client.post("/api/v1/auth/login", json={
-        "email": user_data["email"],
+        "identifier": user_data["email"],
         "password": password,
     })
     assert resp.status_code == 200, resp.text
@@ -202,7 +202,7 @@ async def verified_user_header(
 
     # Login
     resp = await client.post("/api/v1/auth/login", json={
-        "email": email, "password": password,
+        "identifier": email, "password": password,
     })
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}

@@ -1,4 +1,4 @@
-"""Tests for authentication: register, login, reject invalid credentials."""
+"""Tests for authentication: register, login (email + username), reject invalid credentials."""
 
 import pytest
 from httpx import AsyncClient
@@ -49,11 +49,13 @@ class TestRegister:
         assert resp.status_code == 422
 
 
-class TestLogin:
-    async def test_login_success(self, client: AsyncClient, registered_user):
+class TestLoginWithEmail:
+    """Login using an email address in the identifier field."""
+
+    async def test_login_with_email_success(self, client: AsyncClient, registered_user):
         user_data, password = registered_user
         resp = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
+            "identifier": user_data["email"],
             "password": password,
         })
         assert resp.status_code == 200
@@ -64,17 +66,66 @@ class TestLogin:
     async def test_login_wrong_password(self, client: AsyncClient, registered_user):
         user_data, _ = registered_user
         resp = await client.post("/api/v1/auth/login", json={
-            "email": user_data["email"],
+            "identifier": user_data["email"],
             "password": "wrongpassword123",
         })
         assert resp.status_code == 401
+        assert resp.json()["detail"] == "Incorrect password"
 
     async def test_login_nonexistent_email(self, client: AsyncClient):
         resp = await client.post("/api/v1/auth/login", json={
-            "email": "nobody@example.com",
+            "identifier": "nobody@example.com",
             "password": "whatever123",
         })
         assert resp.status_code == 401
+        assert resp.json()["detail"] == "No account found with that email"
+
+
+class TestLoginWithUsername:
+    """Login using a username in the identifier field."""
+
+    async def test_login_with_username_success(self, client: AsyncClient, registered_user):
+        user_data, password = registered_user
+        resp = await client.post("/api/v1/auth/login", json={
+            "identifier": user_data["username"],
+            "password": password,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+
+    async def test_login_username_wrong_password(self, client: AsyncClient, registered_user):
+        user_data, _ = registered_user
+        resp = await client.post("/api/v1/auth/login", json={
+            "identifier": user_data["username"],
+            "password": "wrongpassword123",
+        })
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Incorrect password"
+
+    async def test_login_nonexistent_username(self, client: AsyncClient):
+        resp = await client.post("/api/v1/auth/login", json={
+            "identifier": "no_such_user",
+            "password": "whatever123",
+        })
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "No account found with that username"
+
+    async def test_login_username_token_works(self, client: AsyncClient, registered_user):
+        """Token obtained via username login should authenticate API calls."""
+        user_data, password = registered_user
+        resp = await client.post("/api/v1/auth/login", json={
+            "identifier": user_data["username"],
+            "password": password,
+        })
+        token = resp.json()["access_token"]
+        me_resp = await client.get(
+            "/api/v1/users/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert me_resp.status_code == 200
+        assert me_resp.json()["username"] == user_data["username"]
 
 
 class TestAuthenticatedAccess:

@@ -46,7 +46,7 @@ export default function RegisterPage() {
         username: autoUsername,
       });
       // Auto-login after successful registration
-      await login({ email, password });
+      await login({ identifier: email, password });
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError) {

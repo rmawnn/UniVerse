@@ -22,7 +22,7 @@ async def _create_second_verified_user(
     user_data = resp.json()
 
     resp = await client.post("/api/v1/auth/login", json={
-        "email": email, "password": password,
+        "identifier": email, "password": password,
     })
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
