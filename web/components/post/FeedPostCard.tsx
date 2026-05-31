@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { MoreHorizontal } from "lucide-react";
 import { ShieldCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { PostActions } from "./PostActions";
+import { PostMenu } from "./PostMenu";
 import type { FeedPost } from "@/lib/api/feed";
 import { cn } from "@/lib/utils";
 
@@ -58,13 +58,7 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
             <span className="text-[12.5px] text-fg-3">
               {relativeTime(post.created_at)}
             </span>
-            <button
-              className="ml-auto rounded p-1 text-fg-3 hover:bg-bg-3 hover:text-fg-1"
-              aria-label="Post menu"
-              type="button"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
+            <PostMenu postId={post.id} />
           </div>
 
           {/* Content */}

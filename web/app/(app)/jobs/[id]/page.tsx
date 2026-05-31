@@ -1,5 +1,8 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Bookmark,
@@ -14,23 +17,42 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { JobLogo } from "@/components/jobs/JobCard";
+import { JobApplyModal } from "@/components/jobs/JobApplyModal";
 import { JOBS } from "@/lib/mock-data-jobs";
 import { compactNumber } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Job · UniVerse",
-};
-
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default async function JobDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  // Mock-data resolution: fall back to the first job for unknown ids so
-  // /jobs/demo works. Real backend swaps for useJob(id) + notFound().
+export default function JobDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const job = JOBS.find((j) => j.id === id) ?? JOBS[0]!;
   const similar = JOBS.filter((j) => j.id !== job.id).slice(0, 3);
+
+  const [saved, setSaved] = useState(job.saved ?? false);
+  const [copied, setCopied] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(false);
+
+  const handleSave = async () => {
+    const newState = !saved;
+    setSaved(newState);
+    try {
+      // TODO: Wire to real save/unsave endpoint
+      const { default: api } = await import("@/lib/api/client");
+      if (newState) {
+        await api.post(`/jobs/${job.id}/save`);
+      } else {
+        await api.delete(`/jobs/${job.id}/save`);
+      }
+    } catch {
+      setSaved(!newState); // revert
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/jobs/${job.id}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
 
   return (
     <AppShell
@@ -116,23 +138,31 @@ export default async function JobDetailPage({ params }: PageProps) {
 
           {/* Actions */}
           <div className="mt-4 flex gap-2.5 border-t border-line-1 pt-4">
-            <Button variant="primary" size="md">
+            <Button variant="primary" size="md" onClick={() => setApplyOpen(true)}>
               Apply now
             </Button>
             <Button
               variant="ghost"
               size="md"
-              icon={<Bookmark className="h-4 w-4" fill={job.saved ? "currentColor" : "none"} />}
+              icon={<Bookmark className="h-4 w-4" fill={saved ? "currentColor" : "none"} />}
+              onClick={handleSave}
             >
-              {job.saved ? "Saved" : "Save"}
+              {saved ? "Saved" : "Save"}
             </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              icon={<Share2 className="h-4 w-4" />}
-            >
-              <span className="hidden sm:inline">Share</span>
-            </Button>
+            {copied ? (
+              <Button variant="ghost" size="md" icon={<Check className="h-4 w-4 text-success" />}>
+                <span className="text-success">Copied!</span>
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="md"
+                icon={<Share2 className="h-4 w-4" />}
+                onClick={handleShare}
+              >
+                <span className="hidden sm:inline">Share</span>
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -176,11 +206,13 @@ export default async function JobDetailPage({ params }: PageProps) {
               {job.org} · {job.pay}
             </div>
           </div>
-          <Button variant="primary" size="md">
+          <Button variant="primary" size="md" onClick={() => setApplyOpen(true)}>
             Apply now
           </Button>
         </div>
       </div>
+
+      <JobApplyModal open={applyOpen} onClose={() => setApplyOpen(false)} job={job} />
     </AppShell>
   );
 }

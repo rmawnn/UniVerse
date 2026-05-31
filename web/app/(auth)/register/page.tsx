@@ -45,9 +45,9 @@ export default function RegisterPage() {
         full_name: fullName,
         username: autoUsername,
       });
-      // Auto-login after successful registration
+      // Auto-login after successful registration, then redirect to verify
       await login({ identifier: email, password });
-      router.replace("/");
+      router.replace("/verify");
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

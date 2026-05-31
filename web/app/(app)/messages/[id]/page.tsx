@@ -40,7 +40,9 @@ export default function ConversationPage() {
   const [draft, setDraft] = useState("");
   const [peerTyping, setPeerTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const prevMessageCountRef = useRef(0);
 
   /* ── Queries ──────────────────────────────────────── */
 
@@ -165,8 +167,19 @@ export default function ConversationPage() {
   /* ── Auto-scroll on new messages ──────────────────── */
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) return;
+    const isInitialLoad = prevMessageCountRef.current === 0;
+    prevMessageCountRef.current = messages.length;
+    // Instant scroll on first load, smooth on subsequent messages
+    messagesEndRef.current?.scrollIntoView({
+      behavior: isInitialLoad ? "instant" : "smooth",
+    });
   }, [messages.length]);
+
+  // Reset scroll tracking when switching conversations
+  useEffect(() => {
+    prevMessageCountRef.current = 0;
+  }, [id]);
 
   /* ── Typing indicator ─────────────────────────────── */
 
@@ -255,7 +268,7 @@ export default function ConversationPage() {
           </header>
 
           {/* ── Messages ───────────────────────────── */}
-          <div className="scroll-hidden flex flex-1 flex-col gap-1.5 overflow-y-auto px-8 py-4">
+          <div ref={scrollContainerRef} className="scroll-hidden flex flex-1 flex-col gap-1.5 overflow-y-auto px-8 py-4">
             {isLoading && (
               <div className="flex flex-1 items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />

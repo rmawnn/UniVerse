@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   Heart,
   MessageCircle,
   Repeat2,
   Share2,
+  Check,
 } from "lucide-react";
 import { cn, compactNumber } from "@/lib/utils";
 import { toggleLike } from "@/lib/api/posts";
+import { ReportModal } from "./ReportModal";
 
 type ActionKind = "like" | "comment" | "repost" | "bookmark" | "share";
 
@@ -53,10 +57,14 @@ export function PostActions({
   reposts,
   views,
 }: PostActionsProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [liked, setLiked] = useState(initialLiked);
   const [likeCount, setLikeCount] = useState(likes);
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [likePending, setLikePending] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const handleLike = useCallback(async () => {
     if (likePending) return;
@@ -84,29 +92,89 @@ export function PostActions({
     }
   }, [liked, likeCount, postId, likePending]);
 
+  const handleComment = useCallback(() => {
+    if (postId) {
+      router.push(`/posts/${postId}`);
+    }
+  }, [postId, router]);
+
+  const handleShare = useCallback(async () => {
+    const url = postId
+      ? `${window.location.origin}/posts/${postId}`
+      : window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: do nothing if clipboard fails
+    }
+  }, [postId]);
+
+  const handleBookmark = useCallback(async () => {
+    const newState = !bookmarked;
+    setBookmarked(newState);
+
+    if (postId) {
+      try {
+        const { default: api } = await import("@/lib/api/client");
+        if (newState) {
+          await api.post(`/posts/${postId}/save`);
+        } else {
+          await api.delete(`/posts/${postId}/save`);
+        }
+        // Invalidate saved-posts cache so /bookmarks stays in sync
+        queryClient.invalidateQueries({ queryKey: ["saved-posts"] });
+      } catch {
+        // Revert on error
+        setBookmarked(!newState);
+      }
+    }
+  }, [bookmarked, postId, queryClient]);
+
   return (
-    <div className="mt-3 flex items-center gap-1.5">
-      <ActionButton
-        kind="like"
-        count={likeCount}
-        active={liked}
-        onClick={handleLike}
-      />
-      <ActionButton kind="comment" count={comments} />
-      <ActionButton kind="repost" count={reposts} />
-      <ActionButton
-        kind="bookmark"
-        active={bookmarked}
-        onClick={() => setBookmarked((v) => !v)}
-      />
-      <ActionButton kind="share" />
-      <div className="flex-1" />
-      {views > 0 && (
-        <span className="text-[12px] text-fg-3">
-          {compactNumber(views)} views
-        </span>
+    <>
+      <div className="mt-3 flex items-center gap-1.5">
+        <ActionButton
+          kind="like"
+          count={likeCount}
+          active={liked}
+          onClick={handleLike}
+        />
+        <ActionButton
+          kind="comment"
+          count={comments}
+          onClick={handleComment}
+        />
+        <ActionButton kind="repost" count={reposts} />
+        <ActionButton
+          kind="bookmark"
+          active={bookmarked}
+          onClick={handleBookmark}
+        />
+        {copied ? (
+          <span className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium text-success">
+            <Check className="h-4 w-4" /> Copied!
+          </span>
+        ) : (
+          <ActionButton kind="share" onClick={handleShare} />
+        )}
+        <div className="flex-1" />
+        {views > 0 && (
+          <span className="text-[12px] text-fg-3">
+            {compactNumber(views)} views
+          </span>
+        )}
+      </div>
+
+      {postId && (
+        <ReportModal
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          postId={postId}
+        />
       )}
-    </div>
+    </>
   );
 }
 

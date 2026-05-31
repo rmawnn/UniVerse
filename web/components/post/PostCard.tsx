@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pin } from "lucide-react";
+import { Pin } from "lucide-react";
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
 import { UniBadge } from "@/components/ui/UniBadge";
 import { PostActions } from "./PostActions";
+import { PostMenu } from "./PostMenu";
 import { PollWidget } from "./PollWidget";
 import type { Post } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -60,13 +61,7 @@ export function PostCard({ post, expanded }: PostCardProps) {
             <UniBadge university={post.author.university} compact />
             <span className="text-fg-4">·</span>
             <span className="text-[12.5px] text-fg-3">{post.relativeTime}</span>
-            <button
-              className="ml-auto rounded p-1 text-fg-3 hover:bg-bg-3 hover:text-fg-1"
-              aria-label="Post menu"
-              type="button"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
+            <PostMenu postId={post.id} />
           </div>
           <div className="mt-0.5 text-[12px] text-fg-3">
             Posted in{" "}
@@ -102,6 +97,7 @@ export function PostCard({ post, expanded }: PostCardProps) {
           {post.poll && <PollWidget poll={post.poll} />}
 
           <PostActions
+            postId={post.id}
             likes={post.counts.likes}
             comments={post.counts.comments}
             reposts={post.counts.reposts}

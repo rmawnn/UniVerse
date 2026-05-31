@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Plus, RefreshCw, Sparkles, Users } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { SectionHead } from "@/components/ui/SectionHead";
 import { CampusEventsWidget } from "@/components/widgets/CampusEventsWidget";
 import { TrendingWidget } from "@/components/widgets/TrendingWidget";
+import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
 import {
   getJoinedCommunities,
   joinCommunity as joinCommunityApi,
@@ -122,6 +124,7 @@ function CardSkeleton() {
 /* ── Main page ────────────────────────────────────────────── */
 
 export default function CommunitiesPage() {
+  const [createOpen, setCreateOpen] = useState(false);
   const qc = useQueryClient();
 
   const {
@@ -160,6 +163,7 @@ export default function CommunitiesPage() {
           <Button
             size="sm"
             icon={<Plus className="h-3.5 w-3.5" strokeWidth={2.5} />}
+            onClick={() => setCreateOpen(true)}
           >
             <span className="hidden md:inline">New community</span>
           </Button>
@@ -272,6 +276,10 @@ export default function CommunitiesPage() {
           </>
         )}
       </div>
+      <CreateCommunityModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
     </AppShell>
   );
 }

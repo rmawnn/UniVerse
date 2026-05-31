@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
+import Link from "next/link";
 import {
   ArrowUp,
   BadgeCheck,
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils";
 type SectionKey =
   | "profile"
   | "password"
+  | "verification"
   | "notifications"
   | "appearance";
 
@@ -70,7 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: null, label: "Privacy & visibility", Icon: ShieldCheck },
       { key: "password", label: "Security", Icon: KeyRound },
-      { key: null, label: "Verification", Icon: BadgeCheck },
+      { key: "verification", label: "Verification", Icon: BadgeCheck },
       { key: null, label: "Blocked", Icon: Flag },
     ],
   },
@@ -183,6 +185,7 @@ export default function SettingsPage() {
         <div>
           {activeSection === "profile" && <ProfileSection />}
           {activeSection === "password" && <PasswordSection />}
+          {activeSection === "verification" && <VerificationSection />}
           {activeSection === "notifications" && <NotificationsSection />}
           {activeSection === "appearance" && <AppearanceSection />}
         </div>
@@ -458,6 +461,164 @@ function PasswordSection() {
           </div>
         </form>
       </Card>
+    </>
+  );
+}
+
+/* ── Verification section ──────────────────────────────────── */
+
+interface VerificationStatus {
+  is_verified_student: boolean;
+  university_id: string | null;
+  university_name: string | null;
+  verification_method: string | null;
+  verification_status: string | null;
+  university_email: string | null;
+  rejection_reason: string | null;
+  verified_at: string | null;
+}
+
+function VerificationSection() {
+  const user = useAuthStore((s) => s.user);
+
+  const { data: verifData, isLoading: verifLoading } = useQuery({
+    queryKey: ["verification-status"],
+    queryFn: async (): Promise<VerificationStatus> => {
+      const { default: apiClient } = await import("@/lib/api/client");
+      const res = await apiClient.get<VerificationStatus>("/verification/status");
+      return res.data;
+    },
+  });
+
+  // Derive display status from API response
+  type DisplayStatus = "verified" | "pending" | "rejected" | "not_submitted";
+  let status: DisplayStatus = "not_submitted";
+  if (verifData) {
+    if (verifData.is_verified_student) {
+      status = "verified";
+    } else if (verifData.verification_status === "pending") {
+      status = "pending";
+    } else if (verifData.verification_status === "rejected") {
+      status = "rejected";
+    }
+  } else if (user?.is_verified_student) {
+    status = "verified";
+  }
+
+  const statusConfig = {
+    verified: {
+      label: "Verified student",
+      desc: `Verified at ${verifData?.university_name ?? user?.university_name ?? "your university"}`,
+      badge: "Verified",
+      iconClass: "bg-success/15 text-success",
+      badgeClass: "border border-success/28 bg-success/12 text-success",
+    },
+    pending: {
+      label: "Verification pending",
+      desc: "Your verification is being reviewed by an admin.",
+      badge: "Pending",
+      iconClass: "bg-warn/15 text-warn",
+      badgeClass: "border border-warn/28 bg-warn/12 text-warn",
+    },
+    rejected: {
+      label: "Verification rejected",
+      desc: verifData?.rejection_reason
+        ? `Reason: ${verifData.rejection_reason}`
+        : "Your verification was not approved. You can try again.",
+      badge: "Rejected",
+      iconClass: "bg-danger/15 text-danger",
+      badgeClass: "border border-danger/28 bg-danger/12 text-danger",
+    },
+    not_submitted: {
+      label: "Not verified",
+      desc: "Verify your student status to unlock all features.",
+      badge: "Unverified",
+      iconClass: "bg-fg-4/15 text-fg-3",
+      badgeClass: "border border-line-2 bg-bg-3 text-fg-3",
+    },
+  };
+
+  const cfg = statusConfig[status];
+
+  return (
+    <>
+      <h2 className="m-0 text-[24px] font-bold tracking-tighter">
+        Verification
+      </h2>
+      <p className="mt-1.5 text-[13.5px] text-fg-3">
+        Your student verification status and options.
+      </p>
+
+      <Card padded className="mt-5">
+        {verifLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-purple border-t-transparent" />
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-4">
+              <div
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-[12px]",
+                  cfg.iconClass,
+                )}
+              >
+                <BadgeCheck className="h-6 w-6" />
+              </div>
+              <div className="flex-1">
+                <div className="text-[15px] font-semibold">{cfg.label}</div>
+                <div className="mt-0.5 text-[12.5px] text-fg-3">{cfg.desc}</div>
+              </div>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[11.5px] font-semibold",
+                  cfg.badgeClass,
+                )}
+              >
+                {cfg.badge}
+              </span>
+            </div>
+
+            <div className="mt-5 border-t border-line-1 pt-4">
+              {status === "verified" ? (
+                <div className="flex items-center gap-2 text-[13px] text-success">
+                  <Check className="h-3.5 w-3.5" />
+                  Your verified badge is visible across UniVerse.
+                </div>
+              ) : (
+                <Link href="/verify">
+                  <Button size="sm">
+                    {status === "pending"
+                      ? "Check verification status"
+                      : status === "rejected"
+                        ? "Try again"
+                        : "Start verification"}
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </>
+        )}
+      </Card>
+
+      {status === "verified" && (
+        <Card padded className="mt-4">
+          <div className="text-[12px] font-medium text-fg-3 mb-3">
+            Verification details
+          </div>
+          <div className="space-y-2.5 text-[13px]">
+            <InfoRow
+              label="University"
+              value={verifData?.university_name ?? user?.university_name ?? "Not set"}
+            />
+            <InfoRow
+              label="Method"
+              value={verifData?.verification_method ?? "—"}
+            />
+            <InfoRow label="Status" value="Verified" />
+          </div>
+        </Card>
+      )}
     </>
   );
 }

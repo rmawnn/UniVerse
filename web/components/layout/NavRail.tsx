@@ -13,16 +13,17 @@ import {
   Plus,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   User,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CommunityIcon } from "@/components/community/CommunityIcon";
 import { UVMark } from "@/components/ui/UVMark";
-import { COMMUNITIES, CURRENT_USER } from "@/lib/mock-data";
+import { COMMUNITIES } from "@/lib/mock-data";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 import { useCompose } from "@/components/post/ComposeProvider";
-import { ShieldCheck } from "lucide-react";
 
 type NavItem = {
   href: string;
@@ -30,17 +31,6 @@ type NavItem = {
   label: string;
   badge?: number;
 };
-
-const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/", icon: Home, label: "Home" },
-  { href: "/explore", icon: Compass, label: "Explore" },
-  { href: "/communities", icon: Hash, label: "Communities" },
-  { href: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
-  { href: "/messages", icon: MessageCircle, label: "Messages", badge: 4 },
-  { href: "/notifications", icon: Bell, label: "Notifications", badge: 12 },
-  { href: "/jobs", icon: Briefcase, label: "Jobs" },
-  { href: "/profile/mayac", icon: User, label: "Profile" },
-];
 
 const ADMIN_ITEM: NavItem = {
   href: "/admin",
@@ -53,12 +43,30 @@ const PINNED = COMMUNITIES.filter((c) => c.joined).slice(0, 4);
 export function NavRail() {
   const pathname = usePathname();
   const { open } = useCompose();
+  const user = useAuthStore((s) => s.user);
+
+  const profileHref = user
+    ? `/profile/${user.username}`
+    : "/settings";
+
+  const navItems: readonly NavItem[] = [
+    { href: "/", icon: Home, label: "Home" },
+    { href: "/explore", icon: Compass, label: "Explore" },
+    { href: "/communities", icon: Hash, label: "Communities" },
+    { href: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
+    { href: "/messages", icon: MessageCircle, label: "Messages", badge: 4 },
+    { href: "/notifications", icon: Bell, label: "Notifications", badge: 12 },
+    { href: "/jobs", icon: Briefcase, label: "Jobs" },
+    { href: profileHref, icon: User, label: "Profile" },
+  ];
+
+  const displayName = user?.full_name ?? "User";
+  const displayHandle = user?.username ?? "user";
 
   return (
     <aside
       className={cn(
         "z-10 hidden h-full flex-col gap-1 border-r border-line-1 bg-bg-1 px-3.5 py-[18px] md:flex",
-        // Icon-only on tablet, full on desktop
         "w-[72px] lg:w-[248px]",
       )}
     >
@@ -73,7 +81,7 @@ export function NavRail() {
             UniVerse
           </span>
           <span className="block font-mono text-[10.5px] uppercase tracking-[0.06em] text-fg-3">
-            Stanford
+            {user?.university_name ?? "Campus"}
           </span>
         </span>
       </Link>
@@ -96,7 +104,7 @@ export function NavRail() {
 
       {/* Primary nav */}
       <nav className="flex flex-col gap-0.5">
-        {NAV_ITEMS.map((it) => (
+        {navItems.map((it) => (
           <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} />
         ))}
       </nav>
@@ -121,24 +129,28 @@ export function NavRail() {
         </div>
       </div>
 
-      {/* Staff section */}
-      <div className="mt-4">
-        <div className="hidden px-2 pb-1.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3 lg:block">
-          Staff
+      {/* Staff section — only visible to admin/moderator */}
+      {(user?.role === "admin" || user?.role === "moderator") && (
+        <div className="mt-4">
+          <div className="hidden px-2 pb-1.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3 lg:block">
+            Staff
+          </div>
+          <NavLink item={ADMIN_ITEM} active={isActive(pathname, ADMIN_ITEM.href)} />
         </div>
-        <NavLink item={ADMIN_ITEM} active={isActive(pathname, ADMIN_ITEM.href)} />
-      </div>
+      )}
 
       {/* User card pinned to bottom */}
       <div className="mt-auto hidden items-center gap-2.5 rounded-md border border-line-1 bg-bg-2 p-2 lg:flex">
-        <Link href="/profile/mayac" className="flex min-w-0 flex-1 items-center gap-2.5">
-          <Avatar name={CURRENT_USER.name} size={36} online />
+        <Link href={profileHref} className="flex min-w-0 flex-1 items-center gap-2.5">
+          <Avatar name={displayName} size={36} online />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1 text-[13px] font-semibold">
-              <span className="truncate">{CURRENT_USER.name}</span>
-              <ShieldCheck className="h-3 w-3 shrink-0 text-verified" />
+              <span className="truncate">{displayName}</span>
+              {user?.is_verified_student && (
+                <ShieldCheck className="h-3 w-3 shrink-0 text-verified" />
+              )}
             </div>
-            <div className="text-[11px] text-fg-3">@{CURRENT_USER.handle}</div>
+            <div className="text-[11px] text-fg-3">@{displayHandle}</div>
           </div>
         </Link>
         <Link
