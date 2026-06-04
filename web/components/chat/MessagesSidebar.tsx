@@ -11,6 +11,7 @@ interface MessagesSidebarProps {
   conversations: ConversationResponse[];
   activeId?: string;
   currentUserId?: string;
+  onlineUsers?: Record<string, boolean>;
 }
 
 type ChatFilter = "All" | "Unread" | "DMs" | "Groups";
@@ -24,6 +25,7 @@ export function MessagesSidebar({
   conversations,
   activeId,
   currentUserId,
+  onlineUsers = {},
 }: MessagesSidebarProps) {
   const [newMsgOpen, setNewMsgOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -41,18 +43,18 @@ export function MessagesSidebar({
       list = list.filter((c) => c.participants.length > 2);
     }
 
-    // Apply search filter
+    // Apply search filter — partial, case-insensitive matching
     const q = search.trim().toLowerCase();
     if (q.length >= 1) {
       list = list.filter((c) => {
-        // Match participant full_name or username
+        // Match participant full_name or username (partial)
         const participantMatch = c.participants.some(
           (p) =>
             p.id !== currentUserId &&
             (p.full_name.toLowerCase().includes(q) ||
               p.username.toLowerCase().includes(q)),
         );
-        // Match last message content
+        // Match last message content (partial)
         const messageMatch = c.last_message?.content
           ?.toLowerCase()
           .includes(q);
@@ -60,7 +62,14 @@ export function MessagesSidebar({
       });
     }
 
-    return list;
+    // Sort by most recent activity — newest first
+    return [...list].sort((a, b) => {
+      const aTime =
+        a.last_message?.created_at ?? a.updated_at ?? a.created_at;
+      const bTime =
+        b.last_message?.created_at ?? b.updated_at ?? b.created_at;
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
   }, [conversations, activeFilter, search, currentUserId]);
 
   return (
@@ -134,14 +143,21 @@ export function MessagesSidebar({
               </p>
             </div>
           ) : (
-            filtered.map((c) => (
-              <ConversationRow
-                key={c.id}
-                conversation={c}
-                active={c.id === activeId}
-                currentUserId={currentUserId}
-              />
-            ))
+            filtered.map((c) => {
+              const other = c.participants.find(
+                (p) => p.id !== currentUserId,
+              );
+              const isOnline = other ? !!onlineUsers[other.id] : false;
+              return (
+                <ConversationRow
+                  key={c.id}
+                  conversation={c}
+                  active={c.id === activeId}
+                  currentUserId={currentUserId}
+                  online={isOnline}
+                />
+              );
+            })
           )}
         </div>
       </aside>

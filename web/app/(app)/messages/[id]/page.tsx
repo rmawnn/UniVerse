@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   Loader2,
@@ -29,13 +29,20 @@ import {
 } from "@/lib/api/conversations";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useWebSocket, type WsEvent } from "@/lib/hooks/useWebSocket";
+import { formatRelativeTime } from "@/lib/utils";
 
 export default function ConversationPage() {
   const { id } = useParams<{ id: string }>();
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-  const { subscribe, sendTypingStart, sendTypingStop, isConnected } =
-    useWebSocket();
+  const {
+    subscribe,
+    sendTypingStart,
+    sendTypingStop,
+    sendMarkRead,
+    isConnected,
+    onlineUsers,
+  } = useWebSocket();
 
   const [draft, setDraft] = useState("");
   const [peerTyping, setPeerTyping] = useState(false);
@@ -43,6 +50,9 @@ export default function ConversationPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const prevMessageCountRef = useRef(0);
+  const shouldAutoScrollRef = useRef(true);
+  const justSentRef = useRef(false);
+  const [lastSeen, setLastSeen] = useState<string | null>(null);
 
   /* ── Queries ──────────────────────────────────────── */
 
@@ -69,16 +79,32 @@ export default function ConversationPage() {
   );
   const displayName = otherParticipant?.full_name ?? "Conversation";
   const conversations = convsData?.items ?? [];
-  const messages = messagesData?.items ?? [];
+  const rawMessages = messagesData?.items ?? [];
+
+  /* ── 1. Sort messages by created_at ascending ──────── */
+
+  const messages = useMemo(() => {
+    return [...rawMessages].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  }, [rawMessages]);
+
+  /* ── Presence ─────────────────────────────────────── */
+
+  const otherOnline = otherParticipant
+    ? !!onlineUsers[otherParticipant.id]
+    : false;
 
   /* ── Mark as read on open ─────────────────────────── */
 
   useEffect(() => {
     if (id && user) {
       markConversationRead(id).catch(() => {});
+      sendMarkRead(id);
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     }
-  }, [id, user, queryClient]);
+  }, [id, user, queryClient, sendMarkRead]);
 
   /* ── Optimistic send mutation ─────────────────────── */
 
@@ -102,6 +128,7 @@ export default function ConversationPage() {
         },
         content,
         created_at: new Date().toISOString(),
+        status: "sent",
       };
 
       queryClient.setQueryData<PaginatedMessages>(
@@ -123,6 +150,7 @@ export default function ConversationPage() {
         },
       );
 
+      justSentRef.current = true;
       return { prev };
     },
     onError: (_err, _content, context) => {
@@ -140,48 +168,189 @@ export default function ConversationPage() {
 
   useEffect(() => {
     const unsub = subscribe((event: WsEvent) => {
+      /* ── New message ── */
       if (event.type === "new_message") {
-        const msgData = event.data as { conversation_id?: string };
-        if (msgData.conversation_id === id) {
-          queryClient.invalidateQueries({ queryKey: ["messages", id] });
-          markConversationRead(id).catch(() => {});
+        const msgData = event.data as Partial<MessageResponse> & {
+          conversation_id?: string;
+        };
+        const convId = msgData.conversation_id;
+
+        if (convId === id) {
+          // If we have full message data, append directly (with dedup)
+          if (msgData.id && msgData.sender && msgData.content) {
+            const newMsg: MessageResponse = {
+              id: msgData.id,
+              conversation_id: convId,
+              sender: msgData.sender,
+              content: msgData.content,
+              created_at:
+                msgData.created_at ?? new Date().toISOString(),
+              status: msgData.status,
+            };
+            queryClient.setQueryData<PaginatedMessages>(
+              ["messages", id],
+              (old) => {
+                if (!old) return old;
+                // Dedup — skip if message with same ID already exists
+                if (old.items.some((m) => m.id === newMsg.id)) return old;
+                // Also remove any matching optimistic message
+                const filtered = old.items.filter(
+                  (m) =>
+                    !m.id.startsWith("optimistic-") ||
+                    m.content !== newMsg.content,
+                );
+                return {
+                  ...old,
+                  items: [...filtered, newMsg],
+                  total: filtered.length + 1,
+                };
+              },
+            );
+          } else {
+            // Fallback: refetch from server
+            queryClient.invalidateQueries({ queryKey: ["messages", id] });
+          }
+
+          // Auto-mark as read if it's from someone else
+          if (msgData.sender?.id !== user?.id) {
+            markConversationRead(id).catch(() => {});
+            sendMarkRead(id);
+          }
         }
+
+        // Always refresh sidebar for unread counts + last message preview
         queryClient.invalidateQueries({ queryKey: ["conversations"] });
       }
+
+      /* ── Typing indicators ── */
       if (event.type === "typing_start") {
-        const d = event.data as { conversation_id?: string; user_id?: string };
+        const d = event.data as {
+          conversation_id?: string;
+          user_id?: string;
+        };
         if (d.conversation_id === id && d.user_id !== user?.id) {
           setPeerTyping(true);
         }
       }
       if (event.type === "typing_stop") {
-        const d = event.data as { conversation_id?: string; user_id?: string };
+        const d = event.data as {
+          conversation_id?: string;
+          user_id?: string;
+        };
         if (d.conversation_id === id && d.user_id !== user?.id) {
           setPeerTyping(false);
         }
       }
+
+      /* ── Read receipts ── */
+      if (event.type === "message_read") {
+        const d = event.data as {
+          conversation_id?: string;
+          user_id?: string;
+        };
+        if (d.conversation_id === id && d.user_id !== user?.id) {
+          // Mark all own messages as "seen"
+          queryClient.setQueryData<PaginatedMessages>(
+            ["messages", id],
+            (old) => {
+              if (!old) return old;
+              return {
+                ...old,
+                items: old.items.map((m) =>
+                  m.sender.id === user?.id ? { ...m, status: "seen" as const } : m,
+                ),
+              };
+            },
+          );
+        }
+      }
+
+      if (event.type === "message_delivered") {
+        const d = event.data as {
+          conversation_id?: string;
+          message_id?: string;
+        };
+        if (d.conversation_id === id && d.message_id) {
+          queryClient.setQueryData<PaginatedMessages>(
+            ["messages", id],
+            (old) => {
+              if (!old) return old;
+              return {
+                ...old,
+                items: old.items.map((m) =>
+                  m.id === d.message_id
+                    ? { ...m, status: "delivered" as const }
+                    : m,
+                ),
+              };
+            },
+          );
+        }
+      }
+
+      /* ── Presence ── */
+      if (event.type === "presence_update") {
+        const d = event.data as {
+          user_id?: string;
+          status?: "online" | "offline";
+          last_seen?: string;
+        };
+        if (d.user_id === otherParticipant?.id && d.status === "offline") {
+          setLastSeen(d.last_seen ?? new Date().toISOString());
+        } else if (
+          d.user_id === otherParticipant?.id &&
+          d.status === "online"
+        ) {
+          setLastSeen(null);
+        }
+      }
     });
     return unsub;
-  }, [subscribe, id, user?.id, queryClient]);
+  }, [subscribe, id, user?.id, queryClient, otherParticipant?.id, sendMarkRead]);
 
-  /* ── Auto-scroll on new messages ──────────────────── */
+  /* ── 2. Smart auto-scroll ────────────────────────── */
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // Consider "near bottom" if within 150px of the bottom
+    shouldAutoScrollRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  }, []);
 
   useEffect(() => {
     if (messages.length === 0) return;
     const isInitialLoad = prevMessageCountRef.current === 0;
     prevMessageCountRef.current = messages.length;
-    // Instant scroll on first load, smooth on subsequent messages
-    messagesEndRef.current?.scrollIntoView({
-      behavior: isInitialLoad ? "instant" : "smooth",
-    });
+
+    // Always scroll on initial load or after sending
+    // Only scroll on incoming if user is near bottom
+    if (isInitialLoad || justSentRef.current || shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: isInitialLoad ? "instant" : "smooth",
+      });
+      justSentRef.current = false;
+    }
   }, [messages.length]);
 
   // Reset scroll tracking when switching conversations
   useEffect(() => {
     prevMessageCountRef.current = 0;
+    shouldAutoScrollRef.current = true;
+    justSentRef.current = false;
+    setPeerTyping(false);
+    setLastSeen(null);
   }, [id]);
 
-  /* ── Typing indicator ─────────────────────────────── */
+  /* ── Peer typing auto-clear after inactivity ─────── */
+
+  useEffect(() => {
+    if (!peerTyping) return;
+    const timeout = setTimeout(() => setPeerTyping(false), 5000);
+    return () => clearTimeout(timeout);
+  }, [peerTyping]);
+
+  /* ── Typing indicator (outgoing) ─────────────────── */
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -230,6 +399,7 @@ export default function ConversationPage() {
           conversations={conversations}
           activeId={id}
           currentUserId={user?.id}
+          onlineUsers={onlineUsers}
         />
 
         <section className="flex h-full flex-col bg-bg-1">
@@ -242,16 +412,34 @@ export default function ConversationPage() {
               WebkitBackdropFilter: "blur(20px) saturate(180%)",
             }}
           >
-            <Avatar name={displayName} size={44} online={isConnected} />
+            <div className="relative">
+              <Avatar name={displayName} size={44} />
+              {otherOnline && (
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-bg-1 bg-success" />
+              )}
+            </div>
             <div className="flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[15px] font-semibold">{displayName}</span>
                 <ShieldCheck className="h-3 w-3 text-verified" />
               </div>
-              <div className="mt-0.5 inline-flex items-center gap-1.5 text-[11.5px] text-success">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                Online
-              </div>
+              {otherOnline ? (
+                <div className="mt-0.5 inline-flex items-center gap-1.5 text-[11.5px] text-success">
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                  Online
+                </div>
+              ) : lastSeen ? (
+                <div className="mt-0.5 text-[11.5px] text-fg-3">
+                  Last seen {formatRelativeTime(lastSeen)}
+                </div>
+              ) : isConnected ? (
+                <div className="mt-0.5 text-[11.5px] text-fg-3">Offline</div>
+              ) : (
+                <div className="mt-0.5 inline-flex items-center gap-1.5 text-[11.5px] text-fg-4">
+                  <WifiOff className="h-3 w-3" />
+                  Reconnecting…
+                </div>
+              )}
             </div>
             <button
               className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-line-1 bg-bg-2 text-fg-2 hover:text-fg-1"
@@ -268,7 +456,11 @@ export default function ConversationPage() {
           </header>
 
           {/* ── Messages ───────────────────────────── */}
-          <div ref={scrollContainerRef} className="scroll-hidden flex flex-1 flex-col gap-1.5 overflow-y-auto px-8 py-4">
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="scroll-hidden flex flex-1 flex-col gap-1.5 overflow-y-auto px-8 py-4"
+          >
             {isLoading && (
               <div className="flex flex-1 items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
@@ -313,11 +505,22 @@ export default function ConversationPage() {
                 <div className="rounded-[14px_14px_14px_4px] border border-line-1 bg-bg-3 px-3.5 py-2.5">
                   <TypingDots />
                 </div>
+                <span className="text-[11px] text-fg-3">
+                  {otherParticipant.full_name.split(" ")[0]} is typing…
+                </span>
               </div>
             )}
 
             <div ref={messagesEndRef} />
           </div>
+
+          {/* ── Connection status bar ──────────────── */}
+          {!isConnected && (
+            <div className="flex items-center justify-center gap-2 border-t border-warning/20 bg-warning/10 px-4 py-1.5 text-[11.5px] text-warning">
+              <WifiOff className="h-3 w-3" />
+              Reconnecting to realtime…
+            </div>
+          )}
 
           {/* ── Composer ───────────────────────────── */}
           <div className="border-t border-line-1 px-6 py-3.5">

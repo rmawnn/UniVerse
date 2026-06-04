@@ -22,6 +22,7 @@ export interface ConversationResponse {
   last_message: MessageSummary | null;
   unread_count: number;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface MessageResponse {
@@ -30,6 +31,7 @@ export interface MessageResponse {
   sender: ParticipantSummary;
   content: string;
   created_at: string;
+  status?: "sent" | "delivered" | "seen";
 }
 
 export interface PaginatedMessages {

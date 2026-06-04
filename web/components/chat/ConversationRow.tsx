@@ -9,6 +9,7 @@ interface ConversationRowProps {
   conversation: ConversationResponse;
   active?: boolean;
   currentUserId?: string;
+  online?: boolean;
 }
 
 /** Single row in the chat list sidebar. */
@@ -16,9 +17,11 @@ export function ConversationRow({
   conversation: c,
   active,
   currentUserId,
+  online,
 }: ConversationRowProps) {
   // Resolve the "other" participant (not the current user)
-  const other = c.participants.find((p) => p.id !== currentUserId) ?? c.participants[0];
+  const other =
+    c.participants.find((p) => p.id !== currentUserId) ?? c.participants[0];
   const displayName = other?.full_name ?? "Unknown";
   const lastText = c.last_message?.content ?? "No messages yet";
   const timeStr = c.last_message
@@ -35,7 +38,12 @@ export function ConversationRow({
           : "border-l-[2px] border-l-transparent hover:bg-bg-2",
       )}
     >
-      <Avatar name={displayName} size={42} />
+      <div className="relative">
+        <Avatar name={displayName} size={42} />
+        {online && (
+          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-bg-1 bg-success" />
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span

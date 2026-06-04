@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select, func, update, or_
@@ -46,7 +46,10 @@ class VerificationRepository:
             update(VerificationRequest)
             .where(
                 VerificationRequest.user_id == user_id,
-                VerificationRequest.status == VerificationStatus.PENDING.value,
+                VerificationRequest.status.in_([
+                    VerificationStatus.PENDING.value,
+                    VerificationStatus.UNDER_REVIEW.value,
+                ]),
             )
             .values(status=VerificationStatus.CANCELLED.value)
         )
@@ -75,6 +78,59 @@ class VerificationRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    # ── New methods for AI verification ─────────────────────
+
+    async def count_user_attempts(self, user_id: UUID) -> int:
+        """Count total verification attempts for a user."""
+        stmt = (
+            select(func.count())
+            .select_from(VerificationRequest)
+            .where(VerificationRequest.user_id == user_id)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def count_recent_attempts(
+        self, user_id: UUID, hours: int = 24,
+    ) -> int:
+        """Count verification attempts in the last N hours."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        stmt = (
+            select(func.count())
+            .select_from(VerificationRequest)
+            .where(
+                VerificationRequest.user_id == user_id,
+                VerificationRequest.created_at >= cutoff,
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
+    async def get_user_file_hashes(self, user_id: UUID) -> set[str]:
+        """Get all file hashes previously submitted by this user."""
+        stmt = (
+            select(VerificationRequest.file_hash)
+            .where(
+                VerificationRequest.user_id == user_id,
+                VerificationRequest.file_hash.isnot(None),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return {row[0] for row in result.all() if row[0]}
+
+    async def get_user_history(
+        self, user_id: UUID, limit: int = 20,
+    ) -> list[VerificationRequest]:
+        """Get verification history for a user, newest first."""
+        stmt = (
+            select(VerificationRequest)
+            .where(VerificationRequest.user_id == user_id)
+            .order_by(VerificationRequest.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
     # ── Admin listing ────────────────────────────────────────
 

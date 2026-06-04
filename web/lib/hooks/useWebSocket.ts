@@ -6,7 +6,14 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 /* ── Types ────────────────────────────────────────────── */
 
 export interface WsEvent {
-  type: "new_message" | "new_notification" | "typing_start" | "typing_stop";
+  type:
+    | "new_message"
+    | "new_notification"
+    | "typing_start"
+    | "typing_stop"
+    | "presence_update"
+    | "message_read"
+    | "message_delivered";
   data: Record<string, unknown>;
 }
 
@@ -16,7 +23,9 @@ interface UseWebSocketReturn {
   isConnected: boolean;
   sendTypingStart: (conversationId: string) => void;
   sendTypingStop: (conversationId: string) => void;
+  sendMarkRead: (conversationId: string) => void;
   subscribe: (handler: WsEventHandler) => () => void;
+  onlineUsers: Record<string, boolean>;
 }
 
 /* ── Derive WS base URL from the HTTP API URL ────────── */
@@ -37,6 +46,8 @@ export function useWebSocket(): UseWebSocketReturn {
   const retryRef = useRef(0);
   const mountedRef = useRef(true);
   const [isConnected, setIsConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
+  const onlineRef = useRef<Record<string, boolean>>({});
 
   /* ---- connect / reconnect ---- */
   const connect = useCallback(() => {
@@ -60,6 +71,24 @@ export function useWebSocket(): UseWebSocketReturn {
     ws.onmessage = (event) => {
       try {
         const parsed = JSON.parse(event.data) as WsEvent;
+
+        // Track presence updates
+        if (parsed.type === "presence_update") {
+          const d = parsed.data as {
+            user_id?: string;
+            status?: "online" | "offline";
+          };
+          if (d.user_id) {
+            onlineRef.current = {
+              ...onlineRef.current,
+              [d.user_id]: d.status === "online",
+            };
+            if (mountedRef.current) {
+              setOnlineUsers({ ...onlineRef.current });
+            }
+          }
+        }
+
         handlersRef.current.forEach((h) => h(parsed));
       } catch {
         // ignore malformed messages
@@ -104,27 +133,35 @@ export function useWebSocket(): UseWebSocketReturn {
   }, [connect]);
 
   /* ---- send helpers ---- */
-  const sendTypingStart = useCallback((conversationId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "typing_start",
-          data: { conversation_id: conversationId },
-        }),
-      );
-    }
-  }, []);
+  const sendJson = useCallback(
+    (type: string, data: Record<string, unknown>) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type, data }));
+      }
+    },
+    [],
+  );
 
-  const sendTypingStop = useCallback((conversationId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "typing_stop",
-          data: { conversation_id: conversationId },
-        }),
-      );
-    }
-  }, []);
+  const sendTypingStart = useCallback(
+    (conversationId: string) => {
+      sendJson("typing_start", { conversation_id: conversationId });
+    },
+    [sendJson],
+  );
+
+  const sendTypingStop = useCallback(
+    (conversationId: string) => {
+      sendJson("typing_stop", { conversation_id: conversationId });
+    },
+    [sendJson],
+  );
+
+  const sendMarkRead = useCallback(
+    (conversationId: string) => {
+      sendJson("message_read", { conversation_id: conversationId });
+    },
+    [sendJson],
+  );
 
   /* ---- subscribe / unsubscribe ---- */
   const subscribe = useCallback((handler: WsEventHandler) => {
@@ -134,5 +171,12 @@ export function useWebSocket(): UseWebSocketReturn {
     };
   }, []);
 
-  return { isConnected, sendTypingStart, sendTypingStop, subscribe };
+  return {
+    isConnected,
+    sendTypingStart,
+    sendTypingStop,
+    sendMarkRead,
+    subscribe,
+    onlineUsers,
+  };
 }

@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -19,7 +20,13 @@ from app.schemas.verification import (
     VerificationSendResponse,
     VerificationStatusResponse,
 )
+from app.services.domain_validation_service import (
+    extract_base_domain,
+    validate_university_email,
+)
 from app.utils.constants import VerificationStatus
+
+logger = logging.getLogger(__name__)
 
 VERIFICATION_CODE_LENGTH = 6
 VERIFICATION_EXPIRY_MINUTES = 10
@@ -38,9 +45,26 @@ def _hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
 
 
+def _hash_file(content: bytes) -> str:
+    """SHA-256 hash of file content for duplicate detection."""
+    return hashlib.sha256(content).hexdigest()
+
+
 def _extract_domain(email: str) -> str:
     """Extract the domain part from an email address."""
     return email.split("@")[1].lower()
+
+
+def _detect_content_type(filename: str) -> str:
+    """Derive MIME type from filename extension."""
+    ext = Path(filename).suffix.lower()
+    mapping = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".pdf": "application/pdf",
+    }
+    return mapping.get(ext, "application/octet-stream")
 
 
 # ── Email verification ──────────────────────────────────────
@@ -54,20 +78,36 @@ async def send_verification_code(
     """
     Start an email verification attempt:
       1. Reject if already verified
-      2. Match email domain to a known university
-      3. Cancel any previous pending codes for this user
-      4. Create a new verification request with a hashed 6-digit code
-      5. In production, this is where you'd send the email
-      6. In development, return the code in the response for testing
+      2. Validate email domain (reject generic providers, match patterns)
+      3. Match email domain to a known university in DB
+      4. Cancel any previous pending codes for this user
+      5. Create a new verification request with a hashed 6-digit code
+      6. In production, this is where you'd send the email
+      7. In development, return the code in the response for testing
     """
     if current_user.is_verified_student:
         raise BadRequest("You are already a verified student")
 
     university_email = university_email.lower().strip()
-    domain = _extract_domain(university_email)
 
+    # Step 1: Domain validation (reject generic, validate pattern)
+    domain_result = validate_university_email(university_email)
+    if not domain_result.valid:
+        raise BadRequest(domain_result.reason or "Invalid university email domain")
+
+    # Step 2: Match to known university in DB
+    domain = _extract_domain(university_email)
     uni_repo = UniversityRepository(db)
+
+    # Try exact domain match first
     university = await uni_repo.get_by_domain(domain)
+
+    # If not found, try base domain (handles stu.rumeli.com.tr → rumeli.com.tr)
+    if not university:
+        base_domain = extract_base_domain(university_email)
+        if base_domain != domain:
+            university = await uni_repo.get_by_domain(base_domain)
+
     if not university:
         raise NotFound(
             f"No university found for email domain '{domain}'. "
@@ -76,6 +116,9 @@ async def send_verification_code(
 
     ver_repo = VerificationRepository(db)
     await ver_repo.cancel_pending_for_user(current_user.id)
+
+    # Count previous attempts
+    attempt_count = await ver_repo.count_user_attempts(current_user.id)
 
     code = _generate_code()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=VERIFICATION_EXPIRY_MINUTES)
@@ -88,6 +131,7 @@ async def send_verification_code(
         code_hash=_hash_code(code),
         status=VerificationStatus.PENDING.value,
         expires_at=expires_at,
+        attempt_number=attempt_count + 1,
     )
     await ver_repo.create(request)
 
@@ -173,6 +217,7 @@ async def confirm_verification_code(
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MIN_FILE_SIZE = 1024  # 1KB — reject empty/trivial files
 
 
 async def submit_document_verification(
@@ -183,13 +228,19 @@ async def submit_document_verification(
     filename: str,
 ) -> DocumentVerificationResponse:
     """
-    Submit a document for manual admin verification.
-      1. Reject if already verified
-      2. Validate university exists
-      3. Validate file type and size
-      4. Cancel any previous pending requests
-      5. Save document to protected directory
-      6. Create pending verification request
+    Submit a document for AI-powered verification with admin review fallback.
+
+    Pipeline:
+      1. Validate file (type, size, not empty)
+      2. Hash file for duplicate detection
+      3. Run OCR pipeline to extract text
+      4. Run AI validation to score the document
+      5. Based on confidence:
+         - >= 0.85 → auto-approve
+         - >= 0.50 → send to admin review
+         - <  0.50 → mark as suspicious
+      6. Save document securely
+      7. Create verification request with all metadata
     """
     if current_user.is_verified_student:
         raise BadRequest("You are already a verified student")
@@ -208,12 +259,79 @@ async def submit_document_verification(
     if len(file_content) > MAX_FILE_SIZE:
         raise BadRequest("File too large. Maximum size is 5MB.")
 
-    if len(file_content) == 0:
-        raise BadRequest("File is empty")
+    if len(file_content) < MIN_FILE_SIZE:
+        raise BadRequest("File is too small or empty.")
+
+    content_type = _detect_content_type(filename)
+
+    # Hash file for duplicate detection
+    file_hash = _hash_file(file_content)
+
+    # Check for duplicate submissions
+    ver_repo = VerificationRepository(db)
+    existing_hashes = await ver_repo.get_user_file_hashes(current_user.id)
 
     # Cancel any previous pending requests
-    ver_repo = VerificationRepository(db)
     await ver_repo.cancel_pending_for_user(current_user.id)
+
+    # Count previous attempts
+    attempt_count = await ver_repo.count_user_attempts(current_user.id)
+
+    # Rate limit: max 5 attempts per day
+    if attempt_count >= 5:
+        recent_count = await ver_repo.count_recent_attempts(
+            current_user.id, hours=24
+        )
+        if recent_count >= 5:
+            raise BadRequest(
+                "Too many verification attempts. Please try again tomorrow."
+            )
+
+    # ── Run OCR pipeline ─────────────────────────────────
+    try:
+        from app.services.ocr_service import run_ocr_pipeline
+        raw_text, ocr_data = await run_ocr_pipeline(file_content, content_type)
+    except Exception as e:
+        logger.error(f"OCR pipeline error: {e}")
+        raw_text = ""
+        ocr_data = {
+            "student_name": None,
+            "student_number": None,
+            "university_name": None,
+            "department": None,
+            "expiration_date": None,
+        }
+
+    # ── Run AI validation ────────────────────────────────
+    try:
+        from app.services.ai_validation_service import validate_document
+        ai_result = validate_document(
+            ocr_data=ocr_data,
+            raw_text=raw_text,
+            user_full_name=current_user.full_name,
+            expected_university_name=university.name,
+            file_size_bytes=len(file_content),
+            content_type=content_type,
+            file_hash=file_hash,
+            existing_hashes=existing_hashes,
+        )
+    except Exception as e:
+        logger.error(f"AI validation error: {e}")
+        ai_result = {
+            "confidence": 0.0,
+            "flags": ["validation_error"],
+            "details": {"error": str(e)},
+            "auto_decision": "review",
+        }
+
+    # Determine status based on AI decision
+    auto_decision = ai_result.get("auto_decision", "review")
+    if auto_decision == "approve":
+        status = VerificationStatus.VERIFIED.value
+    elif auto_decision == "suspicious":
+        status = VerificationStatus.SUSPICIOUS.value
+    else:
+        status = VerificationStatus.UNDER_REVIEW.value
 
     # Save document securely
     VERIFICATION_DOCS_DIR.mkdir(parents=True, exist_ok=True)
@@ -221,22 +339,59 @@ async def submit_document_verification(
     doc_path = VERIFICATION_DOCS_DIR / safe_filename
     doc_path.write_bytes(file_content)
 
-    # Store the relative path (not the full system path)
     document_url = f"verification_docs/{safe_filename}"
 
+    # Create verification request with full metadata
     request = VerificationRequest(
         user_id=current_user.id,
         university_id=university_id,
         verification_method="document",
         document_url=document_url,
-        status=VerificationStatus.PENDING.value,
+        status=status,
+        attempt_number=attempt_count + 1,
+        # OCR data
+        ocr_raw_text=raw_text[:10000] if raw_text else None,  # Truncate if huge
+        ocr_extracted_data=ocr_data,
+        # AI validation
+        ai_confidence=ai_result.get("confidence"),
+        ai_flags=ai_result.get("flags"),
+        ai_validation_details=ai_result.get("details"),
+        # File metadata
+        file_size_bytes=len(file_content),
+        file_content_type=content_type,
+        file_hash=file_hash,
     )
+
+    # If auto-approved, set verified timestamp
+    if status == VerificationStatus.VERIFIED.value:
+        request.verified_at = datetime.now(timezone.utc)
+
     await ver_repo.create(request)
+
+    # If auto-approved, update user immediately
+    if status == VerificationStatus.VERIFIED.value:
+        user_repo = UserRepository(db)
+        await user_repo.update(
+            current_user,
+            is_verified_student=True,
+            university_id=university_id,
+        )
+
+    # Build response message
+    confidence = ai_result.get("confidence", 0.0)
+    if status == VerificationStatus.VERIFIED.value:
+        message = "Your document has been automatically verified. Welcome to UniVerse!"
+    elif status == VerificationStatus.SUSPICIOUS.value:
+        message = "Your document needs additional review. An admin will review it shortly."
+    else:
+        message = "Your document has been submitted for review. This usually takes a few hours."
 
     return DocumentVerificationResponse(
         verification_id=request.id,
-        message="Your document has been submitted and is waiting for admin review.",
-        status=VerificationStatus.PENDING.value,
+        message=message,
+        status=status,
+        ai_confidence=round(confidence, 2),
+        ai_flags=ai_result.get("flags", []),
     )
 
 
@@ -296,6 +451,7 @@ async def get_verification_status(
 
     ver_repo = VerificationRepository(db)
     latest = await ver_repo.get_latest_for_user(current_user.id)
+    history = await ver_repo.get_user_history(current_user.id, limit=10)
 
     return VerificationStatusResponse(
         is_verified_student=current_user.is_verified_student,
@@ -307,4 +463,34 @@ async def get_verification_status(
         document_url=None,  # Never expose raw URL in status response
         rejection_reason=latest.rejection_reason if latest else None,
         verified_at=latest.verified_at if latest else None,
+        ai_confidence=latest.ai_confidence if latest else None,
+        ai_flags=latest.ai_flags if latest else None,
+        attempt_count=len(history),
     )
+
+
+# ── Verification history ────────────────────────────────────
+
+
+async def get_verification_history(
+    db: AsyncSession,
+    current_user: User,
+) -> list[dict]:
+    """Return the full verification history for the authenticated user."""
+    ver_repo = VerificationRepository(db)
+    history = await ver_repo.get_user_history(current_user.id, limit=20)
+
+    return [
+        {
+            "id": str(h.id),
+            "method": h.verification_method,
+            "status": h.status,
+            "created_at": h.created_at.isoformat() if h.created_at else None,
+            "verified_at": h.verified_at.isoformat() if h.verified_at else None,
+            "rejection_reason": h.rejection_reason,
+            "ai_confidence": h.ai_confidence,
+            "ai_flags": h.ai_flags,
+            "attempt_number": h.attempt_number,
+        }
+        for h in history
+    ]

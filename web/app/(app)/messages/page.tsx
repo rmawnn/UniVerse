@@ -13,7 +13,7 @@ import { useWebSocket, type WsEvent } from "@/lib/hooks/useWebSocket";
 export default function MessagesIndexPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-  const { subscribe } = useWebSocket();
+  const { subscribe, onlineUsers } = useWebSocket();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["conversations"],
@@ -68,6 +68,7 @@ export default function MessagesIndexPage() {
         <MessagesSidebar
           conversations={conversations}
           currentUserId={user?.id}
+          onlineUsers={onlineUsers}
         />
         <EmptyConversation />
       </div>

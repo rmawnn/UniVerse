@@ -9,10 +9,12 @@ class UserRole(str, Enum):
 
 class VerificationStatus(str, Enum):
     PENDING = "pending"
+    UNDER_REVIEW = "under_review"
     VERIFIED = "verified"
     EXPIRED = "expired"
     CANCELLED = "cancelled"
     REJECTED = "rejected"
+    SUSPICIOUS = "suspicious"
 
 
 class CommunityRole(str, Enum):

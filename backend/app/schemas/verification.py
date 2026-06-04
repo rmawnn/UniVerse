@@ -41,6 +41,8 @@ class DocumentVerificationResponse(BaseModel):
     verification_id: uuid.UUID
     message: str
     status: str
+    ai_confidence: float | None = None
+    ai_flags: list[str] = []
 
 
 # ── Status ──────────────────────────────────────────────────
@@ -56,3 +58,27 @@ class VerificationStatusResponse(BaseModel):
     document_url: str | None = None
     rejection_reason: str | None = None
     verified_at: datetime | None = None
+    ai_confidence: float | None = None
+    ai_flags: list[str] | None = None
+    attempt_count: int = 0
+
+
+# ── History ─────────────────────────────────────────────────
+
+class VerificationHistoryItem(BaseModel):
+    """Single verification attempt in the user's history."""
+    id: uuid.UUID
+    method: str
+    status: str
+    created_at: datetime | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
+    ai_confidence: float | None = None
+    ai_flags: list[str] | None = None
+    attempt_number: int = 1
+
+
+class VerificationHistoryResponse(BaseModel):
+    """Full verification history for a user."""
+    items: list[VerificationHistoryItem]
+    total_attempts: int

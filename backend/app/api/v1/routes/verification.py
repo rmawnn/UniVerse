@@ -11,6 +11,8 @@ from app.schemas.verification import (
     DocumentVerificationResponse,
     VerificationConfirmRequest,
     VerificationConfirmResponse,
+    VerificationHistoryResponse,
+    VerificationHistoryItem,
     VerificationSendRequest,
     VerificationSendResponse,
     VerificationStatusResponse,
@@ -93,6 +95,22 @@ async def get_verification_status(
 ):
     """Get current verification status for the authenticated user."""
     return await verification_service.get_verification_status(db, current_user)
+
+
+# ── History ────────────────────────────────────────────────
+
+
+@router.get("/history", response_model=VerificationHistoryResponse)
+async def get_verification_history(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get full verification attempt history for the authenticated user."""
+    items = await verification_service.get_verification_history(db, current_user)
+    return VerificationHistoryResponse(
+        items=[VerificationHistoryItem(**item) for item in items],
+        total_attempts=len(items),
+    )
 
 
 # ── Backwards compatibility ─────────────────────────────────
