@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -145,6 +146,22 @@ async def update_application_status(
     return await job_service.update_application_status(
         db, application_id, current_user, data,
     )
+
+
+@router.get("/jobs/applications/{application_id}/cv")
+async def download_application_cv(
+    application_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download an applicant's CV. Only the job owner can access.
+
+    Returns a redirect to a time-limited signed URL for the file.
+    """
+    signed_url = await job_service.get_application_cv_url(
+        db, application_id, current_user,
+    )
+    return RedirectResponse(url=signed_url, status_code=302)
 
 
 @router.get("/jobs/{job_id}/stats", response_model=JobStatsResponse)

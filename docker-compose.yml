@@ -1,5 +1,7 @@
 services:
-  # ── PostgreSQL ──────────────────────────────────────────────
+  # ── PostgreSQL (local development) ─────────────────────────
+  # Comment out this service when using Supabase-hosted PostgreSQL.
+  # Set DB_HOST in backend .env to db.<project-ref>.supabase.co instead.
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -27,7 +29,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Override DB_HOST to use the Docker service name, not localhost
+      # Override DB_HOST to use the Docker service name, not localhost.
+      # When using Supabase PostgreSQL, remove this override and set
+      # DB_HOST in .env to your Supabase database host instead.
       DB_HOST: postgres
       DB_PORT: 5432
     depends_on:
@@ -50,6 +54,9 @@ services:
     environment:
       # The browser calls the API, not the container, so this stays localhost
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      # Set these to enable Supabase Storage + Realtime in the frontend
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
     depends_on:
       - backend
     # Dev mode: mount source for HMR

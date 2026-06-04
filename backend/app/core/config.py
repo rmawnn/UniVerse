@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # ── Database ─────────────────────────────────────────────────
     # Individual fields — the password is auto-percent-encoded when
     # building DATABASE_URL, so special characters (!@# etc.) just work.
+    #
+    # For Supabase: use the connection details from your Supabase
+    # project's Database Settings page (direct connection).
     DB_USER: str = "postgres"
     DB_PASSWORD: str
     DB_HOST: str = "localhost"
@@ -35,6 +38,20 @@ class Settings(BaseSettings):
     DB_NAME: str = "universe_db"
     DATABASE_POOL_SIZE: int = 5
     DATABASE_MAX_OVERFLOW: int = 10
+
+    # ── Supabase ─────────────────────────────────────────────────
+    # Required for Storage and Realtime features.
+    # Get these from your Supabase project → Settings → API.
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+
+    # Storage bucket names
+    SUPABASE_BUCKET_AVATARS: str = "avatars"
+    SUPABASE_BUCKET_POSTS: str = "posts"
+    SUPABASE_BUCKET_VERIFICATION: str = "verification-docs"
+    SUPABASE_BUCKET_ATTACHMENTS: str = "attachments"
+    SUPABASE_BUCKET_RESUMES: str = "resumes"
 
     # ── JWT / Auth ───────────────────────────────────────────────
     SECRET_KEY: str
@@ -55,12 +72,20 @@ class Settings(BaseSettings):
 
         This ensures passwords containing special characters like ! @ # $
         are safely embedded in the URL without breaking the parser.
+
+        Works with both local PostgreSQL and Supabase PostgreSQL —
+        just change DB_HOST, DB_PORT, DB_PASSWORD, and DB_NAME.
         """
         encoded_password = quote_plus(self.DB_PASSWORD)
         return (
             f"postgresql+asyncpg://{self.DB_USER}:{encoded_password}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
+
+    @property
+    def supabase_configured(self) -> bool:
+        """True when Supabase credentials are set (non-empty)."""
+        return bool(self.SUPABASE_URL and self.SUPABASE_SERVICE_ROLE_KEY)
 
     # ── Validators ───────────────────────────────────────────────
 

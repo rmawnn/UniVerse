@@ -1,11 +1,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.verification import (
     DocumentVerificationResponse,
@@ -30,8 +31,9 @@ async def send_verification_code(
     data: VerificationSendRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=3, window_seconds=300, prefix="verify:send")),
 ):
-    """Send a verification code to the user's university email."""
+    """Send a verification code to the user's university email. Rate limited: 3 per 5 min."""
     return await verification_service.send_verification_code(
         db, current_user, data.university_email,
     )
@@ -42,8 +44,9 @@ async def confirm_verification_code(
     data: VerificationConfirmRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=10, window_seconds=300, prefix="verify:confirm")),
 ):
-    """Confirm a verification code and verify the student."""
+    """Confirm a verification code and verify the student. Rate limited: 10 per 5 min."""
     return await verification_service.confirm_verification_code(
         db, current_user, data.verification_id, data.code,
     )
@@ -58,8 +61,9 @@ async def submit_document_verification(
     document: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=5, window_seconds=3600, prefix="verify:doc")),
 ):
-    """Upload a student document for manual admin verification."""
+    """Upload a student document for verification. Rate limited: 5 per hour."""
     file_content = await document.read()
     return await verification_service.submit_document_verification(
         db, current_user, university_id,
@@ -74,10 +78,16 @@ async def get_document(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Download a verification document. Owner and admin only."""
-    file_path, content_type = await verification_service.get_document_file(
+    """Download a verification document. Owner and admin only.
+
+    With Supabase Storage: redirects to a time-limited signed URL.
+    Without Supabase: serves the file directly from local filesystem.
+    """
+    file_path, content_type, signed_url = await verification_service.get_document_file(
         db, current_user, verification_id,
     )
+    if signed_url:
+        return RedirectResponse(url=signed_url)
     return FileResponse(
         path=str(file_path),
         media_type=content_type,

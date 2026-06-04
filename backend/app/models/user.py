@@ -65,6 +65,7 @@ class User(BaseModel):
 
     # ── Status & permissions ─────────────────────────────────────
     is_active: Mapped[bool] = mapped_column(default=True)
+    email_verified: Mapped[bool] = mapped_column(default=False)
     is_verified_student: Mapped[bool] = mapped_column(default=False)
     role: Mapped[str] = mapped_column(
         String(20),

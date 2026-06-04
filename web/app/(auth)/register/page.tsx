@@ -13,6 +13,38 @@ import { cn } from "@/lib/utils";
 
 const STEPS = ["Account", "Verify email", "Set up profile"] as const;
 
+/** Blocked generic email providers */
+const BLOCKED_DOMAINS = new Set([
+  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
+  "live.com", "icloud.com", "aol.com", "protonmail.com",
+  "zoho.com", "mail.com", "gmx.com", "yandex.com",
+  "tutanota.com", "fastmail.com", "hey.com",
+  "me.com", "msn.com", "qq.com", "163.com",
+]);
+
+function isUniversityEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return false;
+  if (BLOCKED_DOMAINS.has(domain)) return false;
+  // Accept common university patterns
+  if (/\.edu(\.\w{2,3})?$/.test(domain)) return true;
+  if (/\.ac\.\w{2,3}$/.test(domain)) return true;
+  if (/^(stu|student|students|ogr|ogrenci)\./.test(domain)) return true;
+  if (/\.uni[\w-]*\.\w{2,4}$/.test(domain)) return true;
+  // Accept any non-blocked domain (backend has final say)
+  return true;
+}
+
+function getEmailError(email: string): string | null {
+  if (!email) return null;
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return null;
+  if (BLOCKED_DOMAINS.has(domain)) {
+    return `${domain} is not accepted. Please use your university email address.`;
+  }
+  return null;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
@@ -27,10 +59,16 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const emailWarning = getEmailError(email);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!agreed) {
       setError("You must agree to the Terms and Privacy Policy.");
+      return;
+    }
+    if (!isUniversityEmail(email)) {
+      setError("Please use your university email address. Generic providers (Gmail, Hotmail, etc.) are not accepted.");
       return;
     }
     setError(null);
@@ -141,17 +179,22 @@ export default function RegisterPage() {
           onChange={(e) => setUsername(e.target.value)}
           hint="Letters, numbers, and underscores only"
         />
-        <Field
-          label="University email"
-          type="email"
-          name="email"
-          placeholder="you@stanford.edu"
-          icon={<Mail className="h-4 w-4" />}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          hint="Must end in a recognized .edu domain"
-          required
-        />
+        <div>
+          <Field
+            label="University email"
+            type="email"
+            name="email"
+            placeholder="you@university.edu.tr"
+            icon={<Mail className="h-4 w-4" />}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            hint="Must be your official university email (e.g. .edu, .edu.tr, stu.*, ogr.*)"
+            required
+          />
+          {emailWarning && (
+            <p className="mt-1 text-[12px] text-danger">{emailWarning}</p>
+          )}
+        </div>
         <Field
           label="Password"
           type={showPassword ? "text" : "password"}

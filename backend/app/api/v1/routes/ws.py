@@ -97,6 +97,11 @@ async def websocket_endpoint(
         return
 
     await ws_manager.connect(user_id, ws)
+
+    # Broadcast presence online via Supabase Realtime (if configured)
+    from app.services.realtime_service import broadcast_presence
+    await broadcast_presence(user_id, "online")
+
     try:
         while True:
             raw = await ws.receive_text()
@@ -117,3 +122,4 @@ async def websocket_endpoint(
         logger.debug("WS error for user=%s: %s", user_id, exc)
     finally:
         ws_manager.disconnect(user_id, ws)
+        await broadcast_presence(user_id, "offline")

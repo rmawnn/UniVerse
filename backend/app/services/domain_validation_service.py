@@ -38,12 +38,19 @@ UNIVERSITY_DOMAIN_PATTERNS: list[re.Pattern] = [
     re.compile(r"^[\w\-]+\.edu\.\w{2,3}$"),            # .edu.tr, .edu.au, etc.
     re.compile(r"^[\w\-]+\.ac\.\w{2,3}$"),              # .ac.uk, .ac.jp, etc.
     re.compile(r"^[\w\-]+\.ac\.[\w\-]+\.\w{2,3}$"),     # sub.ac.uk patterns
-    # Student subdomain patterns (e.g., stu.rumeli.com.tr)
+    # Student subdomain patterns (e.g., stu.rumeli.com.tr, ogr.metu.edu.tr)
     re.compile(r"^stu\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
     re.compile(r"^student\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
+    re.compile(r"^students\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
+    re.compile(r"^ogr\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
+    re.compile(r"^ogrenci\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
     re.compile(r"^stu\.[\w\-]+\.\w{2,4}$"),
     re.compile(r"^student\.[\w\-]+\.\w{2,4}$"),
     re.compile(r"^students\.[\w\-]+\.\w{2,4}$"),
+    re.compile(r"^ogr\.[\w\-]+\.\w{2,4}$"),
+    re.compile(r"^ogrenci\.[\w\-]+\.\w{2,4}$"),
+    # Student subdomain with .edu infix (e.g., ogr.metu.edu.tr, stu.rumeli.edu.tr)
+    re.compile(r"^(?:stu|student|students|ogr|ogrenci)\.[\w\-]+\.edu\.\w{2,3}$"),
     # European patterns
     re.compile(r"^[\w\-]+\.uni[\w\-]*\.[\w\-]+\.\w{2,3}$"),  # .uni-*.de
     re.compile(r"^[\w\-]+\.univ[\w\-]*\.\w{2,4}$"),
@@ -55,10 +62,19 @@ UNIVERSITY_DOMAIN_PATTERNS: list[re.Pattern] = [
 # Known valid university subdomains (exact match database)
 # This supplements the regex patterns above for edge cases
 KNOWN_UNIVERSITY_SUBDOMAINS: dict[str, str] = {
-    # Turkish universities with stu. prefix
+    # Turkish universities with stu./ogr. prefix
+    "stu.rumeli.edu.tr": "Istanbul Rumeli University",
     "stu.rumeli.com.tr": "Istanbul Rumeli University",
     "stu.iku.edu.tr": "Istanbul Kultur University",
     "ogr.iu.edu.tr": "Istanbul University",
+    "ogr.metu.edu.tr": "Middle East Technical University",
+    "ogr.itu.edu.tr": "Istanbul Technical University",
+    "ogr.boun.edu.tr": "Bogazici University",
+    "ogr.hacettepe.edu.tr": "Hacettepe University",
+    "ogr.gazi.edu.tr": "Gazi University",
+    "ogr.ankara.edu.tr": "Ankara University",
+    "stu.yeditepe.edu.tr": "Yeditepe University",
+    "stu.medipol.edu.tr": "Istanbul Medipol University",
     # Add more as needed
 }
 

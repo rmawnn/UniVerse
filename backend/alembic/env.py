@@ -46,7 +46,18 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations() -> None:
-    connectable = create_async_engine(DB_URL, poolclass=pool.NullPool)
+    # When connecting to Supabase (remote host), enable SSL
+    connect_args: dict = {}
+    if settings.DB_HOST != "localhost" and not settings.DB_HOST.startswith("127."):
+        import ssl as _ssl
+        ctx = _ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = _ssl.CERT_NONE
+        connect_args["ssl"] = ctx
+
+    connectable = create_async_engine(
+        DB_URL, poolclass=pool.NullPool, connect_args=connect_args,
+    )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

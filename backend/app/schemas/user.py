@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     bio: str | None = None
     profile_image_url: str | None = None
     is_active: bool
+    email_verified: bool = False
     is_verified_student: bool
     role: str
     created_at: datetime
@@ -39,6 +40,7 @@ class MyProfileResponse(BaseModel):
     bio: str | None = None
     profile_image_url: str | None = None
     is_active: bool
+    email_verified: bool = False
     is_verified_student: bool
     role: str
     posts_count: int = 0
@@ -128,6 +130,7 @@ class UserStatusResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     is_active: bool
+    email_verified: bool = False
     is_verified_student: bool
     role: str
 

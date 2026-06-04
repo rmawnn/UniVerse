@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_verified_user
+from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.comment import CommentCreateRequest, CommentResponse
 from app.schemas.common import PaginatedResponse
@@ -23,8 +24,9 @@ async def create_comment(
     data: CommentCreateRequest,
     current_user: User = Depends(require_verified_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=20, window_seconds=300, prefix="comment:create")),
 ):
-    """Create a comment on a post. Requires verified community member."""
+    """Create a comment on a post. Rate limited: 20 per 5 min."""
     return await comment_service.create_comment(db, post_id, current_user, data)
 
 

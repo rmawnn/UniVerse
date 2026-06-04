@@ -31,9 +31,6 @@ logger = logging.getLogger(__name__)
 VERIFICATION_CODE_LENGTH = 6
 VERIFICATION_EXPIRY_MINUTES = 10
 
-# Protected upload directory (NOT the public /uploads)
-VERIFICATION_DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "verification_docs"
-
 
 def _generate_code() -> str:
     """Generate a cryptographically random 6-digit numeric code."""
@@ -193,10 +190,11 @@ async def confirm_verification_code(
     # Mark request as verified
     await ver_repo.mark_verified(request)
 
-    # Update the user
+    # Update the user — email is now verified + student is verified
     user_repo = UserRepository(db)
     await user_repo.update(
         current_user,
+        email_verified=True,
         is_verified_student=True,
         university_id=request.university_id,
     )
@@ -333,13 +331,13 @@ async def submit_document_verification(
     else:
         status = VerificationStatus.UNDER_REVIEW.value
 
-    # Save document securely
-    VERIFICATION_DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    safe_filename = f"{current_user.id}_{secrets.token_hex(8)}{ext}"
-    doc_path = VERIFICATION_DOCS_DIR / safe_filename
-    doc_path.write_bytes(file_content)
-
-    document_url = f"verification_docs/{safe_filename}"
+    # Save document securely (Supabase Storage or local fallback)
+    from app.services import storage_service
+    document_url = await storage_service.upload_verification_doc(
+        data=file_content,
+        filename=filename,
+        user_id=str(current_user.id),
+    )
 
     # Create verification request with full metadata
     request = VerificationRequest(
@@ -399,9 +397,14 @@ async def get_document_file(
     db: AsyncSession,
     current_user: User,
     verification_id: UUID,
-) -> tuple[Path, str]:
+) -> tuple[Path | None, str, str | None]:
     """
-    Return the file path and content-type for a verification document.
+    Return the file for a verification document.
+
+    Returns (file_path, content_type, signed_url):
+      - With Supabase: file_path is None, signed_url has a temporary URL
+      - Without Supabase: file_path points to local file, signed_url is None
+
     Only the owner or an admin can access.
     """
     ver_repo = VerificationRepository(db)
@@ -418,6 +421,22 @@ async def get_document_file(
     if not is_admin and not is_owner:
         raise Forbidden("You are not authorized to view this document")
 
+    from app.core.config import settings
+    from app.services import storage_service
+
+    # Supabase Storage path (e.g. "verification-docs/user_id/file.pdf")
+    if settings.supabase_configured and "/" in request.document_url:
+        signed_url = await storage_service.get_signed_url(
+            request.document_url, expires_in=3600,
+        )
+        # Guess content type from the stored path
+        ext = Path(request.document_url).suffix.lower()
+        ct_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                  ".png": "image/png", ".pdf": "application/pdf"}
+        content_type = ct_map.get(ext, "application/octet-stream")
+        return None, content_type, signed_url
+
+    # Local filesystem fallback
     file_path = Path(__file__).resolve().parent.parent.parent / request.document_url
     if not file_path.exists():
         raise NotFound("Document file not found on server")
@@ -431,7 +450,7 @@ async def get_document_file(
     }
     content_type = content_type_map.get(ext, "application/octet-stream")
 
-    return file_path, content_type
+    return file_path, content_type, None
 
 
 # ── Status ──────────────────────────────────────────────────

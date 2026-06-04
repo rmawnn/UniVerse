@@ -20,18 +20,25 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { getMe } from "@/lib/api/auth";
 import api from "@/lib/api/client";
 
-type VerifyMethod = "email" | "document" | null;
+/**
+ * Verification flow — sequential:
+ *   Step 1: Email OTP verification (mandatory)
+ *   Step 2: Student document upload (mandatory)
+ *   Step 3: Waiting for admin approval / auto-verified / success
+ *
+ * Users cannot access the platform until at least email is verified.
+ */
+
 type Step =
-  | "choose"
   | "email-input"
   | "email-otp"
   | "doc-upload"
   | "doc-pending"
   | "doc-auto-verified"
   | "doc-suspicious"
+  | "doc-rejected"
   | "success";
 
-/** Wrapper to satisfy Next.js Suspense requirement for useSearchParams. */
 export default function VerifyPage() {
   return (
     <Suspense
@@ -59,8 +66,7 @@ function VerifyPageInner() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
 
-  const [step, setStep] = useState<Step>("choose");
-  const [method, setMethod] = useState<VerifyMethod>(null);
+  const [step, setStep] = useState<Step>("email-input");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -75,6 +81,19 @@ function VerifyPageInner() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docResult, setDocResult] = useState<DocResult | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Determine initial step based on user state
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.is_verified_student) {
+      setStep("success");
+    } else if (user.email_verified) {
+      // Email already verified — skip to document upload
+      setStep("doc-upload");
+    }
+  }, [user?.is_verified_student, user?.email_verified]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefill email when user loads
   useEffect(() => {
@@ -82,13 +101,6 @@ function VerifyPageInner() {
       setUniEmail(user.email);
     }
   }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Redirect if already verified
-  useEffect(() => {
-    if (user?.is_verified_student) {
-      setStep("success");
-    }
-  }, [user?.is_verified_student]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -159,15 +171,18 @@ function VerifyPageInner() {
         verification_id: verificationId,
         code: otpCode,
       });
+      // Refresh user to get email_verified = true
       try {
         const freshUser = await getMe();
         setUser(freshUser);
       } catch {
         if (user) {
-          setUser({ ...user, is_verified_student: true });
+          setUser({ ...user, email_verified: true });
         }
       }
-      setStep("success");
+      // Move to document upload step
+      setStep("doc-upload");
+      setError(null);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data
@@ -184,7 +199,11 @@ function VerifyPageInner() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowed = ["application/pdf", "image/jpeg", "image/png"];
+    const allowed = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+    ];
     if (!allowed.includes(file.type)) {
       setError("Please upload a PDF, JPG, or PNG file.");
       return;
@@ -204,6 +223,7 @@ function VerifyPageInner() {
     }
     setError(null);
     setLoading(true);
+    setUploadProgress(0);
     try {
       const formData = new FormData();
       formData.append(
@@ -213,6 +233,9 @@ function VerifyPageInner() {
       formData.append("document", selectedFile);
       const res = await api.post("/verification/document", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (e) => {
+          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        },
       });
 
       const result: DocResult = {
@@ -224,7 +247,6 @@ function VerifyPageInner() {
       setDocResult(result);
 
       if (result.status === "verified") {
-        // Auto-approved by AI — refresh user
         try {
           const freshUser = await getMe();
           setUser(freshUser);
@@ -236,7 +258,10 @@ function VerifyPageInner() {
         setStep("doc-auto-verified");
       } else if (result.status === "suspicious") {
         setStep("doc-suspicious");
+      } else if (result.status === "rejected") {
+        setStep("doc-rejected");
       } else {
+        // under_review / pending
         setStep("doc-pending");
       }
     } catch (err: unknown) {
@@ -252,19 +277,19 @@ function VerifyPageInner() {
   /* ── Stepper ───────────────────────────────────────── */
 
   const stepIndex =
-    step === "choose"
+    step === "email-input" || step === "email-otp"
       ? 0
-      : step === "success" || step === "doc-auto-verified"
-        ? 2
-        : 1;
+      : step === "doc-upload"
+        ? 1
+        : 2;
 
-  const STEPS = ["Choose method", "Verify", "Complete"] as const;
+  const STEPS_LABELS = ["Verify email", "Upload document", "Complete"] as const;
 
   return (
     <>
       {/* Stepper */}
       <div className="mb-7 flex items-center gap-2">
-        {STEPS.map((s, i) => {
+        {STEPS_LABELS.map((s, i) => {
           const isDone = i < stepIndex;
           const isCurrent = i === stepIndex;
           return (
@@ -302,7 +327,7 @@ function VerifyPageInner() {
                   {s}
                 </span>
               </div>
-              {i < STEPS.length - 1 && (
+              {i < STEPS_LABELS.length - 1 && (
                 <span
                   className={cn(
                     "h-px flex-1",
@@ -322,21 +347,19 @@ function VerifyPageInner() {
         </div>
       )}
 
-      {/* ── Step: Choose method ──────────────────────── */}
-      {step === "choose" && (
+      {/* ── Step 1a: Email input ────────────────────────── */}
+      {step === "email-input" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-brand-purple/40 bg-[linear-gradient(180deg,#2A1F4A,#1A1530)] shadow-[0_16px_40px_rgba(124,82,255,0.25)]">
-            <ShieldCheck
-              className="h-9 w-9 text-[#C7B0FF]"
-              strokeWidth={1.5}
-            />
+            <Mail className="h-9 w-9 text-[#C7B0FF]" strokeWidth={1.5} />
           </div>
 
           <h2 className="mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest">
-            Verify your identity
+            Verify your email
           </h2>
           <p className="mt-2 text-[14.5px] text-fg-2">
-            Choose how you&rsquo;d like to verify your student status.
+            We&rsquo;ll send a 6-digit code to your university email to confirm
+            it belongs to you.
           </p>
 
           {user?.email && (
@@ -345,74 +368,6 @@ function VerifyPageInner() {
               <span className="font-medium text-fg-2">{user.email}</span>
             </p>
           )}
-
-          <div className="mt-7 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                setMethod("email");
-                setStep("email-input");
-                setError(null);
-              }}
-              className="flex items-center gap-4 rounded-lg border border-line-2 bg-bg-2 p-4 text-left transition-colors hover:border-brand-purple/40 hover:bg-bg-3"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-brand-purple/15 text-brand-purple">
-                <Mail className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[14px] font-semibold">
-                  University email
-                </div>
-                <div className="mt-0.5 text-[12.5px] text-fg-3">
-                  Verify with a .edu or university email address
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                setMethod("document");
-                setStep("doc-upload");
-                setError(null);
-              }}
-              className="flex items-center gap-4 rounded-lg border border-line-2 bg-bg-2 p-4 text-left transition-colors hover:border-brand-purple/40 hover:bg-bg-3"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-brand-blue/15 text-brand-blue">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[14px] font-semibold">
-                  Student document
-                </div>
-                <div className="mt-0.5 text-[12.5px] text-fg-3">
-                  Upload your student ID card or enrollment document
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-6 flex gap-3 rounded-md border border-brand-blue/18 bg-brand-blue/[0.07] p-3.5">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-blue" />
-            <p className="text-[12.5px] leading-[1.5] text-fg-2">
-              Only verified students can post on UniVerse. Your documents stay
-              private and are never visible to other students.
-            </p>
-          </div>
-        </>
-      )}
-
-      {/* ── Step: Email input ────────────────────────── */}
-      {step === "email-input" && (
-        <>
-          <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-brand-purple/40 bg-[linear-gradient(180deg,#2A1F4A,#1A1530)] shadow-[0_16px_40px_rgba(124,82,255,0.25)]">
-            <Mail className="h-9 w-9 text-[#C7B0FF]" strokeWidth={1.5} />
-          </div>
-
-          <h2 className="mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest">
-            University email
-          </h2>
-          <p className="mt-2 text-[14.5px] text-fg-2">
-            Enter your university email to receive a verification code.
-          </p>
 
           <div className="mt-6">
             <label className="block">
@@ -423,13 +378,13 @@ function VerifyPageInner() {
                 type="email"
                 value={uniEmail}
                 onChange={(e) => setUniEmail(e.target.value)}
-                placeholder="you@stanford.edu"
+                placeholder="you@university.edu.tr"
                 className="w-full rounded-md border border-line-2 bg-bg-2 px-3.5 py-3 text-[14.5px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple/60 focus:outline-none"
                 autoFocus
               />
             </label>
             <p className="mt-1.5 text-[11.5px] text-fg-3">
-              Supports .edu, .ac.*, student subdomains, and registered
+              Supports .edu, .edu.tr, .ac.*, stu.*, ogr.*, and registered
               university domains
             </p>
           </div>
@@ -449,19 +404,18 @@ function VerifyPageInner() {
             {loading ? "Sending..." : "Send verification code"}
           </Button>
 
-          <button
-            onClick={() => {
-              setStep("choose");
-              setError(null);
-            }}
-            className="mt-4 text-center text-[13px] text-fg-3 hover:text-fg-1"
-          >
-            ← Back to method selection
-          </button>
+          <div className="mt-6 flex gap-3 rounded-md border border-brand-blue/18 bg-brand-blue/[0.07] p-3.5">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-blue" />
+            <p className="text-[12.5px] leading-[1.5] text-fg-2">
+              Email verification is required to access UniVerse. After email
+              verification, you&rsquo;ll upload a student document for full
+              verified status.
+            </p>
+          </div>
         </>
       )}
 
-      {/* ── Step: Email OTP ──────────────────────────── */}
+      {/* ── Step 1b: Email OTP ──────────────────────────── */}
       {step === "email-otp" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-brand-purple/40 bg-[linear-gradient(180deg,#2A1F4A,#1A1530)] shadow-[0_16px_40px_rgba(124,82,255,0.25)]">
@@ -532,7 +486,7 @@ function VerifyPageInner() {
         </>
       )}
 
-      {/* ── Step: Document upload ────────────────────── */}
+      {/* ── Step 2: Document upload ────────────────────── */}
       {step === "doc-upload" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-brand-blue/40 bg-[linear-gradient(180deg,#1A2540,#151A30)] shadow-[0_16px_40px_rgba(79,143,247,0.25)]">
@@ -540,14 +494,19 @@ function VerifyPageInner() {
           </div>
 
           <h2 className="mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest">
-            Upload document
+            Upload student document
           </h2>
           <p className="mt-2 text-[14.5px] text-fg-2">
-            Upload your student ID card or enrollment document. Our AI will
-            verify it instantly if possible.
+            Upload your student ID card or enrollment document to verify your
+            student status. Our AI will review it automatically.
           </p>
 
-          <div className="mt-6">
+          <div className="mt-2 flex items-center gap-2 rounded-md bg-success/10 px-3 py-2 text-[12px] text-success">
+            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span>Email verified successfully</span>
+          </div>
+
+          <div className="mt-5">
             <input
               ref={fileInputRef}
               type="file"
@@ -596,11 +555,27 @@ function VerifyPageInner() {
             )}
           </div>
 
+          {/* Upload progress */}
+          {loading && uploadProgress > 0 && (
+            <div className="mt-3">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-3">
+                <div
+                  className="h-full rounded-full bg-acc-gradient transition-all duration-300 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <div className="mt-1 text-right text-[10.5px] text-fg-4">
+                {uploadProgress}%
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 flex gap-3 rounded-md border border-brand-purple/18 bg-brand-purple/[0.05] p-3">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-purple" />
             <p className="text-[12px] leading-[1.5] text-fg-3">
               Our AI reads your document using OCR and validates it
               automatically. High-confidence submissions are approved instantly.
+              Your documents stay private.
             </p>
           </div>
 
@@ -614,7 +589,7 @@ function VerifyPageInner() {
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyzing document…
+                Analyzing document...
               </>
             ) : (
               <>
@@ -623,21 +598,10 @@ function VerifyPageInner() {
               </>
             )}
           </Button>
-
-          <button
-            onClick={() => {
-              setStep("choose");
-              setSelectedFile(null);
-              setError(null);
-            }}
-            className="mt-4 text-center text-[13px] text-fg-3 hover:text-fg-1"
-          >
-            ← Back to method selection
-          </button>
         </>
       )}
 
-      {/* ── Step: Document auto-verified by AI ──────── */}
+      {/* ── Step 3a: Document auto-verified by AI ──────── */}
       {step === "doc-auto-verified" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-success/40 bg-success/10 shadow-[0_16px_40px_rgba(52,168,83,0.20)]">
@@ -645,11 +609,11 @@ function VerifyPageInner() {
           </div>
 
           <h2 className="mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest">
-            Instantly verified!
+            Approved!
           </h2>
           <p className="mt-2 text-[14.5px] text-fg-2">
             Our AI verified your document automatically. You now have full
-            access to UniVerse.
+            access to UniVerse with a verified badge.
           </p>
 
           {docResult && docResult.confidence !== null && (
@@ -675,7 +639,7 @@ function VerifyPageInner() {
         </>
       )}
 
-      {/* ── Step: Document pending admin review ─────── */}
+      {/* ── Step 3b: Document pending admin review ─────── */}
       {step === "doc-pending" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-warn/40 bg-[linear-gradient(180deg,#2A2520,#1A1520)] shadow-[0_16px_40px_rgba(255,181,71,0.15)]">
@@ -683,11 +647,11 @@ function VerifyPageInner() {
           </div>
 
           <h2 className="mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest">
-            Under review
+            Pending review
           </h2>
           <p className="mt-2 text-[14.5px] text-fg-2">
-            Your document has been submitted. An admin will review it shortly —
-            this usually takes a few hours.
+            Your document has been submitted. An admin will review it shortly
+            — this usually takes a few hours.
           </p>
 
           {docResult && docResult.confidence !== null && (
@@ -698,7 +662,7 @@ function VerifyPageInner() {
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
             <p className="text-[12.5px] leading-[1.5] text-fg-2">
               You&rsquo;ll receive a notification once your document is
-              reviewed. You can continue using UniVerse in the meantime.
+              reviewed. You can continue browsing UniVerse in the meantime.
             </p>
           </div>
 
@@ -713,7 +677,7 @@ function VerifyPageInner() {
         </>
       )}
 
-      {/* ── Step: Document flagged as suspicious ────── */}
+      {/* ── Step 3c: Document flagged as suspicious ────── */}
       {step === "doc-suspicious" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-danger/40 bg-danger/10 shadow-[0_16px_40px_rgba(255,90,106,0.15)]">
@@ -733,7 +697,6 @@ function VerifyPageInner() {
               {docResult.confidence !== null && (
                 <ConfidenceMeter confidence={docResult.confidence} />
               )}
-
               {docResult.flags.length > 0 && (
                 <div className="mt-4 rounded-md border border-danger/18 bg-danger/[0.05] p-3.5">
                   <div className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold text-danger">
@@ -742,10 +705,7 @@ function VerifyPageInner() {
                   </div>
                   <ul className="flex flex-col gap-1">
                     {docResult.flags.map((flag) => (
-                      <li
-                        key={flag}
-                        className="text-[12px] text-fg-3"
-                      >
+                      <li key={flag} className="text-[12px] text-fg-3">
                         · {flagLabel(flag)}
                       </li>
                     ))}
@@ -755,15 +715,7 @@ function VerifyPageInner() {
             </>
           )}
 
-          <div className="mt-4 flex gap-3 rounded-md border border-warn/18 bg-warn/[0.07] p-3.5">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
-            <p className="text-[12.5px] leading-[1.5] text-fg-2">
-              You can try again with a clearer photo of your student ID, or
-              verify via university email instead.
-            </p>
-          </div>
-
-          <div className="mt-5 flex gap-3">
+          <div className="mt-4 flex gap-3">
             <Button
               size="lg"
               className="flex-1"
@@ -780,19 +732,46 @@ function VerifyPageInner() {
               size="lg"
               variant="ghost"
               className="flex-1"
-              onClick={() => {
-                setStep("email-input");
-                setMethod("email");
-                setError(null);
-              }}
+              onClick={() => router.push("/")}
             >
-              Use email instead
+              Continue browsing
             </Button>
           </div>
         </>
       )}
 
-      {/* ── Step: Success ────────────────────────────── */}
+      {/* ── Step 3d: Document rejected ─────────────────── */}
+      {step === "doc-rejected" && (
+        <>
+          <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-danger/40 bg-danger/10 shadow-[0_16px_40px_rgba(255,90,106,0.15)]">
+            <ShieldAlert className="h-9 w-9 text-danger" strokeWidth={1.5} />
+          </div>
+
+          <h2 className="mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest">
+            Verification rejected
+          </h2>
+          <p className="mt-2 text-[14.5px] text-fg-2">
+            Your document could not be verified. Please upload a clearer photo
+            of your student ID or enrollment certificate.
+          </p>
+
+          <Button
+            size="lg"
+            full
+            className="mt-6"
+            onClick={() => {
+              setStep("doc-upload");
+              setSelectedFile(null);
+              setDocResult(null);
+              setError(null);
+            }}
+          >
+            Upload a new document
+          </Button>
+        </>
+      )}
+
+      {/* ── Success ────────────────────────────────────── */}
       {step === "success" && (
         <>
           <div className="flex h-[84px] w-[84px] items-center justify-center rounded-lg border border-success/40 bg-success/10 shadow-[0_16px_40px_rgba(52,168,83,0.20)]">
@@ -803,14 +782,14 @@ function VerifyPageInner() {
             You&rsquo;re verified!
           </h2>
           <p className="mt-2 text-[14.5px] text-fg-2">
-            Your student status has been confirmed. You now have full access to
-            UniVerse.
+            Your student status has been confirmed. You have full access to
+            UniVerse with a verified badge.
           </p>
 
           <div className="mt-6 flex gap-3 rounded-md border border-success/18 bg-success/[0.07] p-3.5">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
             <p className="text-[12.5px] leading-[1.5] text-fg-2">
-              Your verified badge will appear on your profile and next to your
+              Your verified badge is visible on your profile and next to your
               posts across all communities.
             </p>
           </div>

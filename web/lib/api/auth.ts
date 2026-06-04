@@ -18,6 +18,7 @@ export interface RegisterRequest {
 
 export interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
 }
 
@@ -32,6 +33,7 @@ export interface UserResponse {
   bio: string | null;
   profile_image_url: string | null;
   is_active: boolean;
+  email_verified: boolean;
   is_verified_student: boolean;
   role: string;
   created_at: string;
@@ -61,4 +63,17 @@ export async function registerApi(data: RegisterRequest): Promise<UserResponse> 
 export async function getMe(): Promise<MyProfileResponse> {
   const res = await api.get<MyProfileResponse>("/users/me");
   return res.data;
+}
+
+export async function refreshTokenApi(
+  refreshToken: string,
+): Promise<TokenResponse> {
+  const res = await api.post<TokenResponse>("/auth/refresh", {
+    refresh_token: refreshToken,
+  });
+  return res.data;
+}
+
+export async function logoutApi(refreshToken: string): Promise<void> {
+  await api.post("/auth/logout", { refresh_token: refreshToken });
 }

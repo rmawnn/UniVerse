@@ -4,11 +4,12 @@ import axios from "axios";
  * Centralized Axios instance for all backend calls.
  * - Reads JWT from localStorage
  * - Attaches Authorization header automatically
- * - Provides a response error interceptor
+ * - Attempts token refresh on 401 before forcing logout
  */
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1",
   headers: { "Content-Type": "application/json" },
+  timeout: 30_000, // 30s request timeout
 });
 
 /* ── Request interceptor: attach JWT ─────────────────────── */
@@ -22,10 +23,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-/* ── Response interceptor: normalize errors ──────────────── */
+/* ── Response interceptor: handle errors + token refresh ─── */
+
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function onTokenRefreshed(newToken: string) {
+  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
     if (error.response) {
       const status = error.response.status;
       const detail =
@@ -33,10 +49,65 @@ api.interceptors.response.use(
         error.response.data?.message ??
         "Something went wrong";
 
-      // On 401, clear stored token (session expired / invalid)
+      // On 401, attempt silent token refresh (once per request)
+      if (
+        status === 401 &&
+        typeof window !== "undefined" &&
+        !originalRequest._retry &&
+        !originalRequest.url?.includes("/auth/refresh") &&
+        !originalRequest.url?.includes("/auth/login")
+      ) {
+        originalRequest._retry = true;
+
+        if (!isRefreshing) {
+          isRefreshing = true;
+
+          const refreshToken = localStorage.getItem("uv_refresh");
+          if (refreshToken) {
+            try {
+              const res = await axios.post(
+                `${api.defaults.baseURL}/auth/refresh`,
+                { refresh_token: refreshToken },
+              );
+              const { access_token, refresh_token: newRefresh } = res.data;
+              localStorage.setItem("uv_token", access_token);
+              localStorage.setItem("uv_refresh", newRefresh);
+
+              isRefreshing = false;
+              onTokenRefreshed(access_token);
+
+              // Retry original request with new token
+              originalRequest.headers.Authorization = `Bearer ${access_token}`;
+              return api(originalRequest);
+            } catch {
+              isRefreshing = false;
+              refreshSubscribers = [];
+              // Refresh failed — clear tokens and redirect
+              localStorage.removeItem("uv_token");
+              localStorage.removeItem("uv_refresh");
+              if (!window.location.pathname.startsWith("/login")) {
+                window.location.href = "/login";
+              }
+              return Promise.reject(new ApiError("Session expired", 401));
+            }
+          } else {
+            isRefreshing = false;
+          }
+        }
+
+        // If another request is already refreshing, queue this one
+        return new Promise((resolve) => {
+          addRefreshSubscriber((newToken: string) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            resolve(api(originalRequest));
+          });
+        });
+      }
+
+      // Non-401 errors or post-refresh failures
       if (status === 401 && typeof window !== "undefined") {
         localStorage.removeItem("uv_token");
-        // Redirect to login if not already there
+        localStorage.removeItem("uv_refresh");
         if (!window.location.pathname.startsWith("/login")) {
           window.location.href = "/login";
         }

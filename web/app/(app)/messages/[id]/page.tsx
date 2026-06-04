@@ -31,6 +31,15 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { useWebSocket, type WsEvent } from "@/lib/hooks/useWebSocket";
 import { formatRelativeTime } from "@/lib/utils";
 
+/* ── Sort helper (single source of truth) ────────────── */
+
+function sortAscending(msgs: MessageResponse[]): MessageResponse[] {
+  return [...msgs].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+}
+
 export default function ConversationPage() {
   const { id } = useParams<{ id: string }>();
   const user = useAuthStore((s) => s.user);
@@ -79,16 +88,31 @@ export default function ConversationPage() {
   );
   const displayName = otherParticipant?.full_name ?? "Conversation";
   const conversations = convsData?.items ?? [];
-  const rawMessages = messagesData?.items ?? [];
 
-  /* ── 1. Sort messages by created_at ascending ──────── */
+  /* ── 1. SORT: Always sort messages ascending by created_at ── */
+  /*                                                              */
+  /*  This is THE single place where message order is determined. */
+  /*  The backend returns messages in descending order (newest    */
+  /*  first for pagination). WebSocket cache appends are unsorted.*/
+  /*  The useMemo dependency is `messagesData` (the entire query  */
+  /*  result object), not a derived array — this ensures React    */
+  /*  detects reference changes from both query refetches AND     */
+  /*  cache mutations via setQueryData.                           */
 
   const messages = useMemo(() => {
-    return [...rawMessages].sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    );
-  }, [rawMessages]);
+    const items = messagesData?.items;
+    if (!items || items.length === 0) return [];
+    const sorted = sortAscending(items);
+
+    // Debug: log message order (remove in production)
+    if (process.env.NODE_ENV === "development" && sorted.length > 0) {
+      console.log(
+        `[Messages] ${sorted.length} msgs sorted. First: ${sorted[0]!.id.slice(0, 8)}… (${sorted[0]!.created_at}) → Last: ${sorted[sorted.length - 1]!.id.slice(0, 8)}… (${sorted[sorted.length - 1]!.created_at})`,
+      );
+    }
+
+    return sorted;
+  }, [messagesData]);
 
   /* ── Presence ─────────────────────────────────────── */
 
@@ -142,6 +166,7 @@ export default function ConversationPage() {
               page_size: 50,
               total_pages: 1,
             };
+          // Append optimistic message — sort happens in useMemo
           return {
             ...old,
             items: [...old.items, optimistic],
@@ -170,35 +195,46 @@ export default function ConversationPage() {
     const unsub = subscribe((event: WsEvent) => {
       /* ── New message ── */
       if (event.type === "new_message") {
-        const msgData = event.data as Partial<MessageResponse> & {
+        const msgData = event.data as {
           conversation_id?: string;
+          message?: Partial<MessageResponse>;
         };
         const convId = msgData.conversation_id;
+        const incomingMsg = msgData.message ?? (event.data as Partial<MessageResponse>);
 
         if (convId === id) {
-          // If we have full message data, append directly (with dedup)
-          if (msgData.id && msgData.sender && msgData.content) {
+          if (incomingMsg?.id && incomingMsg?.sender && incomingMsg?.content) {
             const newMsg: MessageResponse = {
-              id: msgData.id,
+              id: String(incomingMsg.id),
               conversation_id: convId,
-              sender: msgData.sender,
-              content: msgData.content,
+              sender: incomingMsg.sender as MessageResponse["sender"],
+              content: String(incomingMsg.content),
               created_at:
-                msgData.created_at ?? new Date().toISOString(),
-              status: msgData.status,
+                String(incomingMsg.created_at ?? new Date().toISOString()),
+              status: incomingMsg.status,
             };
+
+            if (process.env.NODE_ENV === "development") {
+              console.log(
+                `[WS] new_message id=${newMsg.id.slice(0, 8)}… created_at=${newMsg.created_at}`,
+              );
+            }
+
             queryClient.setQueryData<PaginatedMessages>(
               ["messages", id],
               (old) => {
                 if (!old) return old;
                 // Dedup — skip if message with same ID already exists
                 if (old.items.some((m) => m.id === newMsg.id)) return old;
-                // Also remove any matching optimistic message
+                // Remove any matching optimistic message (same content from same sender)
                 const filtered = old.items.filter(
                   (m) =>
                     !m.id.startsWith("optimistic-") ||
-                    m.content !== newMsg.content,
+                    m.content !== newMsg.content ||
+                    m.sender.id !== newMsg.sender.id,
                 );
+                // Return new object so React Query detects the change
+                // Sort happens in useMemo, not here
                 return {
                   ...old,
                   items: [...filtered, newMsg],
@@ -212,7 +248,8 @@ export default function ConversationPage() {
           }
 
           // Auto-mark as read if it's from someone else
-          if (msgData.sender?.id !== user?.id) {
+          const senderId = incomingMsg?.sender?.id ?? (incomingMsg as Record<string, unknown>)?.sender_id;
+          if (senderId && senderId !== user?.id) {
             markConversationRead(id).catch(() => {});
             sendMarkRead(id);
           }
@@ -249,7 +286,6 @@ export default function ConversationPage() {
           user_id?: string;
         };
         if (d.conversation_id === id && d.user_id !== user?.id) {
-          // Mark all own messages as "seen"
           queryClient.setQueryData<PaginatedMessages>(
             ["messages", id],
             (old) => {
@@ -257,7 +293,9 @@ export default function ConversationPage() {
               return {
                 ...old,
                 items: old.items.map((m) =>
-                  m.sender.id === user?.id ? { ...m, status: "seen" as const } : m,
+                  m.sender.id === user?.id
+                    ? { ...m, status: "seen" as const }
+                    : m,
                 ),
               };
             },
@@ -313,7 +351,6 @@ export default function ConversationPage() {
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    // Consider "near bottom" if within 150px of the bottom
     shouldAutoScrollRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < 150;
   }, []);
@@ -326,12 +363,15 @@ export default function ConversationPage() {
     // Always scroll on initial load or after sending
     // Only scroll on incoming if user is near bottom
     if (isInitialLoad || justSentRef.current || shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: isInitialLoad ? "instant" : "smooth",
+      // Use requestAnimationFrame to ensure DOM has rendered the new message
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: isInitialLoad ? "instant" : "smooth",
+        });
       });
       justSentRef.current = false;
     }
-  }, [messages.length]);
+  }, [messages.length, messages]);
 
   // Reset scroll tracking when switching conversations
   useEffect(() => {

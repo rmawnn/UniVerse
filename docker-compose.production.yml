@@ -1,0 +1,28 @@
+# Production override — uses Supabase PostgreSQL, no local PG container.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+#
+# Requirements:
+#   - Set all SUPABASE_* and DB_* vars in backend/.env
+#   - Set NEXT_PUBLIC_SUPABASE_* vars in environment or .env
+
+services:
+  # Disable local PostgreSQL — Supabase hosts the database
+  postgres:
+    profiles:
+      - disabled
+
+  backend:
+    restart: always
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      # DB_HOST, DB_PORT, DB_PASSWORD etc. come from .env
+    depends_on: []          # No local PG dependency
+    volumes: []             # No source mount in production
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+  web:
+    restart: always
+    volumes: []             # No source mount in production

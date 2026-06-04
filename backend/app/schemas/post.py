@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.utils.sanitize import sanitize_text, is_safe_url
 
 
 class PostCreateRequest(BaseModel):
@@ -10,6 +12,18 @@ class PostCreateRequest(BaseModel):
     image_url: str | None = Field(None, max_length=500)
     video_url: str | None = Field(None, max_length=500)
     post_type: str = Field("text", pattern=r"^(text|image|short)$")
+
+    @field_validator("content")
+    @classmethod
+    def sanitize_content(cls, v: str) -> str:
+        return sanitize_text(v)
+
+    @field_validator("image_url", "video_url")
+    @classmethod
+    def validate_urls(cls, v: str | None) -> str | None:
+        if v is not None and not is_safe_url(v):
+            raise ValueError("URL contains an unsafe scheme")
+        return v
 
 
 class PostAuthorSummary(BaseModel):

@@ -1,5 +1,7 @@
+import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
+from threading import Lock
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -9,6 +11,8 @@ from app.core.config import settings
 # Suppress noisy passlib warning about bcrypt version detection
 # (passlib 1.7.4 doesn't recognize bcrypt >=4.1 but works correctly)
 logging.getLogger("passlib").setLevel(logging.ERROR)
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -44,3 +48,42 @@ def decode_token(token: str) -> dict:
     return jwt.decode(
         token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
     )
+
+
+# ── Token blocklist (in-memory; swap for Redis in production) ──
+
+_blocklist_lock = Lock()
+_blocklist: dict[str, float] = {}  # token_hash -> expiry timestamp
+
+
+def _hash_token(token: str) -> str:
+    """Hash a token for blocklist storage (avoid storing raw JWTs)."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def invalidate_token(token: str) -> None:
+    """Add a token to the blocklist so it can no longer be used."""
+    try:
+        payload = decode_token(token)
+        exp = payload.get("exp", 0)
+    except JWTError:
+        # Even if decode fails, add to blocklist for safety
+        exp = (datetime.now(timezone.utc) + timedelta(days=7)).timestamp()
+
+    token_hash = _hash_token(token)
+    with _blocklist_lock:
+        _blocklist[token_hash] = exp
+        # Prune expired entries while we're here
+        now = datetime.now(timezone.utc).timestamp()
+        expired_keys = [k for k, v in _blocklist.items() if v < now]
+        for k in expired_keys:
+            del _blocklist[k]
+
+    logger.debug("Token invalidated: %s...", token_hash[:12])
+
+
+def is_token_invalidated(token: str) -> bool:
+    """Check if a token has been blocklisted."""
+    token_hash = _hash_token(token)
+    with _blocklist_lock:
+        return token_hash in _blocklist

@@ -1,3 +1,4 @@
+import ssl
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -9,12 +10,23 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import settings
 
+# When connecting to Supabase (remote host), enable SSL.
+# For local PostgreSQL, SSL is not needed.
+_connect_args: dict = {}
+if settings.DB_HOST != "localhost" and not settings.DB_HOST.startswith("127."):
+    # Supabase / remote PostgreSQL — require SSL
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE  # Supabase uses self-signed certs
+    _connect_args["ssl"] = _ssl_ctx
+
 engine: AsyncEngine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    connect_args=_connect_args,
 )
 
 async_session_factory = async_sessionmaker(

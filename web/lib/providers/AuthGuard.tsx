@@ -1,22 +1,40 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
 /**
- * Wraps protected routes. Redirects to /login when no token is present.
- * Shows nothing while hydrating to avoid flash of content.
+ * Wraps protected routes inside the (app) group.
+ *
+ * Gate logic:
+ *   1. No token → redirect to /login
+ *   2. Email not verified → redirect to /verify
+ *   3. Otherwise → render children
+ *
+ * The /verify page itself lives in (auth), outside this guard.
  */
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { token, isHydrated, isLoading } = useAuthStore();
+  const pathname = usePathname();
+  const { token, user, isHydrated, isLoading } = useAuthStore();
 
   useEffect(() => {
-    if (isHydrated && !token) {
+    if (!isHydrated) return;
+
+    // Not logged in → login page
+    if (!token) {
       router.replace("/login");
+      return;
     }
-  }, [isHydrated, token, router]);
+
+    // Logged in but email not verified → verification flow
+    // Allow admin to bypass (they may need to manage the platform)
+    if (user && !user.email_verified && user.role !== "admin") {
+      router.replace("/verify");
+      return;
+    }
+  }, [isHydrated, token, user, router, pathname]);
 
   // Still hydrating — show nothing to prevent flash
   if (!isHydrated || isLoading) {
@@ -30,8 +48,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // Not authenticated — will redirect in useEffect above
+  // Not authenticated or not verified — will redirect in useEffect above
   if (!token) return null;
+  if (user && !user.email_verified && user.role !== "admin") return null;
 
   return <>{children}</>;
 }

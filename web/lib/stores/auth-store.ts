@@ -1,17 +1,24 @@
 import { create } from "zustand";
 import type { MyProfileResponse } from "@/lib/api/auth";
-import { getMe, loginApi, type LoginRequest } from "@/lib/api/auth";
+import {
+  getMe,
+  loginApi,
+  logoutApi,
+  refreshTokenApi,
+  type LoginRequest,
+} from "@/lib/api/auth";
 
 interface AuthState {
   token: string | null;
+  refreshToken: string | null;
   user: MyProfileResponse | null;
   isHydrated: boolean;
   isLoading: boolean;
 
-  /** Login — stores JWT, fetches user profile, persists token. */
+  /** Login — stores JWT pair, fetches user profile, persists tokens. */
   login: (creds: LoginRequest) => Promise<void>;
 
-  /** Logout — clears everything and redirects to /login. */
+  /** Logout — invalidates refresh token on server, clears everything. */
   logout: () => void;
 
   /** Hydrate from localStorage on app mount. */
@@ -19,10 +26,17 @@ interface AuthState {
 
   /** Set user directly (e.g. after register + login). */
   setUser: (user: MyProfileResponse) => void;
+
+  /** Attempt to refresh the access token using the stored refresh token. */
+  attemptRefresh: () => Promise<boolean>;
 }
+
+const TOKEN_KEY = "uv_token";
+const REFRESH_KEY = "uv_refresh";
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
+  refreshToken: null,
   user: null,
   isHydrated: false,
   isLoading: false,
@@ -30,9 +44,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (creds) => {
     set({ isLoading: true });
     try {
-      const { access_token } = await loginApi(creds);
-      localStorage.setItem("uv_token", access_token);
-      set({ token: access_token });
+      const { access_token, refresh_token } = await loginApi(creds);
+      localStorage.setItem(TOKEN_KEY, access_token);
+      localStorage.setItem(REFRESH_KEY, refresh_token);
+      set({ token: access_token, refreshToken: refresh_token });
 
       const user = await getMe();
       set({ user, isLoading: false });
@@ -43,27 +58,74 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    localStorage.removeItem("uv_token");
-    set({ token: null, user: null });
+    const { refreshToken } = get();
+    // Invalidate refresh token on server (fire-and-forget)
+    if (refreshToken) {
+      logoutApi(refreshToken).catch(() => {});
+    }
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    set({ token: null, refreshToken: null, user: null });
     window.location.href = "/login";
   },
 
   hydrate: async () => {
-    const token = localStorage.getItem("uv_token");
+    const token = localStorage.getItem(TOKEN_KEY);
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
     if (!token) {
       set({ isHydrated: true });
       return;
     }
-    set({ token, isLoading: true });
+    set({ token, refreshToken, isLoading: true });
     try {
       const user = await getMe();
       set({ user, isHydrated: true, isLoading: false });
     } catch {
-      // Token expired / invalid — clear it
-      localStorage.removeItem("uv_token");
-      set({ token: null, user: null, isHydrated: true, isLoading: false });
+      // Token expired — try refresh
+      if (refreshToken) {
+        try {
+          const { access_token, refresh_token: newRefresh } =
+            await refreshTokenApi(refreshToken);
+          localStorage.setItem(TOKEN_KEY, access_token);
+          localStorage.setItem(REFRESH_KEY, newRefresh);
+          set({ token: access_token, refreshToken: newRefresh });
+          const user = await getMe();
+          set({ user, isHydrated: true, isLoading: false });
+          return;
+        } catch {
+          // Refresh also failed — clear everything
+        }
+      }
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      set({
+        token: null,
+        refreshToken: null,
+        user: null,
+        isHydrated: true,
+        isLoading: false,
+      });
     }
   },
 
   setUser: (user) => set({ user }),
+
+  attemptRefresh: async () => {
+    const { refreshToken } = get();
+    if (!refreshToken) return false;
+    try {
+      const { access_token, refresh_token: newRefresh } =
+        await refreshTokenApi(refreshToken);
+      localStorage.setItem(TOKEN_KEY, access_token);
+      localStorage.setItem(REFRESH_KEY, newRefresh);
+      set({ token: access_token, refreshToken: newRefresh });
+      return true;
+    } catch {
+      // Refresh failed — force logout
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      set({ token: null, refreshToken: null, user: null });
+      return false;
+    }
+  },
 }));

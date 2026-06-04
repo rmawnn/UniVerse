@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_verified_user
+from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.conversation import ConversationCreateRequest, ConversationResponse
@@ -47,8 +48,9 @@ async def send_message(
     data: MessageCreateRequest,
     current_user: User = Depends(require_verified_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=30, window_seconds=60, prefix="msg:send")),
 ):
-    """Send a message in a conversation. Must be a participant."""
+    """Send a message in a conversation. Rate limited: 30 per minute."""
     return await message_service.send_message(db, conversation_id, current_user, data.content)
 
 

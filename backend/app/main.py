@@ -29,6 +29,15 @@ async def lifespan(app: FastAPI):
     logger.info("Database pool: size=%d, overflow=%d",
                 settings.DATABASE_POOL_SIZE, settings.DATABASE_MAX_OVERFLOW)
 
+    # Initialize Supabase Storage buckets (no-op when not configured)
+    from app.services.storage_service import initialize_buckets
+    await initialize_buckets()
+
+    if settings.supabase_configured:
+        logger.info("Supabase integration active: Storage + Realtime")
+    else:
+        logger.info("Supabase not configured — using local filesystem + in-memory WS")
+
     yield
 
     # ── Shutdown ─────────────────────────────────────────────
@@ -43,9 +52,14 @@ def create_app() -> FastAPI:
         version=settings.APP_VERSION,
         debug=settings.DEBUG,
         lifespan=lifespan,
+        # Disable interactive docs in production (security best practice)
+        docs_url="/docs" if not settings.is_production else None,
+        redoc_url="/redoc" if not settings.is_production else None,
+        openapi_url="/openapi.json" if not settings.is_production else None,
     )
 
-    # --- Middleware ---
+    # --- Middleware (order matters: last added = first executed) ---
+    # CORS must be outermost so preflight requests are handled first
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -53,6 +67,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    from app.core.middleware import SecurityHeadersMiddleware, RequestLoggingMiddleware
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
 
     # --- Exception handlers ---
     app.add_exception_handler(AppException, app_exception_handler)

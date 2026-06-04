@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
+import re
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
@@ -11,12 +13,39 @@ class RegisterRequest(BaseModel):
         pattern=r"^[a-zA-Z0-9_]+$",
     )
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        """Enforce minimum password complexity."""
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
+    @field_validator("full_name")
+    @classmethod
+    def sanitize_full_name(cls, v: str) -> str:
+        """Strip whitespace and reject HTML-like content."""
+        v = v.strip()
+        if "<" in v or ">" in v:
+            raise ValueError("Name must not contain HTML tags")
+        return v
+
 
 class LoginRequest(BaseModel):
     identifier: str = Field(min_length=1, max_length=150)
-    password: str
+    password: str = Field(min_length=1, max_length=128)
+
+
+class RefreshRequest(BaseModel):
+    """Used for both /refresh and /logout endpoints."""
+    refresh_token: str
 
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"

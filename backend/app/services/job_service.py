@@ -25,6 +25,7 @@ from app.schemas.job import (
     SavedJobToggleResponse,
     UpdateApplicationStatusRequest,
 )
+from app.services import storage_service
 from app.services.notification_service import notify
 
 
@@ -299,6 +300,7 @@ async def apply_to_job(
         job_id=job_id,
         applicant_id=current_user.id,
         message=data.message,
+        cv_url=data.cv_url,
     )
     application = await repo.create_application(application)
 
@@ -453,6 +455,35 @@ async def list_my_applications(
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 0,
     )
+
+
+async def get_application_cv_url(
+    db: AsyncSession,
+    application_id: UUID,
+    current_user: User,
+) -> str:
+    """
+    Return a time-limited signed URL for an applicant's CV.
+
+    Only the job owner (employer) can download.
+    """
+    repo = JobRepository(db)
+    application = await repo.get_application_by_id(application_id)
+    if not application:
+        raise NotFound("Application")
+
+    job = await repo.get_job_by_id(application.job_id)
+    if not job:
+        raise NotFound("Job post")
+
+    if job.author_id != current_user.id:
+        raise Forbidden("Only the job owner can download applicant CVs")
+
+    if not application.cv_url:
+        raise NotFound("No CV attached to this application")
+
+    signed_url = await storage_service.get_signed_url(application.cv_url, expires_in=3600)
+    return signed_url
 
 
 # ── Saved jobs ───────────────────────────────────────────────
@@ -681,6 +712,7 @@ def _build_application_response(
         job_id=application.job_id,
         applicant=applicant_summary,
         message=application.message,
+        cv_url=application.cv_url,
         status=application.status,
         created_at=application.created_at,
     )
@@ -697,6 +729,7 @@ def _build_my_application_response(
         company_name=job.company_name if job else None,
         job_type=job.job_type if job else "unknown",
         message=application.message,
+        cv_url=application.cv_url,
         status=application.status,
         created_at=application.created_at,
     )

@@ -6,7 +6,7 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import decode_token
+from app.core.security import decode_token, is_token_invalidated
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
@@ -24,8 +24,16 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # Check token blocklist (logout / revocation)
+    if is_token_invalidated(token):
+        raise credentials_exception
+
     try:
         payload = decode_token(token)
+        # Reject refresh tokens used as access tokens
+        if payload.get("type") != "access":
+            raise credentials_exception
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception

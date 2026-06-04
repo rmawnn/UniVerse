@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_optional, require_verified_user
+from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostCreateRequest, PostResponse
@@ -23,8 +24,9 @@ async def create_post(
     data: PostCreateRequest,
     current_user: User = Depends(require_verified_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=10, window_seconds=300, prefix="post:create")),
 ):
-    """Create a post inside a community. Requires verified member."""
+    """Create a post inside a community. Rate limited: 10 per 5 min."""
     return await post_service.create_post(db, community_id, current_user, data)
 
 

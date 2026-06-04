@@ -52,6 +52,7 @@ class SavedJobToggleResponse(BaseModel):
 class JobApplyRequest(BaseModel):
     """Payload for applying to a job."""
     message: str | None = Field(None, max_length=2000)
+    cv_url: str | None = Field(None, max_length=500)
 
 
 class JobApplicationResponse(BaseModel):
@@ -60,6 +61,7 @@ class JobApplicationResponse(BaseModel):
     job_id: uuid.UUID
     applicant: JobPostAuthorSummary
     message: str | None = None
+    cv_url: str | None = None
     status: str = "pending"
     created_at: datetime
 
@@ -85,6 +87,7 @@ class MyApplicationResponse(BaseModel):
     company_name: str | None = None
     job_type: str
     message: str | None = None
+    cv_url: str | None = None
     status: str = "pending"
     created_at: datetime
 

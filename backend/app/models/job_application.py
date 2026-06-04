@@ -30,6 +30,7 @@ class JobApplication(BaseModel):
         nullable=False,
     )
     message: Mapped[str | None] = mapped_column(Text)
+    cv_url: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(
         String(20),
         default="pending",
