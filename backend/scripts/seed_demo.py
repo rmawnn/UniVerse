@@ -22,7 +22,7 @@ from uuid import uuid4
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import text
-from app.core.database import async_engine, async_session
+from app.core.database import engine as async_engine, async_session_factory as async_session
 from app.core.security import hash_password
 from app.models.base import Base
 from app.models.user import User

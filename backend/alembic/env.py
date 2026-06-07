@@ -46,9 +46,9 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations() -> None:
-    # When connecting to Supabase (remote host), enable SSL
+    # Use the same SSL logic as the main app (auto-detected or explicit)
     connect_args: dict = {}
-    if settings.DB_HOST != "localhost" and not settings.DB_HOST.startswith("127."):
+    if settings.requires_ssl:
         import ssl as _ssl
         ctx = _ssl.create_default_context()
         ctx.check_hostname = False

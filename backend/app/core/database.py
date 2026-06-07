@@ -13,8 +13,7 @@ from app.core.config import settings
 # When connecting to Supabase (remote host), enable SSL.
 # For local PostgreSQL, SSL is not needed.
 _connect_args: dict = {}
-if settings.DB_HOST != "localhost" and not settings.DB_HOST.startswith("127."):
-    # Supabase / remote PostgreSQL — require SSL
+if settings.requires_ssl:
     _ssl_ctx = ssl.create_default_context()
     _ssl_ctx.check_hostname = False
     _ssl_ctx.verify_mode = ssl.CERT_NONE  # Supabase uses self-signed certs

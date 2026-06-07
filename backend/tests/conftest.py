@@ -27,8 +27,12 @@ from sqlalchemy.ext.asyncio import (
 )
 
 # ── Set environment variables BEFORE importing app code ───────────
+# Clear DATABASE_URL so the test DB name override (DB_NAME) is respected
+# even when a Supabase DATABASE_URL is configured in .env.
 os.environ.update({
+    "DATABASE_URL": "",
     "DB_NAME": "universe_test_db",
+    "DB_PASSWORD": os.environ.get("DB_PASSWORD", "postgres"),
     "DEBUG": "True",
     "ENVIRONMENT": "development",
     "SECRET_KEY": "test-secret-key-not-for-production-use-1234567890",
