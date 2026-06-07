@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, func, case, or_
+from sqlalchemy import select, func, case, literal_column, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -229,7 +229,7 @@ class UserRepository:
         same_uni = case(
             (User.university_id == university_id, 0),
             else_=1,
-        ) if university_id else case(else_=1)
+        ) if university_id else literal_column("1")
 
         verified = case(
             (User.is_verified_student == True, 0),  # noqa: E712
