@@ -31,8 +31,11 @@ from sqlalchemy.ext.asyncio import (
 # even when a Supabase DATABASE_URL is configured in .env.
 os.environ.update({
     "DATABASE_URL": "",
-    "DB_NAME": "universe_test_db",
+    "DB_USER": os.environ.get("DB_USER", "postgres"),
     "DB_PASSWORD": os.environ.get("DB_PASSWORD", "postgres"),
+    "DB_HOST": os.environ.get("DB_HOST", "localhost"),
+    "DB_PORT": os.environ.get("DB_PORT", "5432"),
+    "DB_NAME": "universe_test_db",
     "DEBUG": "True",
     "ENVIRONMENT": "development",
     "SECRET_KEY": "test-secret-key-not-for-production-use-1234567890",
@@ -152,7 +155,7 @@ async def university(db: AsyncSession):
 @pytest.fixture
 async def registered_user(client: AsyncClient, unique_suffix: str):
     """Register a user via the API and return (user_data, password)."""
-    password = "testpassword123"
+    password = "TestPassword123"
     payload = {
         "email": f"user_{unique_suffix}@example.com",
         "password": password,
@@ -189,7 +192,7 @@ async def verified_user_header(
 
     Registers, logs in, sends verification code, confirms it.
     """
-    password = "testpassword123"
+    password = "TestPassword123"
     email = f"vuser_{unique_suffix}@example.com"
     username = f"vuser_{unique_suffix}"
     uni_email = f"student_{unique_suffix}@{university.domain}"

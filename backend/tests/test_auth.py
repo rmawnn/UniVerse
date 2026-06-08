@@ -8,7 +8,7 @@ class TestRegister:
     async def test_register_success(self, client: AsyncClient, unique_suffix: str):
         resp = await client.post("/api/v1/auth/register", json={
             "email": f"new_{unique_suffix}@example.com",
-            "password": "securepass123",
+            "password": "SecurePass123",
             "full_name": "New User",
             "username": f"new_{unique_suffix}",
         })
@@ -23,7 +23,7 @@ class TestRegister:
         user_data, _ = registered_user
         resp = await client.post("/api/v1/auth/register", json={
             "email": user_data["email"],
-            "password": "anotherpass123",
+            "password": "AnotherPass123",
             "full_name": "Duplicate",
             "username": "totally_unique_name",
         })
@@ -33,7 +33,7 @@ class TestRegister:
         user_data, _ = registered_user
         resp = await client.post("/api/v1/auth/register", json={
             "email": "completely_unique@example.com",
-            "password": "anotherpass123",
+            "password": "AnotherPass123",
             "full_name": "Duplicate",
             "username": user_data["username"],
         })

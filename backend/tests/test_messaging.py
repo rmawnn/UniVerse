@@ -9,7 +9,7 @@ async def _create_second_verified_user(
     client: AsyncClient, university, unique_suffix: str,
 ) -> tuple[dict, str]:
     """Helper: register + verify a second user. Returns (headers, user_data)."""
-    password = "testpassword123"
+    password = "TestPassword123"
     email = f"peer_{unique_suffix}@example.com"
     uni_email = f"peer_{unique_suffix}@{university.domain}"
 

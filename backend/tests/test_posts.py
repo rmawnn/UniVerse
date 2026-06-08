@@ -26,7 +26,7 @@ class TestCreatePost:
         community_data, _ = community
 
         # Create a second verified user who is NOT a member
-        password = "testpassword123"
+        password = "TestPassword123"
         email = f"outsider_{unique_suffix}@example.com"
         uni_email = f"outsider_{unique_suffix}@{university.domain}"
 
