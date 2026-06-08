@@ -38,7 +38,7 @@ class TestJoinCommunity:
 
         # Create a second verified user
         password = "TestPassword123"
-        email = f"joiner_{unique_suffix}@example.com"
+        email = f"joiner_{unique_suffix}@testuni.edu"
         uni_email = f"joiner_{unique_suffix}@{university.domain}"
 
         resp = await client.post("/api/v1/auth/register", json={

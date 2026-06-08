@@ -7,14 +7,14 @@ from httpx import AsyncClient
 class TestRegister:
     async def test_register_success(self, client: AsyncClient, unique_suffix: str):
         resp = await client.post("/api/v1/auth/register", json={
-            "email": f"new_{unique_suffix}@example.com",
+            "email": f"new_{unique_suffix}@testuni.edu",
             "password": "SecurePass123",
             "full_name": "New User",
             "username": f"new_{unique_suffix}",
         })
         assert resp.status_code == 201
         data = resp.json()
-        assert data["email"] == f"new_{unique_suffix}@example.com"
+        assert data["email"] == f"new_{unique_suffix}@testuni.edu"
         assert data["username"] == f"new_{unique_suffix}"
         assert data["is_verified_student"] is False
         assert "password_hash" not in data
@@ -32,7 +32,7 @@ class TestRegister:
     async def test_register_duplicate_username(self, client: AsyncClient, registered_user):
         user_data, _ = registered_user
         resp = await client.post("/api/v1/auth/register", json={
-            "email": "completely_unique@example.com",
+            "email": "completely_unique@testuni.edu",
             "password": "AnotherPass123",
             "full_name": "Duplicate",
             "username": user_data["username"],
@@ -41,7 +41,7 @@ class TestRegister:
 
     async def test_register_short_password(self, client: AsyncClient):
         resp = await client.post("/api/v1/auth/register", json={
-            "email": "short@example.com",
+            "email": "short@testuni.edu",
             "password": "short",
             "full_name": "Short Pass",
             "username": "shortpass",
@@ -74,7 +74,7 @@ class TestLoginWithEmail:
 
     async def test_login_nonexistent_email(self, client: AsyncClient):
         resp = await client.post("/api/v1/auth/login", json={
-            "identifier": "nobody@example.com",
+            "identifier": "nobody@testuni.edu",
             "password": "whatever123",
         })
         assert resp.status_code == 401

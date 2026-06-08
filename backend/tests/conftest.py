@@ -130,6 +130,17 @@ async def client(app) -> AsyncGenerator[AsyncClient, None]:
 #  Helper fixtures & factories
 # ══════════════════════════════════════════════════════════════════
 
+@pytest.fixture(autouse=True)
+def _clear_rate_limits():
+    """Clear in-memory rate limiter state between tests.
+
+    Without this, the cumulative registration attempts across tests hit
+    the per-IP rate limit (5/hour) and return 429.
+    """
+    from app.core.rate_limit import _buckets
+    _buckets.clear()
+
+
 @pytest.fixture
 def unique_suffix():
     """Return a short unique suffix for generating unique test data."""
@@ -157,7 +168,7 @@ async def registered_user(client: AsyncClient, unique_suffix: str):
     """Register a user via the API and return (user_data, password)."""
     password = "TestPassword123"
     payload = {
-        "email": f"user_{unique_suffix}@example.com",
+        "email": f"user_{unique_suffix}@testuni.edu",
         "password": password,
         "full_name": f"Test User {unique_suffix}",
         "username": f"user_{unique_suffix}",
@@ -193,7 +204,7 @@ async def verified_user_header(
     Registers, logs in, sends verification code, confirms it.
     """
     password = "TestPassword123"
-    email = f"vuser_{unique_suffix}@example.com"
+    email = f"vuser_{unique_suffix}@testuni.edu"
     username = f"vuser_{unique_suffix}"
     uni_email = f"student_{unique_suffix}@{university.domain}"
 
