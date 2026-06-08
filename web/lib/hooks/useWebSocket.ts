@@ -32,7 +32,7 @@ interface UseWebSocketReturn {
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
-const WS_BASE = API_URL.replace(/^http/, "ws").replace(/\/api\/v1\/?$/, "");
+const WS_BASE = API_URL.replace(/^http/, "ws");
 
 /** Reconnect back-off steps (ms). */
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];

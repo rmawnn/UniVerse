@@ -661,7 +661,13 @@ async def approve_verification(
     req = await ver_repo.get_by_id(verification_id)
     if not req:
         raise NotFound("Verification request")
-    if req.status != VerificationStatus.PENDING.value:
+    # Admin can approve pending, under_review, and suspicious requests
+    approvable = {
+        VerificationStatus.PENDING.value,
+        VerificationStatus.UNDER_REVIEW.value,
+        VerificationStatus.SUSPICIOUS.value,
+    }
+    if req.status not in approvable:
         raise BadRequest(f"Cannot approve a request with status '{req.status}'")
 
     await ver_repo.mark_verified(req)
@@ -682,7 +688,13 @@ async def reject_verification(
     req = await ver_repo.get_by_id(verification_id)
     if not req:
         raise NotFound("Verification request")
-    if req.status != VerificationStatus.PENDING.value:
+    # Admin can reject pending, under_review, and suspicious requests
+    rejectable = {
+        VerificationStatus.PENDING.value,
+        VerificationStatus.UNDER_REVIEW.value,
+        VerificationStatus.SUSPICIOUS.value,
+    }
+    if req.status not in rejectable:
         raise BadRequest(f"Cannot reject a request with status '{req.status}'")
 
     await ver_repo.mark_rejected(req, reason=reason)

@@ -218,15 +218,18 @@ async def initialize_buckets() -> None:
         logger.info("Supabase not configured — using local filesystem storage")
         return
 
-    client = _get_client()
-    # Avatars and posts are public (profile images, post media)
-    await client.ensure_bucket(settings.SUPABASE_BUCKET_AVATARS, public=True)
-    await client.ensure_bucket(settings.SUPABASE_BUCKET_POSTS, public=True)
-    # Verification docs, attachments, and resumes are private
-    await client.ensure_bucket(settings.SUPABASE_BUCKET_VERIFICATION, public=False)
-    await client.ensure_bucket(settings.SUPABASE_BUCKET_ATTACHMENTS, public=False)
-    await client.ensure_bucket(settings.SUPABASE_BUCKET_RESUMES, public=False)
-    logger.info("Supabase Storage buckets initialized")
+    try:
+        client = _get_client()
+        # Avatars and posts are public (profile images, post media)
+        await client.ensure_bucket(settings.SUPABASE_BUCKET_AVATARS, public=True)
+        await client.ensure_bucket(settings.SUPABASE_BUCKET_POSTS, public=True)
+        # Verification docs, attachments, and resumes are private
+        await client.ensure_bucket(settings.SUPABASE_BUCKET_VERIFICATION, public=False)
+        await client.ensure_bucket(settings.SUPABASE_BUCKET_ATTACHMENTS, public=False)
+        await client.ensure_bucket(settings.SUPABASE_BUCKET_RESUMES, public=False)
+        logger.info("Supabase Storage buckets initialized")
+    except Exception as exc:
+        logger.warning("Supabase Storage init failed (will retry on first use): %s", exc)
 
 
 async def upload_file(
