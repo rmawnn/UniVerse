@@ -16,11 +16,12 @@ import {
   ShieldCheck,
   User,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CommunityIcon } from "@/components/community/CommunityIcon";
 import { UVMark } from "@/components/ui/UVMark";
-import { COMMUNITIES } from "@/lib/mock-data";
+import { getJoinedCommunities } from "@/lib/api/communities";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 import { useCompose } from "@/components/post/ComposeProvider";
@@ -38,12 +39,19 @@ const ADMIN_ITEM: NavItem = {
   label: "Admin",
 };
 
-const PINNED = COMMUNITIES.filter((c) => c.joined).slice(0, 4);
-
 export function NavRail() {
   const pathname = usePathname();
   const { open } = useCompose();
   const user = useAuthStore((s) => s.user);
+
+  const { data: joinedCommunities, isLoading: communitiesLoading } = useQuery({
+    queryKey: ["communities", "joined"],
+    queryFn: getJoinedCommunities,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const pinned = (joinedCommunities ?? []).slice(0, 4);
 
   const profileHref = user
     ? `/profile/${user.username}`
@@ -54,8 +62,8 @@ export function NavRail() {
     { href: "/explore", icon: Compass, label: "Explore" },
     { href: "/communities", icon: Hash, label: "Communities" },
     { href: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
-    { href: "/messages", icon: MessageCircle, label: "Messages", badge: 4 },
-    { href: "/notifications", icon: Bell, label: "Notifications", badge: 12 },
+    { href: "/messages", icon: MessageCircle, label: "Messages" },
+    { href: "/notifications", icon: Bell, label: "Notifications" },
     { href: "/jobs", icon: Briefcase, label: "Jobs" },
     { href: profileHref, icon: User, label: "Profile" },
   ];
@@ -110,24 +118,42 @@ export function NavRail() {
       </nav>
 
       {/* Pinned communities */}
-      <div className="mt-4 hidden lg:block">
-        <div className="flex items-center justify-between px-2 pb-1.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
-          <span>Pinned</span>
-          <span>{PINNED.length}</span>
+      {user && (
+        <div className="mt-4 hidden lg:block">
+          <div className="flex items-center justify-between px-2 pb-1.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
+            <span>Pinned</span>
+            <span>{pinned.length}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {communitiesLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex h-9 items-center gap-2.5 rounded-md px-2"
+                >
+                  <div className="h-[22px] w-[22px] animate-pulse rounded-md bg-bg-3" />
+                  <div className="h-3 w-20 animate-pulse rounded bg-bg-3" />
+                </div>
+              ))
+            ) : pinned.length === 0 ? (
+              <p className="px-2 text-[11px] text-fg-3">
+                Join a community to pin it here
+              </p>
+            ) : (
+              pinned.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/communities/${c.id}`}
+                  className="flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] text-fg-2 hover:bg-bg-2"
+                >
+                  <CommunityIcon community={{ name: c.name }} size={22} />
+                  <span className="truncate">{c.name}</span>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-0.5">
-          {PINNED.map((c) => (
-            <Link
-              key={c.id}
-              href={`/communities/${c.slug}`}
-              className="flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] text-fg-2 hover:bg-bg-2"
-            >
-              <CommunityIcon community={c} size={22} />
-              <span className="truncate">#{c.slug}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Staff section — only visible to admin/moderator */}
       {(user?.role === "admin" || user?.role === "moderator") && (

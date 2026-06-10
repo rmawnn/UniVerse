@@ -26,3 +26,4 @@ from app.models.job_post import JobPost  # noqa: F401
 from app.models.job_application import JobApplication  # noqa: F401
 from app.models.saved_job import SavedJob  # noqa: F401
 from app.models.report import Report  # noqa: F401
+from app.models.password_reset import PasswordResetToken  # noqa: F401

@@ -8,15 +8,19 @@ import {
   Hash,
   ImageIcon,
   Info,
+  Loader2,
   MapPin,
   Smile,
   Sticker,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { CommunityIcon } from "@/components/community/CommunityIcon";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
-import { COMMUNITIES, CURRENT_USER } from "@/lib/mock-data";
+import { getJoinedCommunities } from "@/lib/api/communities";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 
 const MAX_LEN = 300;
@@ -37,7 +41,7 @@ interface ComposeModalProps {
 }
 
 /**
- * Full-screen-on-mobile, centered-on-desktop compose dialog. Pure UI —
+ * Full-screen-on-mobile, centered-on-desktop compose dialog. Pure UI --
  * the submit handler is a mock that resolves after a beat.
  */
 export function ComposeModal({
@@ -45,29 +49,51 @@ export function ComposeModal({
   onClose,
   defaultCommunitySlug,
 }: ComposeModalProps) {
+  const user = useAuthStore((s) => s.user);
+
+  const { data: communities, isLoading: communitiesLoading } = useQuery({
+    queryKey: ["communities", "joined"],
+    queryFn: getJoinedCommunities,
+    enabled: open && !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [text, setText] = useState("");
-  const [communitySlug, setCommunitySlug] = useState(
-    defaultCommunitySlug ?? COMMUNITIES[0]?.slug ?? "cs-229",
-  );
+  const [communityId, setCommunityId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [hasAttachment, setHasAttachment] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
+  // Resolve selected community: use explicit selection, or match by default slug, or first joined
+  const resolvedCommunityId =
+    communityId ??
+    (defaultCommunitySlug
+      ? communities?.find(
+          (c) => c.name.toLowerCase().replace(/\s+/g, "-") === defaultCommunitySlug,
+        )?.id
+      : undefined) ??
+    communities?.[0]?.id ??
+    null;
+
+  const selectedCommunity = communities?.find((c) => c.id === resolvedCommunityId);
+
   const remaining = MAX_LEN - text.length;
   const overBudget = remaining < 0;
-  const community = COMMUNITIES.find((c) => c.slug === communitySlug);
+  const displayName = user?.full_name ?? "User";
+  const universityName = user?.university_name ?? "your university";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim() || overBudget) return;
     setSubmitting(true);
-    // Mock latency; replace with React Query mutation in M3
+    // TODO: Replace with React Query mutation for POST /posts
     await new Promise((r) => setTimeout(r, 600));
     setSubmitting(false);
     setText("");
     setHasAttachment(false);
+    setCommunityId(null);
     onClose();
   }
 
@@ -111,13 +137,11 @@ export function ComposeModal({
 
         {/* Audience picker */}
         <div className="flex items-start gap-3 px-5 pt-3.5">
-          <Avatar name={CURRENT_USER.name} size={42} />
+          <Avatar name={displayName} size={42} />
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-semibold">
-              {CURRENT_USER.name}
-            </div>
+            <div className="text-[14px] font-semibold">{displayName}</div>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {/* Community chip — opens dropdown */}
+              {/* Community chip -- opens dropdown */}
               <div className="relative">
                 <button
                   type="button"
@@ -125,45 +149,57 @@ export function ComposeModal({
                   className="inline-flex items-center gap-1.5 rounded-full border border-brand-purple/28 bg-brand-purple/15 px-2.5 py-1 text-[11.5px] font-semibold text-[#C7B0FF]"
                 >
                   <Hash className="h-3 w-3" />
-                  {community?.slug ?? communitySlug}
+                  {communitiesLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : selectedCommunity ? (
+                    selectedCommunity.name
+                  ) : (
+                    "Select community"
+                  )}
                   <ChevronDown className="h-3 w-3" />
                 </button>
                 {pickerOpen && (
-                  <div className="absolute left-0 top-full z-10 mt-1 w-[240px] rounded-md border border-line-2 bg-bg-elev p-1 shadow-elev-2">
-                    {COMMUNITIES.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          setCommunitySlug(c.slug);
-                          setPickerOpen(false);
-                        }}
-                        className={cn(
-                          "flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-[13px]",
-                          c.slug === communitySlug
-                            ? "bg-bg-4 text-fg-1"
-                            : "text-fg-2 hover:bg-bg-3 hover:text-fg-1",
-                        )}
-                      >
-                        <span
-                          className="flex h-6 w-6 items-center justify-center rounded-[7px] text-[14px] leading-none"
-                          style={{
-                            background: `linear-gradient(135deg, ${c.hue[0]}, ${c.hue[1]})`,
+                  <div className="absolute left-0 top-full z-10 mt-1 w-[260px] rounded-md border border-line-2 bg-bg-elev p-1 shadow-elev-2">
+                    {communitiesLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-fg-3" />
+                      </div>
+                    ) : !communities || communities.length === 0 ? (
+                      <p className="px-3 py-3 text-center text-[12px] text-fg-3">
+                        Join a community first to post
+                      </p>
+                    ) : (
+                      communities.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setCommunityId(c.id);
+                            setPickerOpen(false);
                           }}
+                          className={cn(
+                            "flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-[13px]",
+                            c.id === resolvedCommunityId
+                              ? "bg-bg-4 text-fg-1"
+                              : "text-fg-2 hover:bg-bg-3 hover:text-fg-1",
+                          )}
                         >
-                          {c.emoji}
-                        </span>
-                        <span className="flex-1 truncate font-medium">
-                          #{c.slug}
-                        </span>
-                      </button>
-                    ))}
+                          <CommunityIcon
+                            community={{ name: c.name }}
+                            size={24}
+                          />
+                          <span className="flex-1 truncate font-medium">
+                            {c.name}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-line-1 bg-bg-3 px-2.5 py-1 text-[11.5px] text-fg-2">
                 <Globe className="h-3 w-3" />
-                Anyone at {CURRENT_USER.university}
+                Anyone at {universityName}
                 <ChevronDown className="h-3 w-3" />
               </span>
             </div>
@@ -176,7 +212,11 @@ export function ComposeModal({
             autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`Share something with #${community?.slug ?? communitySlug}…`}
+            placeholder={
+              selectedCommunity
+                ? `Share something with ${selectedCommunity.name}...`
+                : "Share something with your campus..."
+            }
             rows={5}
             className="min-h-[120px] w-full resize-none bg-transparent text-[17px] leading-[1.5] text-fg-1 placeholder:text-fg-3 focus:outline-none"
           />
@@ -242,7 +282,7 @@ export function ComposeModal({
             type="submit"
             disabled={!text.trim() || overBudget || submitting}
           >
-            {submitting ? "Posting…" : "Post"}
+            {submitting ? "Posting..." : "Post"}
           </Button>
         </footer>
       </form>

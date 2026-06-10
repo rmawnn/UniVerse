@@ -13,6 +13,18 @@ class Environment(str, Enum):
     PRODUCTION = "production"
 
 
+# Values that indicate SECRET_KEY hasn't been changed from the default.
+# Compared case-insensitively and with whitespace stripped.
+SECRET_KEY_PLACEHOLDERS: frozenset[str] = frozenset({
+    "",
+    "change-me",
+    "change-me-in-production",
+    "change-me-to-a-random-64-char-string",
+    "secret",
+    "supersecret",
+})
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -59,6 +71,18 @@ class Settings(BaseSettings):
     SUPABASE_BUCKET_VERIFICATION: str = "verification-docs"
     SUPABASE_BUCKET_ATTACHMENTS: str = "attachments"
     SUPABASE_BUCKET_RESUMES: str = "resumes"
+
+    # ── Email ────────────────────────────────────────────────────
+    # Provider: "resend", "sendgrid", or "smtp". Leave empty to disable
+    # email sending (verification codes returned in API response for dev).
+    EMAIL_PROVIDER: str = ""
+    EMAIL_FROM: str = "UniVerse <noreply@universe.app>"
+    RESEND_API_KEY: str = ""
+    SENDGRID_API_KEY: str = ""
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
 
     # ── JWT / Auth ───────────────────────────────────────────────
     SECRET_KEY: str
@@ -148,7 +172,7 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def secret_key_must_be_set(cls, v: str) -> str:
-        if v in ("", "change-me-in-production", "change-me-to-a-random-64-char-string"):
+        if v.lower().strip() in SECRET_KEY_PLACEHOLDERS:
             import warnings
             warnings.warn(
                 "SECRET_KEY is using a placeholder value. "
@@ -156,6 +180,63 @@ class Settings(BaseSettings):
                 stacklevel=2,
             )
         return v
+
+    @model_validator(mode="after")
+    def _validate_production_security(self) -> Settings:
+        """
+        Block startup with clear errors when critical config is missing
+        in production or staging environments.
+
+        In development, only emit warnings so local dev isn't blocked.
+        """
+        is_prod_like = self.ENVIRONMENT in (
+            Environment.PRODUCTION,
+            Environment.STAGING,
+        )
+
+        # ── SECRET_KEY must not be a placeholder ────────────────
+        if self.SECRET_KEY.lower().strip() in SECRET_KEY_PLACEHOLDERS:
+            if is_prod_like:
+                raise ValueError(
+                    f"FATAL: SECRET_KEY is a placeholder value "
+                    f"(ENVIRONMENT={self.ENVIRONMENT.value}). "
+                    f"Set a strong random key (64+ chars) before deploying. "
+                    f"Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+                )
+
+        # ── SECRET_KEY minimum length in production ─────────────
+        if is_prod_like and len(self.SECRET_KEY) < 32:
+            raise ValueError(
+                f"FATAL: SECRET_KEY is too short ({len(self.SECRET_KEY)} chars, "
+                f"minimum 32 required in {self.ENVIRONMENT.value}). "
+                f"Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+            )
+
+        # ── DATABASE_URL must be resolvable ─────────────────────
+        if is_prod_like and not self.DATABASE_URL:
+            raise ValueError(
+                f"FATAL: DATABASE_URL is not set "
+                f"(ENVIRONMENT={self.ENVIRONMENT.value}). "
+                f"Set DATABASE_URL or DB_PASSWORD in your environment."
+            )
+
+        # ── SUPABASE_URL required in production ─────────────────
+        if is_prod_like and not self.SUPABASE_URL:
+            raise ValueError(
+                f"FATAL: SUPABASE_URL is not set "
+                f"(ENVIRONMENT={self.ENVIRONMENT.value}). "
+                f"Supabase is required for file storage in production. "
+                f"Get it from your Supabase project → Settings → API."
+            )
+
+        # ── DEBUG must be off in production ─────────────────────
+        if self.ENVIRONMENT == Environment.PRODUCTION and self.DEBUG:
+            raise ValueError(
+                "FATAL: DEBUG=True is not allowed in production. "
+                "Set DEBUG=False before deploying."
+            )
+
+        return self
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -177,6 +258,19 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.ENVIRONMENT == Environment.DEVELOPMENT
+
+    @property
+    def allow_debug_codes(self) -> bool:
+        """Whether debug verification codes may be returned in API responses.
+
+        Only True when BOTH conditions are met:
+        - ENVIRONMENT is development (not staging, not production)
+        - DEBUG is True
+
+        This prevents accidental code leaks when running with
+        ENVIRONMENT=development but DEBUG=False (e.g. local QA).
+        """
+        return self.is_development and self.DEBUG
 
 
 settings = Settings()

@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+
+# Build output (rebuilt in container)
+.next
+
+# Version control
+.git
+.gitignore
+
+# Environment files (injected at runtime)
+.env
+.env.local
+.env.*.local
+
+# IDE / editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docs
+README.md
+CHANGELOG.md
+
+# Tests / config
+*.test.*
+*.spec.*
+jest.config.*
+vitest.config.*
+playwright.config.*
+cypress/
+
+# Docker (avoid recursive context)
+Dockerfile
+.dockerignore
+docker-compose*.yml

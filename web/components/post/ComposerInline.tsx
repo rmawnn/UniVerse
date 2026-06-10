@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useCompose } from "@/components/post/ComposeProvider";
-import { CURRENT_USER } from "@/lib/mock-data";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 
 const COMPOSER_TOOLS = [
@@ -27,25 +27,27 @@ interface ComposerInlineProps {
 }
 
 /**
- * The "share something…" card at the top of the feed. Expands to a
- * textarea + toolbar on focus; the full modal (`ComposerDialog`) takes
+ * The "share something..." card at the top of the feed. Expands to a
+ * textarea + toolbar on focus; the full modal (`ComposeModal`) takes
  * over for media-heavy flows.
  */
 export function ComposerInline({
-  placeholder = "Share something with your campus…",
+  placeholder = "Share something with your campus...",
   communitySlug,
 }: ComposerInlineProps) {
   const [expanded, setExpanded] = useState(false);
   const [value, setValue] = useState("");
   const { open } = useCompose();
+  const user = useAuthStore((s) => s.user);
 
   const remaining = MAX_LEN - value.length;
   const overBudget = remaining < 0;
+  const displayName = user?.full_name ?? "User";
 
   return (
     <Card padded className="mb-3.5">
       <div className="flex gap-3">
-        <Avatar name={CURRENT_USER.name} size={40} />
+        <Avatar name={displayName} size={40} />
         <div className="min-w-0 flex-1">
           {!expanded ? (
             <button

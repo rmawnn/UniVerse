@@ -3,9 +3,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.rate_limit import RateLimiter
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, RefreshRequest
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.schemas.user import UserResponse
 from app.services import auth_service
+from app.services import password_reset_service
 
 router = APIRouter()
 
@@ -47,3 +56,29 @@ async def logout(
 ):
     """Invalidate a refresh token (logout)."""
     await auth_service.logout(db, data.refresh_token)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=3, window_seconds=300, prefix="auth:forgot")),
+):
+    """Request a password reset email. Rate limited: 3 per 5 min per IP.
+
+    Always returns a generic success message regardless of whether the
+    email exists — this prevents email enumeration.
+    """
+    result = await password_reset_service.forgot_password(db, data.email)
+    return MessageResponse(**result)
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=5, window_seconds=300, prefix="auth:reset")),
+):
+    """Reset password using a valid reset token. Rate limited: 5 per 5 min per IP."""
+    result = await password_reset_service.reset_password(db, data.token, data.new_password)
+    return MessageResponse(**result)

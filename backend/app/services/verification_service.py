@@ -132,14 +132,30 @@ async def send_verification_code(
     )
     await ver_repo.create(request)
 
-    # TODO: In production, send real email here via email provider
+    # Send the verification email (no-op when EMAIL_PROVIDER is empty)
+    from app.services.email_service import send_verification_email
+    email_sent = await send_verification_email(
+        to=university_email,
+        code=code,
+        expiry_minutes=VERIFICATION_EXPIRY_MINUTES,
+    )
+
+    if email_sent:
+        message = f"Verification code sent to {university_email}"
+    else:
+        message = f"Verification code generated for {university_email}"
+        if not settings.is_development:
+            logger.warning(
+                "Email delivery failed for user %s — code not sent",
+                current_user.id,
+            )
 
     return VerificationSendResponse(
         verification_id=request.id,
-        message=f"Verification code sent to {university_email}",
+        message=message,
         status=VerificationStatus.PENDING.value,
         expires_at=expires_at,
-        debug_code=code if settings.is_development else None,
+        debug_code=code if settings.allow_debug_codes else None,
     )
 
 

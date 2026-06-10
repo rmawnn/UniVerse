@@ -5,12 +5,12 @@ import { FileText, Upload, X, AlertCircle, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { uploadCV, applyToJob } from "@/lib/api/jobs";
-import type { Job } from "@/lib/mock-data-jobs";
+import type { JobPostResponse } from "@/lib/api/jobs";
 
 interface JobApplyModalProps {
   open: boolean;
   onClose: () => void;
-  job: Job;
+  job: JobPostResponse;
 }
 
 const MAX_CV_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -167,6 +167,8 @@ export function JobApplyModal({ open, onClose, job }: JobApplyModalProps) {
     }, 200);
   };
 
+  const orgName = job.company_name ?? job.author.full_name;
+
   /* ── Success state ───────────────────────────────────── */
 
   if (submitted) {
@@ -180,7 +182,7 @@ export function JobApplyModal({ open, onClose, job }: JobApplyModalProps) {
           </div>
           <p className="text-[14px] font-medium">Application sent!</p>
           <p className="text-[13px] text-fg-2">
-            Your application for <b>{job.title}</b> at {job.org} has been
+            Your application for <b>{job.title}</b> at {orgName} has been
             submitted{cvFile ? " with your CV" : ""}.
           </p>
           <Button variant="ghost" size="sm" onClick={handleClose} className="mt-2">
@@ -199,7 +201,10 @@ export function JobApplyModal({ open, onClose, job }: JobApplyModalProps) {
       <div className="mb-4 flex items-center gap-3 rounded-md border border-line-1 bg-bg-3 p-3">
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-semibold">{job.title}</div>
-          <div className="text-[12px] text-fg-3">{job.org} · {job.pay}</div>
+          <div className="text-[12px] text-fg-3">
+            {orgName}
+            {job.location ? ` · ${job.location}` : ""}
+          </div>
         </div>
       </div>
 

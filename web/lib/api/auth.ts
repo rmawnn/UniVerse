@@ -77,3 +77,25 @@ export async function refreshTokenApi(
 export async function logoutApi(refreshToken: string): Promise<void> {
   await api.post("/auth/logout", { refresh_token: refreshToken });
 }
+
+/* ── Password reset ─────────────────────────────────────── */
+
+export interface MessageResponse {
+  message: string;
+}
+
+export async function forgotPasswordApi(email: string): Promise<MessageResponse> {
+  const res = await api.post<MessageResponse>("/auth/forgot-password", { email });
+  return res.data;
+}
+
+export async function resetPasswordApi(
+  token: string,
+  new_password: string,
+): Promise<MessageResponse> {
+  const res = await api.post<MessageResponse>("/auth/reset-password", {
+    token,
+    new_password,
+  });
+  return res.data;
+}

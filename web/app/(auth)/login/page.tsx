@@ -106,7 +106,7 @@ export default function LoginPage() {
             </span>
             Keep me signed in
           </label>
-          <Link href="#" className="font-medium text-brand-blue hover:underline">
+          <Link href="/forgot-password" className="font-medium text-brand-blue hover:underline">
             Forgot password?
           </Link>
         </div>

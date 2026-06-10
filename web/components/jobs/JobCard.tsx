@@ -2,36 +2,48 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bookmark, MapPin, Users } from "lucide-react";
-import { GraduationCap } from "lucide-react";
+import { Bookmark, Briefcase, MapPin, Users } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { JobApplyModal } from "@/components/jobs/JobApplyModal";
-import type { Job } from "@/lib/mock-data-jobs";
-import { compactNumber } from "@/lib/utils";
+import type { JobPostResponse } from "@/lib/api/jobs";
+import { saveJob, unsaveJob } from "@/lib/api/jobs";
+import { compactNumber, formatRelativeTime } from "@/lib/utils";
 
 interface JobCardProps {
-  job: Job;
+  job: JobPostResponse;
 }
 
-/** Job logo tile — gradient + glyph, matches CommunityIcon language. */
-function JobLogo({ job, size = 48 }: { job: Job; size?: number }) {
-  const [from, to] = job.hue;
+/** Job type label mapping for display. */
+const JOB_TYPE_LABELS: Record<string, string> = {
+  internship: "Internship",
+  "part-time": "Part-time",
+  "full-time": "Full-time",
+  freelance: "Freelance",
+};
+
+/** Job logo tile — shows first letter of company or title. */
+function JobLogo({
+  job,
+  size = 48,
+}: {
+  job: JobPostResponse;
+  size?: number;
+}) {
+  const label = job.company_name || job.title;
+  const initial = label.charAt(0).toUpperCase();
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center"
+      className="inline-flex shrink-0 items-center justify-center bg-brand-purple/10 text-brand-purple font-bold"
       style={{
         width: size,
         height: size,
         borderRadius: size * 0.28,
-        background: `linear-gradient(135deg, ${from}, ${to})`,
         fontSize: size * 0.42,
         lineHeight: 1,
-        boxShadow:
-          "inset 0 1px 1px rgba(255,255,255,0.25), inset 0 -2px 6px rgba(0,0,0,0.18)",
       }}
     >
-      {job.glyph}
+      {initial}
     </span>
   );
 }
@@ -40,23 +52,24 @@ export { JobLogo };
 
 /** Full job card for the listing page. */
 export function JobCard({ job }: JobCardProps) {
-  const [saved, setSaved] = useState(job.saved ?? false);
+  const [saved, setSaved] = useState(job.saved_by_me);
   const [applyOpen, setApplyOpen] = useState(false);
 
   const handleSave = async () => {
     const newState = !saved;
     setSaved(newState);
     try {
-      const { default: api } = await import("@/lib/api/client");
       if (newState) {
-        await api.post(`/jobs/${job.id}/save`);
+        await saveJob(job.id);
       } else {
-        await api.delete(`/jobs/${job.id}/save`);
+        await unsaveJob(job.id);
       }
     } catch {
-      setSaved(!newState);
+      setSaved(!newState); // revert on failure
     }
   };
+
+  const typeLabel = JOB_TYPE_LABELS[job.job_type] ?? job.job_type;
 
   return (
     <>
@@ -72,12 +85,12 @@ export function JobCard({ job }: JobCardProps) {
                 >
                   {job.title}
                 </Link>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-fg-2">
-                  {job.orgKind === "university" && (
-                    <GraduationCap className="h-3 w-3 text-brand-blue" />
-                  )}
-                  {job.org}
-                </div>
+                {job.company_name && (
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-fg-2">
+                    <Briefcase className="h-3 w-3 text-brand-blue" />
+                    {job.company_name}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -93,40 +106,48 @@ export function JobCard({ job }: JobCardProps) {
             </div>
 
             <p className="mt-2 line-clamp-2 text-[13px] leading-[1.5] text-fg-2">
-              {job.blurb}
+              {job.description}
             </p>
 
-            {/* Type chips */}
+            {/* Type chip */}
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {job.types.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-line-1 bg-bg-3 px-2.5 py-1 text-[11.5px] font-medium text-fg-2"
-                >
-                  {t}
+              <span className="rounded-full border border-line-1 bg-bg-3 px-2.5 py-1 text-[11.5px] font-medium text-fg-2">
+                {typeLabel}
+              </span>
+              {job.has_applied && (
+                <span className="rounded-full bg-success/15 px-2.5 py-1 text-[11.5px] font-semibold text-success">
+                  Applied
                 </span>
-              ))}
+              )}
             </div>
 
             {/* Meta footer */}
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-fg-3">
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                {job.location}
-              </span>
+              {job.location && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {job.location}
+                </span>
+              )}
               <span className="inline-flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5" />
-                {compactNumber(job.applicants)} applied
+                {compactNumber(job.application_count)} applied
               </span>
-              <span className="font-medium text-fg-1">{job.pay}</span>
-              <span className="ml-auto text-fg-4">{job.posted}</span>
+              <span className="ml-auto text-fg-4">
+                {formatRelativeTime(job.created_at)}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="mt-3.5 flex gap-2.5 border-t border-line-1 pt-3.5">
-          <Button variant="primary" size="sm" onClick={() => setApplyOpen(true)}>
-            Apply
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setApplyOpen(true)}
+            disabled={job.has_applied}
+          >
+            {job.has_applied ? "Applied" : "Apply"}
           </Button>
           <Button
             variant="ghost"
@@ -150,7 +171,11 @@ export function JobCard({ job }: JobCardProps) {
         </div>
       </Card>
 
-      <JobApplyModal open={applyOpen} onClose={() => setApplyOpen(false)} job={job} />
+      <JobApplyModal
+        open={applyOpen}
+        onClose={() => setApplyOpen(false)}
+        job={job}
+      />
     </>
   );
 }
