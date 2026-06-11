@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { CategoryBadge } from "./CategoryBadge";
 import { PostActions } from "./PostActions";
 import { PostMenu } from "./PostMenu";
 import type { FeedPost } from "@/lib/api/feed";
@@ -58,6 +59,12 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
             <span className="text-[12.5px] text-fg-3">
               {relativeTime(post.created_at)}
             </span>
+            {post.category && post.category !== "general" && (
+              <>
+                <span className="text-fg-4">·</span>
+                <CategoryBadge category={post.category} />
+              </>
+            )}
             <PostMenu postId={post.id} />
           </div>
 

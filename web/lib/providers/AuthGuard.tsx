@@ -22,6 +22,22 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
 
+    if (process.env.NODE_ENV === "development") {
+      console.log("[AuthGuard]", {
+        path: pathname,
+        isAuthenticated: !!token,
+        userId: user?.id ?? null,
+        email_verified: user?.email_verified ?? null,
+        is_verified_student: user?.is_verified_student ?? null,
+        role: user?.role ?? null,
+        redirect: !token
+          ? "/login"
+          : user && !user.email_verified && user.role !== "admin"
+            ? "/verify"
+            : "none",
+      });
+    }
+
     // Not logged in → login page
     if (!token) {
       router.replace("/login");

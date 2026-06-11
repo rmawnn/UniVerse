@@ -17,6 +17,7 @@ export interface FeedPost {
   image_url: string | null;
   video_url: string | null;
   post_type: string;
+  category: string | null;
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;

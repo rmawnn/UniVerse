@@ -45,6 +45,7 @@ class PostResponse(BaseModel):
     image_url: str | None = None
     video_url: str | None = None
     post_type: str = "text"
+    category: str | None = None
     like_count: int = 0
     comment_count: int = 0
     liked_by_me: bool = False

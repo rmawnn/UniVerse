@@ -72,9 +72,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       {/* ── Form panel ──────────────────────────────────── */}
       <main className="scroll-hidden flex flex-1 flex-col overflow-y-auto p-8 md:p-14">
         <div className="mb-6 flex justify-end gap-6 text-[13px] text-fg-2">
-          <Link href="#" className="hover:text-fg-1">
+          <span className="cursor-default text-fg-3">
             Need help?
-          </Link>
+          </span>
           <span className="font-medium text-brand-blue">
             Status: all systems
           </span>

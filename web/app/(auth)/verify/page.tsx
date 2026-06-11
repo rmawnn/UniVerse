@@ -77,6 +77,17 @@ function VerifyPageInner() {
   const [otpCode, setOtpCode] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  // Navigate to feed after refreshing user state so AuthGuard sees updated fields
+  const goToFeed = async () => {
+    try {
+      const freshUser = await getMe();
+      setUser(freshUser);
+    } catch {
+      // proceed even if refresh fails — store may already be up to date
+    }
+    router.push("/");
+  };
+
   // Document upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -632,7 +643,7 @@ function VerifyPageInner() {
             size="lg"
             full
             className="mt-6"
-            onClick={() => router.push("/")}
+            onClick={goToFeed}
           >
             Go to feed
           </Button>
@@ -670,7 +681,7 @@ function VerifyPageInner() {
             size="lg"
             full
             className="mt-6"
-            onClick={() => router.push("/")}
+            onClick={goToFeed}
           >
             Go to feed
           </Button>
@@ -732,7 +743,7 @@ function VerifyPageInner() {
               size="lg"
               variant="ghost"
               className="flex-1"
-              onClick={() => router.push("/")}
+              onClick={goToFeed}
             >
               Continue browsing
             </Button>
@@ -798,7 +809,7 @@ function VerifyPageInner() {
             size="lg"
             full
             className="mt-6"
-            onClick={() => router.push("/")}
+            onClick={goToFeed}
           >
             Go to feed
           </Button>

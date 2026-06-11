@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/Card";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { JobLogo } from "@/components/jobs/JobCard";
 import { JobApplyModal } from "@/components/jobs/JobApplyModal";
+import { JobMatchBadge } from "@/components/jobs/JobMatchBadge";
 import {
   getJob,
   listJobs,
@@ -343,6 +344,11 @@ export default function JobDetailPage() {
             )}
           </div>
         </Card>
+
+        {/* AI Match Score */}
+        <div className="mt-4">
+          <JobMatchBadge jobId={id} />
+        </div>
 
         {/* Description */}
         <section className="mt-6">

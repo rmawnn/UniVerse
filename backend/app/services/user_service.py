@@ -101,6 +101,7 @@ async def get_my_profile(
         bio=current_user.bio,
         profile_image_url=current_user.profile_image_url,
         is_active=current_user.is_active,
+        email_verified=current_user.email_verified,
         is_verified_student=current_user.is_verified_student,
         role=current_user.role,
         posts_count=posts_count,

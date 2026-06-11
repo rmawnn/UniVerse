@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Calendar,
   Link as LinkIcon,
@@ -27,6 +28,7 @@ import {
   followUser,
   unfollowUser,
 } from "@/lib/api/users";
+import { createConversation } from "@/lib/api/conversations";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { compactNumber } from "@/lib/utils";
 
@@ -82,6 +84,22 @@ export default function ProfilePage({ params }: PageProps) {
   });
 
   const followBusy = followMut.isPending || unfollowMut.isPending;
+
+  /* ── Message ─────────────────────────────────────────── */
+  const router = useRouter();
+  const [messageBusy, setMessageBusy] = useState(false);
+  const handleMessage = useCallback(async () => {
+    if (!profile || messageBusy) return;
+    setMessageBusy(true);
+    try {
+      const conv = await createConversation(profile.id);
+      router.push(`/messages/${conv.id}`);
+    } catch {
+      router.push("/messages");
+    } finally {
+      setMessageBusy(false);
+    }
+  }, [profile, messageBusy, router]);
 
   /* ── Loading ──────────────────────────────────────────── */
   if (profileLoading) {
@@ -240,8 +258,10 @@ export default function ProfilePage({ params }: PageProps) {
                 variant="ghost"
                 size="sm"
                 icon={<Mail className="h-3.5 w-3.5" />}
+                onClick={handleMessage}
+                disabled={messageBusy}
               >
-                Message
+                {messageBusy ? "Opening…" : "Message"}
               </Button>
               {profile.is_following ? (
                 <Button

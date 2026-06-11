@@ -40,4 +40,5 @@ class Post(BaseModel):
     post_type: Mapped[str] = mapped_column(
         String(10), default="text", server_default="text", index=True,
     )
+    category: Mapped[str | None] = mapped_column(String(20), index=True)
     is_deleted: Mapped[bool] = mapped_column(default=False)

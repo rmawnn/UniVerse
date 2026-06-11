@@ -30,6 +30,7 @@ from app.api.v1.routes.jobs import router as jobs_router
 from app.api.v1.routes.reports import router as reports_router
 from app.api.v1.routes.search import router as search_router
 from app.api.v1.routes.trending import router as trending_router
+from app.api.v1.routes.ai import router as ai_router
 
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 v1_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -52,3 +53,4 @@ v1_router.include_router(jobs_router, tags=["Jobs"])
 v1_router.include_router(reports_router, tags=["Reports"])
 v1_router.include_router(search_router, tags=["Search"])
 v1_router.include_router(trending_router, tags=["Trending"])
+v1_router.include_router(ai_router, tags=["AI"])

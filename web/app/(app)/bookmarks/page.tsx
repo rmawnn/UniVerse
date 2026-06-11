@@ -373,12 +373,12 @@ function BookmarksEmpty({ type }: { type: "posts" | "jobs" | "all" }) {
             ? "When you bookmark a post, it'll show up here so you can find it later."
             : "Save posts and jobs to find them quickly later."}
       </p>
-      <a
+      <Link
         href={type === "jobs" ? "/jobs" : "/"}
         className="mt-5 inline-flex h-9 items-center rounded-md bg-acc-gradient px-4 text-[13px] font-semibold text-white shadow-acc"
       >
         {type === "jobs" ? "Browse jobs" : "Browse feed"}
-      </a>
+      </Link>
     </div>
   );
 }

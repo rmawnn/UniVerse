@@ -227,10 +227,13 @@ export default function ExplorePage() {
           <h2 className="mt-2 text-[22px] font-bold tracking-tighter">
             Explore UniVerse
           </h2>
-          <div className="mt-3 flex h-11 items-center gap-2.5 rounded-md border border-line-2 bg-bg-1/60 px-3.5 text-[14px] text-fg-3 backdrop-blur">
+          <Link
+            href="/search"
+            className="mt-3 flex h-11 items-center gap-2.5 rounded-md border border-line-2 bg-bg-1/60 px-3.5 text-[14px] text-fg-3 backdrop-blur hover:border-brand-purple/40 transition-colors"
+          >
             <Search className="h-4 w-4" />
             <span>Search posts, people, communities, events&hellip;</span>
-          </div>
+          </Link>
         </div>
 
         {/* Tabs */}
@@ -304,6 +307,7 @@ export default function ExplorePage() {
                     image_url: post.image_url,
                     video_url: null,
                     post_type: post.post_type,
+                    category: null,
                     like_count: post.like_count,
                     comment_count: post.comment_count,
                     liked_by_me: false,

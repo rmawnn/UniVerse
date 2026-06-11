@@ -230,13 +230,13 @@ export default function RegisterPage() {
           <span className="mt-[2px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] border-line-3 peer-checked:border-brand-purple peer-checked:bg-acc-gradient peer-checked:text-white" />
           <span>
             I&rsquo;m 18 or older, agree to the{" "}
-            <Link href="#" className="text-brand-blue hover:underline">
+            <span className="text-brand-blue">
               Terms
-            </Link>{" "}
+            </span>{" "}
             and acknowledge the{" "}
-            <Link href="#" className="text-brand-blue hover:underline">
+            <span className="text-brand-blue">
               Privacy Policy
-            </Link>
+            </span>
             .
           </span>
         </label>

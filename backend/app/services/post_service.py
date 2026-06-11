@@ -14,6 +14,7 @@ from app.repositories.saved_post_repository import SavedPostRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostAuthorSummary, PostCreateRequest, PostResponse
+from app.services.categorization_service import categorize_post
 
 
 SHORTS_DAILY_LIMIT = 10
@@ -69,7 +70,9 @@ async def create_post(
     )
     post = await post_repo.create(post)
 
-    # New post has 0 likes, not liked or saved yet
+    category = await categorize_post(db, post.id, data.content)
+    post.category = category
+
     return _build_response(post, current_user, like_count=0, liked_by_me=False, saved_by_me=False)
 
 
@@ -332,6 +335,7 @@ def _build_response(
         image_url=post.image_url,
         video_url=post.video_url,
         post_type=post.post_type,
+        category=post.category,
         like_count=like_count,
         comment_count=comment_count,
         liked_by_me=liked_by_me,

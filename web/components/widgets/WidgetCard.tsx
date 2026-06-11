@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 
 interface WidgetCardProps {
-  title: string;
+  title: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;

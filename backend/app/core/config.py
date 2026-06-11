@@ -90,6 +90,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # ── LLM (Post Categorization) ──────────────────────────────────
+    # Provider: "gemini", "openai", "claude", or "" (rule-based fallback).
+    LLM_PROVIDER: str = ""
+    GOOGLE_AI_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
+
     # ── CORS ─────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 

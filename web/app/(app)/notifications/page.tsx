@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
@@ -109,6 +110,24 @@ function groupNotifications(
   return order
     .filter((label) => groups.has(label))
     .map((label) => ({ label, items: groups.get(label)! }));
+}
+
+/* ── Navigation target for a notification ──────────────────── */
+
+function getNotificationHref(n: NotificationResponse): string | null {
+  switch (n.type) {
+    case "like":
+    case "comment":
+    case "mention":
+      return n.reference_id ? `/posts/${n.reference_id}` : null;
+    case "follow":
+      return n.actor?.username ? `/profile/${n.actor.username}` : null;
+    case "community_join":
+    case "community_event":
+      return n.reference_id ? `/communities/${n.reference_id}` : null;
+    default:
+      return null;
+  }
 }
 
 /* ── Page ───────────────────────────────────────────────────── */
@@ -249,6 +268,7 @@ export default function NotificationsPage() {
                     key={n.id}
                     notification={n}
                     index={i}
+                    href={getNotificationHref(n)}
                     onMarkRead={() => {
                       if (!n.is_read) markReadMut.mutate(n.id);
                     }}
@@ -267,12 +287,15 @@ export default function NotificationsPage() {
 function NotificationItem({
   notification: n,
   index,
+  href,
   onMarkRead,
 }: {
   notification: NotificationResponse;
   index: number;
+  href: string | null;
   onMarkRead: () => void;
 }) {
+  const router = useRouter();
   const meta = TYPE_META[n.type] ?? FALLBACK_META;
   const { Icon, color, bg, fill } = meta;
   const actorName = n.actor?.full_name ?? "UniVerse";
@@ -280,7 +303,10 @@ function NotificationItem({
   return (
     <button
       type="button"
-      onClick={onMarkRead}
+      onClick={() => {
+        onMarkRead();
+        if (href) router.push(href);
+      }}
       className={cn(
         "relative flex w-full items-start gap-3.5 p-3.5 text-left transition-colors hover:bg-bg-2",
         index && "border-t border-line-1",

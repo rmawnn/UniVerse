@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
@@ -9,6 +10,7 @@ import { FeedTabs } from "@/components/post/FeedTabs";
 import { FeedPostCard } from "@/components/post/FeedPostCard";
 import { CampusEventsWidget } from "@/components/widgets/CampusEventsWidget";
 import { FooterLinks } from "@/components/widgets/FooterLinks";
+import { RecommendedCommunities } from "@/components/widgets/RecommendedCommunities";
 import { SuggestedCommunities } from "@/components/widgets/SuggestedCommunities";
 import { TrendingWidget } from "@/components/widgets/TrendingWidget";
 import { getFeed, type FeedPost } from "@/lib/api/feed";
@@ -50,6 +52,7 @@ export default function FeedPage() {
       }}
       rightRail={
         <>
+          <RecommendedCommunities />
           <TrendingWidget />
           <SuggestedCommunities />
           <CampusEventsWidget />
@@ -124,9 +127,11 @@ export default function FeedPage() {
               Join some communities to start seeing posts here. Browse the
               Explore page to discover what&rsquo;s happening on campus.
             </p>
-            <Button variant="ghost" size="sm" onClick={() => (window.location.href = "/communities")}>
-              Browse communities
-            </Button>
+            <Link href="/communities">
+              <Button variant="ghost" size="sm">
+                Browse communities
+              </Button>
+            </Link>
           </div>
         )}
 
