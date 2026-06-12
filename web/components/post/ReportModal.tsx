@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 interface ReportModalProps {
   open: boolean;
   onClose: () => void;
-  postId: string;
+  contentType?: "post" | "comment" | "user";
+  contentId: string;
 }
 
 const REASONS = [
@@ -21,7 +22,7 @@ const REASONS = [
   "Other",
 ] as const;
 
-export function ReportModal({ open, onClose, postId }: ReportModalProps) {
+export function ReportModal({ open, onClose, contentType = "post", contentId }: ReportModalProps) {
   const [reason, setReason] = useState<string>("");
   const [details, setDetails] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -33,10 +34,9 @@ export function ReportModal({ open, onClose, postId }: ReportModalProps) {
     try {
       const { default: api } = await import("@/lib/api/client");
       await api.post("/reports", {
-        content_type: "post",
-        content_id: postId,
+        target_type: contentType,
+        target_id: contentId,
         reason,
-        description: details || undefined,
       });
       setSubmitted(true);
     } catch {
@@ -68,7 +68,7 @@ export function ReportModal({ open, onClose, postId }: ReportModalProps) {
           </div>
           <p className="text-[14px] font-medium">Thanks for reporting</p>
           <p className="text-[13px] text-fg-2">
-            Our moderation team will review this post shortly.
+            Our moderation team will review this shortly.
           </p>
           <Button variant="ghost" size="sm" onClick={handleClose} className="mt-2">
             Done
@@ -79,9 +79,9 @@ export function ReportModal({ open, onClose, postId }: ReportModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Report post">
+    <Modal open={open} onClose={handleClose} title={`Report ${contentType}`}>
       <p className="mb-4 text-[13px] text-fg-2">
-        Why are you reporting this post? Select a reason below.
+        Why are you reporting this {contentType}? Select a reason below.
       </p>
       <div className="flex flex-col gap-1.5">
         {REASONS.map((r) => (

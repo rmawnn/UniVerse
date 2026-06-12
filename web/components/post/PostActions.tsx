@@ -202,7 +202,7 @@ export function PostActions({
         <ReportModal
           open={reportOpen}
           onClose={() => setReportOpen(false)}
-          postId={postId}
+          contentId={postId}
         />
       )}
     </>

@@ -63,7 +63,7 @@ export function PostMenu({ postId }: PostMenuProps) {
       <ReportModal
         open={reportOpen}
         onClose={() => setReportOpen(false)}
-        postId={postId}
+        contentId={postId}
       />
     </>
   );

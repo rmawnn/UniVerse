@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
+  Check,
+  Copy,
+  Flag,
   Link as LinkIcon,
   Mail,
   MapPin,
@@ -12,6 +15,7 @@ import {
   RefreshCw,
   School,
   ShieldCheck,
+  ShieldOff,
   Users,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProfileStat } from "@/components/profile/ProfileStat";
 import { FeedPostCard } from "@/components/post/FeedPostCard";
+import { ReportModal } from "@/components/post/ReportModal";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import {
   getProfileByUsername,
@@ -100,6 +105,34 @@ export default function ProfilePage({ params }: PageProps) {
       setMessageBusy(false);
     }
   }, [profile, messageBusy, router]);
+
+  /* ── More menu ───────────────────────────────────────── */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const handleCopyProfileLink = useCallback(async () => {
+    setMenuOpen(false);
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/profile/${username}`,
+      );
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {}
+  }, [username]);
 
   /* ── Loading ──────────────────────────────────────────── */
   if (profileLoading) {
@@ -247,13 +280,52 @@ export default function ProfilePage({ params }: PageProps) {
           </div>
           {!isOwnProfile && (
             <div className="flex gap-2.5 pb-3.5">
-              <button
-                type="button"
-                aria-label="More"
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-line-2 bg-bg-2 text-fg-2 hover:text-fg-1"
-              >
-                <MoreVertical className="h-3.5 w-3.5" />
-              </button>
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  aria-label="More"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-line-2 bg-bg-2 text-fg-2 hover:text-fg-1"
+                >
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </button>
+                {menuOpen && (
+                  <div className="absolute left-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-lg border border-line-1 bg-bg-2 shadow-xl">
+                    <button
+                      onClick={handleCopyProfileLink}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-fg-2 hover:bg-bg-3 hover:text-fg-1"
+                      type="button"
+                    >
+                      {linkCopied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-success" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" /> Copy profile link
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setReportOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-danger hover:bg-bg-3"
+                      type="button"
+                    >
+                      <Flag className="h-3.5 w-3.5" /> Report user
+                    </button>
+                    <button
+                      disabled
+                      className="flex w-full cursor-not-allowed items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-fg-4"
+                      type="button"
+                    >
+                      <ShieldOff className="h-3.5 w-3.5" /> Block user — coming soon
+                    </button>
+                  </div>
+                )}
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -427,6 +499,15 @@ export default function ProfilePage({ params }: PageProps) {
           </>
         )}
       </div>
+
+      {profile && !isOwnProfile && (
+        <ReportModal
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          contentType="user"
+          contentId={profile.id}
+        />
+      )}
     </AppShell>
   );
 }
