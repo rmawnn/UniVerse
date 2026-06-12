@@ -100,6 +100,8 @@ export default function ConversationPage() {
     }, 300);
   }, []);
 
+  const [searchToast, setSearchToast] = useState<string | null>(null);
+
   const handleSearchResultClick = useCallback((messageId: string) => {
     setSearchOpen(false);
     setSearchQuery("");
@@ -108,6 +110,9 @@ export default function ConversationPage() {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("ring-2", "ring-brand-purple/50");
       setTimeout(() => el.classList.remove("ring-2", "ring-brand-purple/50"), 2000);
+    } else {
+      setSearchToast("Message is outside the loaded history");
+      setTimeout(() => setSearchToast(null), 3000);
     }
   }, []);
 
@@ -674,6 +679,14 @@ export default function ConversationPage() {
 
             <div ref={messagesEndRef} />
           </div>
+
+          {/* ── Search toast ─────────────────────────── */}
+          {searchToast && (
+            <div className="flex items-center justify-center gap-2 border-t border-line-1 bg-bg-2 px-4 py-1.5 text-[11.5px] text-fg-2">
+              <SearchIcon className="h-3 w-3" />
+              {searchToast}
+            </div>
+          )}
 
           {/* ── Connection status bar ──────────────── */}
           {!isConnected && (

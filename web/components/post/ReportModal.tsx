@@ -36,7 +36,7 @@ export function ReportModal({ open, onClose, contentType = "post", contentId }: 
       await api.post("/reports", {
         target_type: contentType,
         target_id: contentId,
-        reason,
+        reason: details.trim() ? `${reason}: ${details.trim()}` : reason,
       });
       setSubmitted(true);
     } catch {
