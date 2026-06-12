@@ -227,7 +227,7 @@ export default function PostDetailPage({ params }: PageProps) {
         {!commentsLoading && comments.length > 0 && (
           <Card padded={false}>
             {comments.map((c, i) => (
-              <CommentRow key={c.id} comment={c} index={i} />
+              <CommentRow key={c.id} comment={c} index={i} postId={postId} />
             ))}
           </Card>
         )}
@@ -240,12 +240,41 @@ function CommentRow({
   comment,
   index,
   isReply,
+  postId,
 }: {
   comment: CommentResponse;
   index: number;
   isReply?: boolean;
+  postId: string;
 }) {
+  const qc = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const [showReplies, setShowReplies] = useState(false);
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+
+  const replyMut = useMutation({
+    mutationFn: (content: string) =>
+      createComment(postId, content, comment.id),
+    onSuccess: () => {
+      setReplyContent("");
+      setShowReplyInput(false);
+      setShowReplies(true);
+      qc.invalidateQueries({ queryKey: ["post", postId, "comments"] });
+      qc.invalidateQueries({ queryKey: ["post", postId] });
+      qc.invalidateQueries({ queryKey: ["feed"] });
+    },
+  });
+
+  function handleReplySubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!replyContent.trim()) return;
+    replyMut.mutate(replyContent.trim());
+  }
+
   const author = comment.author;
+  const replies = comment.replies ?? [];
+
   return (
     <>
       <div
@@ -270,20 +299,85 @@ function CommentRow({
           <p className="mt-1 text-pretty text-[14px] leading-[1.5]">
             {comment.content}
           </p>
-          <div className="mt-1.5 flex items-center gap-3.5 text-[12px] text-fg-3">
-            <button className="hover:text-fg-1">Reply</button>
-            {comment.reply_count > 0 && (
-              <button className="font-medium text-brand-blue hover:underline">
-                View {comment.reply_count} more
+          {!isReply && (
+            <div className="mt-1.5 flex items-center gap-3.5 text-[12px] text-fg-3">
+              <button
+                className="hover:text-fg-1"
+                onClick={() => setShowReplyInput((v) => !v)}
+              >
+                Reply
               </button>
-            )}
-          </div>
+              {comment.reply_count > 0 && !showReplies && (
+                <button
+                  className="font-medium text-brand-blue hover:underline"
+                  onClick={() => setShowReplies(true)}
+                >
+                  View {comment.reply_count}{" "}
+                  {comment.reply_count === 1 ? "reply" : "replies"}
+                </button>
+              )}
+              {comment.reply_count > 0 && showReplies && (
+                <button
+                  className="font-medium text-brand-blue hover:underline"
+                  onClick={() => setShowReplies(false)}
+                >
+                  Hide replies
+                </button>
+              )}
+            </div>
+          )}
+          {showReplyInput && (
+            <form className="mt-2.5 flex gap-2.5" onSubmit={handleReplySubmit}>
+              <Avatar name={user?.full_name ?? "You"} size={28} />
+              <div className="flex-1">
+                <textarea
+                  autoFocus
+                  placeholder={`Reply to ${author.full_name.split(" ")[0]}…`}
+                  rows={2}
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  className="w-full resize-none rounded-md border border-line-1 bg-bg-2 px-3 py-2 text-[13px] leading-[1.5] text-fg-1 placeholder:text-fg-3 focus:border-brand-purple focus:outline-none"
+                />
+                <div className="mt-1.5 flex items-center justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setShowReplyInput(false);
+                      setReplyContent("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="submit"
+                    disabled={!replyContent.trim() || replyMut.isPending}
+                  >
+                    {replyMut.isPending ? "Sending..." : "Reply"}
+                  </Button>
+                </div>
+                {replyMut.isError && (
+                  <p className="mt-1 text-[12px] text-danger">
+                    Failed to post reply. Please try again.
+                  </p>
+                )}
+              </div>
+            </form>
+          )}
         </div>
       </div>
-      {/* Nested replies */}
-      {comment.replies?.map((r, ri) => (
-        <CommentRow key={r.id} comment={r} index={ri + 1} isReply />
-      ))}
+      {showReplies &&
+        replies.map((r, ri) => (
+          <CommentRow
+            key={r.id}
+            comment={r}
+            index={ri + 1}
+            isReply
+            postId={postId}
+          />
+        ))}
     </>
   );
 }
