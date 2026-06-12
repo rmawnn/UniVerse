@@ -12,7 +12,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn, compactNumber } from "@/lib/utils";
-import { toggleLike } from "@/lib/api/posts";
+import { toggleLike, toggleRepost } from "@/lib/api/posts";
 import { ReportModal } from "./ReportModal";
 
 type ActionKind = "like" | "comment" | "repost" | "bookmark" | "share";
@@ -22,6 +22,7 @@ interface PostActionsProps {
   postId?: string;
   initialLiked?: boolean;
   initialBookmarked?: boolean;
+  initialReposted?: boolean;
   likes: number;
   comments: number;
   reposts: number;
@@ -52,6 +53,7 @@ export function PostActions({
   postId,
   initialLiked = false,
   initialBookmarked = false,
+  initialReposted = false,
   likes,
   comments,
   reposts,
@@ -62,7 +64,10 @@ export function PostActions({
   const [liked, setLiked] = useState(initialLiked);
   const [likeCount, setLikeCount] = useState(likes);
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
+  const [reposted, setReposted] = useState(initialReposted);
+  const [repostCount, setRepostCount] = useState(reposts);
   const [likePending, setLikePending] = useState(false);
+  const [repostPending, setRepostPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -97,6 +102,27 @@ export function PostActions({
       router.push(`/posts/${postId}`);
     }
   }, [postId, router]);
+
+  const handleRepost = useCallback(async () => {
+    if (repostPending || !postId) return;
+
+    const wasReposted = reposted;
+    const prevCount = repostCount;
+    setReposted(!wasReposted);
+    setRepostCount(wasReposted ? prevCount - 1 : prevCount + 1);
+
+    setRepostPending(true);
+    try {
+      const result = await toggleRepost(postId);
+      setReposted(result.reposted);
+      setRepostCount(result.repost_count);
+    } catch {
+      setReposted(wasReposted);
+      setRepostCount(prevCount);
+    } finally {
+      setRepostPending(false);
+    }
+  }, [reposted, repostCount, postId, repostPending]);
 
   const handleShare = useCallback(async () => {
     const url = postId
@@ -146,7 +172,12 @@ export function PostActions({
           count={comments}
           onClick={handleComment}
         />
-        <ActionButton kind="repost" count={reposts} />
+        <ActionButton
+          kind="repost"
+          count={repostCount}
+          active={reposted}
+          onClick={handleRepost}
+        />
         <ActionButton
           kind="bookmark"
           active={bookmarked}

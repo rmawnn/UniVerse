@@ -9,6 +9,7 @@ from app.models.user import User
 from app.repositories.comment_repository import CommentRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
+from app.repositories.repost_repository import RepostRepository
 from app.repositories.saved_post_repository import SavedPostRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
@@ -83,6 +84,9 @@ async def list_saved_posts(
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
     liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
+    repost_repo = RepostRepository(db)
+    repost_counts = await repost_repo.count_by_posts(post_ids)
+    reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
     # All these posts are saved by the current user
     items = [
@@ -90,8 +94,10 @@ async def list_saved_posts(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
+            repost_count=repost_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
             saved_by_me=True,
+            reposted_by_me=p.id in reposted_set,
         )
         for p in posts
     ]

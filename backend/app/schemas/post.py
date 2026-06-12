@@ -48,8 +48,10 @@ class PostResponse(BaseModel):
     category: str | None = None
     like_count: int = 0
     comment_count: int = 0
+    repost_count: int = 0
     liked_by_me: bool = False
     saved_by_me: bool = False
+    reposted_by_me: bool = False
     feed_label: str | None = None
     recommendation_score: float | None = None
     created_at: datetime

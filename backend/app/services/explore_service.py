@@ -7,6 +7,7 @@ from app.repositories.comment_repository import CommentRepository
 from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
+from app.repositories.repost_repository import RepostRepository
 from app.repositories.saved_post_repository import SavedPostRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.community import ExploreCommunityResponse
@@ -45,12 +46,16 @@ async def get_explore(
         comment_repo = CommentRepository(db)
         comment_counts = await comment_repo.count_by_posts(post_ids)
 
+        repost_repo = RepostRepository(db)
+        repost_counts = await repost_repo.count_by_posts(post_ids)
         liked_set: set[UUID] = set()
         saved_set: set[UUID] = set()
+        reposted_set: set[UUID] = set()
         if current_user:
             liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
             save_repo = SavedPostRepository(db)
             saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
+            reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
         trending_posts = [
             _build_response(
@@ -58,8 +63,10 @@ async def get_explore(
                 authors.get(p.author_id),
                 like_count=like_counts.get(p.id, 0),
                 comment_count=comment_counts.get(p.id, 0),
+                repost_count=repost_counts.get(p.id, 0),
                 liked_by_me=p.id in liked_set,
                 saved_by_me=p.id in saved_set,
+                reposted_by_me=p.id in reposted_set,
             )
             for p in posts
         ]

@@ -111,23 +111,29 @@ async def get_collection_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like/comment/save data
+    # Batch-load like/comment/repost/save data
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
+    from app.repositories.repost_repository import RepostRepository
+    repost_repo = RepostRepository(db)
+    repost_counts = await repost_repo.count_by_posts(post_ids)
     liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
     save_repo = SavedPostRepository(db)
     saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
+    reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
+            repost_count=repost_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
             saved_by_me=p.id in saved_set,
+            reposted_by_me=p.id in reposted_set,
         )
         for p in posts
     ]

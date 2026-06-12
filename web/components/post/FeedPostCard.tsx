@@ -97,10 +97,11 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
             postId={post.id}
             likes={post.like_count}
             comments={post.comment_count}
-            reposts={0}
+            reposts={post.repost_count ?? 0}
             views={0}
             initialLiked={post.liked_by_me}
             initialBookmarked={post.saved_by_me}
+            initialReposted={post.reposted_by_me ?? false}
           />
         </div>
       </article>

@@ -20,6 +20,11 @@ export interface PostLikeToggleResponse {
   like_count: number;
 }
 
+export interface RepostToggleResponse {
+  reposted: boolean;
+  repost_count: number;
+}
+
 /* ── API calls ───────────────────────────────────────────── */
 
 export async function getPost(id: string): Promise<FeedPost> {
@@ -43,6 +48,13 @@ export async function toggleLike(
   postId: string,
 ): Promise<PostLikeToggleResponse> {
   const res = await api.post<PostLikeToggleResponse>(`/posts/${postId}/like`);
+  return res.data;
+}
+
+export async function toggleRepost(
+  postId: string,
+): Promise<RepostToggleResponse> {
+  const res = await api.post<RepostToggleResponse>(`/posts/${postId}/repost`);
   return res.data;
 }
 

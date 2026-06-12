@@ -20,8 +20,10 @@ export interface FeedPost {
   category: string | null;
   like_count: number;
   comment_count: number;
+  repost_count: number;
   liked_by_me: boolean;
   saved_by_me: boolean;
+  reposted_by_me: boolean;
   feed_label: string | null;
   recommendation_score: number | null;
   created_at: string;

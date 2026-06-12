@@ -10,6 +10,7 @@ from app.repositories.comment_repository import CommentRepository
 from app.repositories.community_repository import CommunityRepository
 from app.repositories.post_like_repository import PostLikeRepository
 from app.repositories.post_repository import PostRepository
+from app.repositories.repost_repository import RepostRepository
 from app.repositories.saved_post_repository import SavedPostRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
@@ -95,18 +96,26 @@ async def get_post(
     like_count = await like_repo.count_by_post(post_id)
     liked_by_me = False
     saved_by_me = False
+    reposted_by_me = False
     if current_user:
         liked_by_me = await like_repo.get_like(post_id, current_user.id) is not None
         save_repo = SavedPostRepository(db)
         saved_by_me = await save_repo.exists(current_user.id, post_id)
+        repost_repo = RepostRepository(db)
+        reposted_by_me = await repost_repo.get(post_id, current_user.id) is not None
 
     comment_repo = CommentRepository(db)
     comment_count = await comment_repo.count_by_post(post_id)
 
+    repost_repo_count = RepostRepository(db)
+    repost_count = await repost_repo_count.count_by_post(post_id)
+
     return _build_response(
         post, author,
         like_count=like_count, comment_count=comment_count,
+        repost_count=repost_count,
         liked_by_me=liked_by_me, saved_by_me=saved_by_me,
+        reposted_by_me=reposted_by_me,
     )
 
 
@@ -144,26 +153,32 @@ async def list_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts, comment counts, and user's likes/saves
+    # Batch-load like counts, comment counts, repost counts, and user's likes/saves/reposts
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
+    repost_repo = RepostRepository(db)
+    repost_counts = await repost_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
     saved_set: set[UUID] = set()
+    reposted_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
         save_repo = SavedPostRepository(db)
         saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
+        reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
+            repost_count=repost_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
             saved_by_me=p.id in saved_set,
+            reposted_by_me=p.id in reposted_set,
         )
         for p in posts
     ]
@@ -208,26 +223,32 @@ async def list_user_posts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts, comment counts, and current user's likes/saves
+    # Batch-load like counts, comment counts, repost counts, and current user's likes/saves/reposts
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
+    repost_repo = RepostRepository(db)
+    repost_counts = await repost_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
     saved_set: set[UUID] = set()
+    reposted_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
         save_repo = SavedPostRepository(db)
         saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
+        reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
+            repost_count=repost_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
             saved_by_me=p.id in saved_set,
+            reposted_by_me=p.id in reposted_set,
         )
         for p in posts
     ]
@@ -270,26 +291,32 @@ async def list_shorts(
         if user:
             authors[aid] = user
 
-    # Batch-load like counts, comment counts, and user's likes/saves
+    # Batch-load like counts, comment counts, repost counts, and user's likes/saves/reposts
     post_ids = [p.id for p in posts]
     like_repo = PostLikeRepository(db)
     like_counts = await like_repo.count_by_posts(post_ids)
     comment_repo = CommentRepository(db)
     comment_counts = await comment_repo.count_by_posts(post_ids)
+    repost_repo = RepostRepository(db)
+    repost_counts = await repost_repo.count_by_posts(post_ids)
     liked_set: set[UUID] = set()
     saved_set: set[UUID] = set()
+    reposted_set: set[UUID] = set()
     if current_user:
         liked_set = await like_repo.liked_by_user(post_ids, current_user.id)
         save_repo = SavedPostRepository(db)
         saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
+        reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
     items = [
         _build_response(
             p, authors.get(p.author_id),
             like_count=like_counts.get(p.id, 0),
             comment_count=comment_counts.get(p.id, 0),
+            repost_count=repost_counts.get(p.id, 0),
             liked_by_me=p.id in liked_set,
             saved_by_me=p.id in saved_set,
+            reposted_by_me=p.id in reposted_set,
         )
         for p in posts
     ]
@@ -309,8 +336,10 @@ def _build_response(
     *,
     like_count: int = 0,
     comment_count: int = 0,
+    repost_count: int = 0,
     liked_by_me: bool = False,
     saved_by_me: bool = False,
+    reposted_by_me: bool = False,
     feed_label: str | None = None,
     recommendation_score: float | None = None,
 ) -> PostResponse:
@@ -338,8 +367,10 @@ def _build_response(
         category=post.category,
         like_count=like_count,
         comment_count=comment_count,
+        repost_count=repost_count,
         liked_by_me=liked_by_me,
         saved_by_me=saved_by_me,
+        reposted_by_me=reposted_by_me,
         feed_label=feed_label,
         recommendation_score=recommendation_score,
         created_at=post.created_at,
