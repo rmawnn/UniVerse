@@ -94,6 +94,19 @@ export async function createConversation(
   return res.data;
 }
 
+export async function searchMessages(
+  conversationId: string,
+  query: string,
+  page = 1,
+  pageSize = 50,
+): Promise<PaginatedMessages> {
+  const res = await api.get<PaginatedMessages>(
+    `/conversations/${conversationId}/messages/search`,
+    { params: { q: query, page, page_size: pageSize } },
+  );
+  return res.data;
+}
+
 export async function markConversationRead(
   conversationId: string,
 ): Promise<void> {

@@ -129,6 +129,56 @@ async def list_messages(
     )
 
 
+async def search_messages(
+    db: AsyncSession,
+    conversation_id: UUID,
+    current_user: User,
+    query: str,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+) -> PaginatedResponse[MessageResponse]:
+    conv_repo = ConversationRepository(db)
+    conversation = await conv_repo.get_by_id(conversation_id)
+    if not conversation:
+        raise NotFound("Conversation")
+
+    if not await conv_repo.is_participant(conversation_id, current_user.id):
+        raise Forbidden("You are not a participant in this conversation")
+
+    msg_repo = MessageRepository(db)
+    skip = (page - 1) * page_size
+
+    total = await msg_repo.count_search_by_conversation(conversation_id, query)
+    messages = await msg_repo.search_by_conversation(
+        conversation_id, query, skip=skip, limit=page_size,
+    )
+
+    if not messages:
+        return PaginatedResponse(
+            items=[], total=total, page=page, page_size=page_size,
+            total_pages=math.ceil(total / page_size) if total else 0,
+        )
+
+    user_repo = UserRepository(db)
+    sender_ids = {m.sender_id for m in messages}
+    senders: dict[UUID, User] = {}
+    for sid in sender_ids:
+        user = await user_repo.get_by_id(sid)
+        if user:
+            senders[sid] = user
+
+    items = [_build_response(m, senders.get(m.sender_id)) for m in messages]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
 def _build_response(message: Message, sender: User | None) -> MessageResponse:
     """Build a MessageResponse with embedded sender summary."""
     sender_summary = ParticipantSummary(

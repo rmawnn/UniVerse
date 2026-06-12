@@ -65,6 +65,24 @@ async def mark_conversation_read(
 
 
 @router.get(
+    "/conversations/{conversation_id}/messages/search",
+    response_model=PaginatedResponse[MessageResponse],
+)
+async def search_messages(
+    conversation_id: UUID,
+    q: str = Query(..., min_length=1, max_length=200),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search messages in a conversation by content. Must be a participant."""
+    return await message_service.search_messages(
+        db, conversation_id, current_user, q, page=page, page_size=page_size,
+    )
+
+
+@router.get(
     "/conversations/{conversation_id}/messages",
     response_model=PaginatedResponse[MessageResponse],
 )

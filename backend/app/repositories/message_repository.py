@@ -79,6 +79,43 @@ class MessageRepository:
         messages = result.scalars().all()
         return {m.conversation_id: m for m in messages}
 
+    async def search_by_conversation(
+        self,
+        conversation_id: UUID,
+        query: str,
+        *,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[Message]:
+        stmt = (
+            select(Message)
+            .where(
+                Message.conversation_id == conversation_id,
+                Message.is_deleted == False,  # noqa: E712
+                Message.content.ilike(f"%{query}%"),
+            )
+            .order_by(Message.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_search_by_conversation(
+        self, conversation_id: UUID, query: str,
+    ) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(Message)
+            .where(
+                Message.conversation_id == conversation_id,
+                Message.is_deleted == False,  # noqa: E712
+                Message.content.ilike(f"%{query}%"),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one()
+
     async def count_unread_batch(
         self,
         user_id: UUID,

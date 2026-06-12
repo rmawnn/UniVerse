@@ -12,6 +12,7 @@ import {
   Smile,
   Sticker,
   WifiOff,
+  X,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
@@ -24,6 +25,7 @@ import {
   getMessages,
   sendMessage,
   markConversationRead,
+  searchMessages,
   type MessageResponse,
   type PaginatedMessages,
 } from "@/lib/api/conversations";
@@ -62,6 +64,58 @@ export default function ConversationPage() {
   const shouldAutoScrollRef = useRef(true);
   const justSentRef = useRef(false);
   const [lastSeen, setLastSeen] = useState<string | null>(null);
+
+  /* ── Search state ────────────────────────────────── */
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const {
+    data: searchData,
+    isFetching: searchLoading,
+  } = useQuery({
+    queryKey: ["message-search", id, searchQuery],
+    queryFn: () => searchMessages(id, searchQuery),
+    enabled: searchOpen && searchQuery.length >= 1,
+  });
+
+  const searchResults = searchData?.items ?? [];
+
+  const handleSearchOpen = useCallback(() => {
+    setSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, []);
+
+  const handleSearchClose = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }, []);
+
+  const handleSearchInput = useCallback((value: string) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 300);
+  }, []);
+
+  const handleSearchResultClick = useCallback((messageId: string) => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    const el = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-brand-purple/50");
+      setTimeout(() => el.classList.remove("ring-2", "ring-brand-purple/50"), 2000);
+    }
+  }, []);
+
+  // Close search when switching conversations
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }, [id]);
 
   /* ── Queries ──────────────────────────────────────── */
 
@@ -482,6 +536,7 @@ export default function ConversationPage() {
               )}
             </div>
             <button
+              onClick={handleSearchOpen}
               className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-line-1 bg-bg-2 text-fg-2 hover:text-fg-1"
               aria-label="Search messages"
             >
@@ -494,6 +549,71 @@ export default function ConversationPage() {
               <MoreVertical className="h-4 w-4" />
             </button>
           </header>
+
+          {/* ── Search bar ──────────────────────────── */}
+          {searchOpen && (
+            <div className="border-b border-line-1 bg-bg-2 px-6 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <SearchIcon className="h-4 w-4 shrink-0 text-fg-3" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search messages…"
+                  defaultValue=""
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") handleSearchClose();
+                  }}
+                  className="flex-1 bg-transparent text-[14px] text-fg-1 placeholder:text-fg-3 focus:outline-none"
+                />
+                {searchLoading && (
+                  <Loader2 className="h-4 w-4 animate-spin text-fg-3" />
+                )}
+                <button
+                  onClick={handleSearchClose}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-fg-3 hover:bg-bg-3 hover:text-fg-1"
+                  aria-label="Close search"
+                  type="button"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Search results */}
+              {searchQuery.length >= 1 && (
+                <div className="mt-2 max-h-[280px] overflow-y-auto rounded-md border border-line-1 bg-bg-1">
+                  {searchResults.length === 0 && !searchLoading && (
+                    <div className="px-4 py-6 text-center text-[13px] text-fg-3">
+                      No messages found
+                    </div>
+                  )}
+                  {searchResults.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => handleSearchResultClick(m.id)}
+                      className="flex w-full items-start gap-3 border-b border-line-1 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-bg-2"
+                      type="button"
+                    >
+                      <Avatar name={m.sender.full_name} size={28} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[12.5px] font-semibold text-fg-1">
+                            {m.sender.full_name}
+                          </span>
+                          <span className="text-[11px] text-fg-3">
+                            {formatRelativeTime(m.created_at)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-[13px] text-fg-2">
+                          {m.content}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Messages ───────────────────────────── */}
           <div
@@ -528,14 +648,15 @@ export default function ConversationPage() {
             {!isLoading &&
               !isError &&
               messages.map((m, i) => (
-                <MessageBubble
-                  key={m.id}
-                  message={m}
-                  isMe={m.sender.id === user?.id}
-                  groupedWithPrev={
-                    i > 0 && messages[i - 1]!.sender.id === m.sender.id
-                  }
-                />
+                <div key={m.id} data-message-id={m.id}>
+                  <MessageBubble
+                    message={m}
+                    isMe={m.sender.id === user?.id}
+                    groupedWithPrev={
+                      i > 0 && messages[i - 1]!.sender.id === m.sender.id
+                    }
+                  />
+                </div>
               ))}
 
             {/* Peer typing indicator */}
