@@ -31,6 +31,13 @@ from app.schemas.admin import (
     AdminUserDetailResponse,
     AdminUserResponse,
     AdminVerificationResponse,
+    AIAnalyticsResponse,
+    CategorizationAnalytics,
+    CategoryDistributionItem,
+    CommunityRecAnalytics,
+    JobMatchAnalytics,
+    LatestCategorizedPost,
+    LoRAAnalytics,
     ModerationJobItem,
     ModerationQueueResponse,
     RecentActivityResponse,
@@ -933,4 +940,188 @@ async def _post_summary(db: AsyncSession, p) -> AdminPostResponse:
         community_name=community.name if community else "deleted",
         content_preview=p.content[:120] if p.content else "",
         image_url=p.image_url, is_deleted=p.is_deleted, created_at=p.created_at,
+    )
+
+
+# ── AI Analytics ───────────────────────────────────────────
+
+
+async def get_ai_analytics(db: AsyncSession) -> AIAnalyticsResponse:
+    import json
+    from pathlib import Path
+
+    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+
+    # ── 1. Post Categorization ────────────────────────────
+    total_categorized = 0
+    total_uncategorized = 0
+    distribution: list[CategoryDistributionItem] = []
+    latest_posts: list[LatestCategorizedPost] = []
+
+    try:
+        total_categorized = (await db.execute(
+            select(func.count()).select_from(Post).where(Post.category.isnot(None))
+        )).scalar_one()
+        total_uncategorized = (await db.execute(
+            select(func.count()).select_from(Post).where(Post.category.is_(None))
+        )).scalar_one()
+
+        dist_rows = (await db.execute(
+            select(Post.category, func.count().label("cnt"))
+            .where(Post.category.isnot(None))
+            .group_by(Post.category)
+            .order_by(func.count().desc())
+        )).all()
+
+        for row in dist_rows:
+            pct = round(row.cnt / total_categorized * 100, 1) if total_categorized else 0
+            distribution.append(CategoryDistributionItem(
+                category=row.category, count=row.cnt, percentage=pct,
+            ))
+
+        latest_cat_rows = (await db.execute(
+            select(Post.id, Post.content, Post.category, Post.created_at)
+            .where(Post.category.isnot(None))
+            .order_by(Post.created_at.desc())
+            .limit(5)
+        )).all()
+        latest_posts = [
+            LatestCategorizedPost(
+                id=r.id,
+                content_preview=r.content[:100] if r.content else "",
+                category=r.category,
+                created_at=r.created_at,
+            )
+            for r in latest_cat_rows
+        ]
+    except Exception:
+        await db.rollback()
+        total_uncategorized = (await db.execute(
+            select(func.count()).select_from(Post)
+        )).scalar_one()
+
+    from app.core.config import settings
+    provider_name = settings.LLM_PROVIDER or "auto"
+    if settings.GOOGLE_AI_API_KEY:
+        provider_name = "gemini"
+    elif not settings.LLM_PROVIDER:
+        provider_name = "rule-based"
+
+    eval_accuracy = None
+    metrics_path = base_dir / "evaluation" / "metrics.json"
+    if metrics_path.exists():
+        try:
+            metrics = json.loads(metrics_path.read_text())
+            eval_accuracy = metrics.get("categorization", {}).get("accuracy")
+        except Exception:
+            pass
+
+    categorization = CategorizationAnalytics(
+        total_categorized=total_categorized,
+        total_uncategorized=total_uncategorized,
+        distribution=distribution,
+        latest_posts=latest_posts,
+        provider=provider_name,
+        eval_accuracy=eval_accuracy,
+    )
+
+    # ── 2. Community Recommendations ──────────────────────
+    total_communities = (await db.execute(
+        select(func.count()).select_from(Community).where(Community.is_deleted == False)  # noqa: E712
+    )).scalar_one()
+
+    algorithm_signals = [
+        {"name": "Interest Match", "weight": 0.35},
+        {"name": "University Affinity", "weight": 0.25},
+        {"name": "Friend Activity", "weight": 0.25},
+        {"name": "Community Activity", "weight": 0.15},
+    ]
+
+    eval_prec = None
+    eval_ndcg = None
+    eval_scenarios = None
+    if metrics_path.exists():
+        try:
+            metrics = json.loads(metrics_path.read_text())
+            cr = metrics.get("community_recommendation", {})
+            k3 = cr.get("metrics_by_k", {}).get("k=3", {})
+            eval_prec = k3.get("avg_precision")
+            eval_ndcg = k3.get("avg_ndcg")
+            eval_scenarios = cr.get("dataset_size")
+        except Exception:
+            pass
+
+    community_rec = CommunityRecAnalytics(
+        total_communities=total_communities,
+        algorithm_signals=algorithm_signals,
+        eval_precision_at_3=eval_prec,
+        eval_ndcg_at_3=eval_ndcg,
+        eval_scenarios=eval_scenarios,
+    )
+
+    # ── 3. Job Matching ───────────────────────────────────
+    total_jobs = (await db.execute(
+        select(func.count()).select_from(JobPost)
+    )).scalar_one()
+    total_applications = (await db.execute(
+        select(func.count()).select_from(JobApplication)
+    )).scalar_one()
+
+    eval_skill_acc = None
+    eval_tier_acc = None
+    eval_rank_acc = None
+    if metrics_path.exists():
+        try:
+            metrics = json.loads(metrics_path.read_text())
+            jm = metrics.get("job_matching", {})
+            eval_skill_acc = jm.get("skill_extraction", {}).get("accuracy")
+            eval_tier_acc = jm.get("match_quality", {}).get("tier_accuracy")
+            eval_rank_acc = jm.get("ranking_correlation", {}).get("pairwise_accuracy")
+        except Exception:
+            pass
+
+    job_match = JobMatchAnalytics(
+        total_jobs=total_jobs,
+        total_applications=total_applications,
+        eval_skill_accuracy=eval_skill_acc,
+        eval_tier_accuracy=eval_tier_acc,
+        eval_ranking_accuracy=eval_rank_acc,
+    )
+
+    # ── 4. LoRA Fine-Tuning ───────────────────────────────
+    lora_dir = base_dir / "lora-demo" / "data"
+    train_count = 0
+    eval_count = 0
+    train_path = lora_dir / "train.jsonl"
+    eval_path = lora_dir / "eval.jsonl"
+    if train_path.exists():
+        train_count = sum(1 for _ in train_path.open())
+    if eval_path.exists():
+        eval_count = sum(1 for _ in eval_path.open())
+
+    dataset_ready = train_count > 0 and eval_count > 0
+    output_dir = base_dir / "lora-demo" / "output"
+    has_model = output_dir.exists() and any(output_dir.iterdir()) if output_dir.exists() else False
+
+    if has_model:
+        training_status = "completed"
+        evaluation_status = "ready"
+    else:
+        training_status = "pending"
+        evaluation_status = "pending"
+
+    lora = LoRAAnalytics(
+        train_examples=train_count,
+        eval_examples=eval_count,
+        model_name="Qwen2.5-1.5B-Instruct + LoRA",
+        dataset_ready=dataset_ready,
+        training_status=training_status,
+        evaluation_status=evaluation_status,
+    )
+
+    return AIAnalyticsResponse(
+        categorization=categorization,
+        community_recommendation=community_rec,
+        job_matching=job_match,
+        lora=lora,
     )

@@ -124,6 +124,62 @@ export interface PaginatedResponse<T> {
   total_pages: number;
 }
 
+/* ── AI Analytics types ──────────────────────────────── */
+
+export interface CategoryDistributionItem {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+export interface LatestCategorizedPost {
+  id: string;
+  content_preview: string;
+  category: string;
+  created_at: string;
+}
+
+export interface CategorizationAnalytics {
+  total_categorized: number;
+  total_uncategorized: number;
+  distribution: CategoryDistributionItem[];
+  latest_posts: LatestCategorizedPost[];
+  provider: string;
+  eval_accuracy: number | null;
+}
+
+export interface CommunityRecAnalytics {
+  total_communities: number;
+  algorithm_signals: { name: string; weight: number }[];
+  eval_precision_at_3: number | null;
+  eval_ndcg_at_3: number | null;
+  eval_scenarios: number | null;
+}
+
+export interface JobMatchAnalytics {
+  total_jobs: number;
+  total_applications: number;
+  eval_skill_accuracy: number | null;
+  eval_tier_accuracy: number | null;
+  eval_ranking_accuracy: number | null;
+}
+
+export interface LoRAAnalytics {
+  train_examples: number;
+  eval_examples: number;
+  model_name: string;
+  dataset_ready: boolean;
+  training_status: string;
+  evaluation_status: string;
+}
+
+export interface AIAnalyticsResponse {
+  categorization: CategorizationAnalytics;
+  community_recommendation: CommunityRecAnalytics;
+  job_matching: JobMatchAnalytics;
+  lora: LoRAAnalytics;
+}
+
 /* ── API calls ────────────────────────────────────────── */
 
 // Stats & Activity
@@ -255,5 +311,11 @@ export async function hidePost(postId: string): Promise<AdminPost> {
 
 export async function restorePost(postId: string): Promise<AdminPost> {
   const res = await api.patch<AdminPost>(`/admin/posts/${postId}/restore`);
+  return res.data;
+}
+
+// AI Analytics
+export async function getAIAnalytics(): Promise<AIAnalyticsResponse> {
+  const res = await api.get<AIAnalyticsResponse>("/admin/ai/analytics");
   return res.data;
 }

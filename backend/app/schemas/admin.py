@@ -174,3 +174,60 @@ class ModerationQueueResponse(BaseModel):
     hidden_posts: list[AdminPostResponse]
     recent_communities: list[AdminCommunityResponse]
     recent_jobs: list[ModerationJobItem]
+
+
+# ── AI Analytics ───────────────────────────────────────────
+
+
+class CategoryDistributionItem(BaseModel):
+    category: str
+    count: int
+    percentage: float
+
+
+class LatestCategorizedPost(BaseModel):
+    id: UUID
+    content_preview: str
+    category: str
+    created_at: datetime
+
+
+class CategorizationAnalytics(BaseModel):
+    total_categorized: int
+    total_uncategorized: int
+    distribution: list[CategoryDistributionItem]
+    latest_posts: list[LatestCategorizedPost]
+    provider: str
+    eval_accuracy: float | None = None
+
+
+class CommunityRecAnalytics(BaseModel):
+    total_communities: int
+    algorithm_signals: list[dict]
+    eval_precision_at_3: float | None = None
+    eval_ndcg_at_3: float | None = None
+    eval_scenarios: int | None = None
+
+
+class JobMatchAnalytics(BaseModel):
+    total_jobs: int
+    total_applications: int
+    eval_skill_accuracy: float | None = None
+    eval_tier_accuracy: float | None = None
+    eval_ranking_accuracy: float | None = None
+
+
+class LoRAAnalytics(BaseModel):
+    train_examples: int
+    eval_examples: int
+    model_name: str
+    dataset_ready: bool
+    training_status: str
+    evaluation_status: str
+
+
+class AIAnalyticsResponse(BaseModel):
+    categorization: CategorizationAnalytics
+    community_recommendation: CommunityRecAnalytics
+    job_matching: JobMatchAnalytics
+    lora: LoRAAnalytics

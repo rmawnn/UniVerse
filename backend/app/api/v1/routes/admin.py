@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.dependencies import require_admin
 from app.models.user import User
 from app.schemas.admin import (
+    AIAnalyticsResponse,
     AdminCommunityDetailResponse,
     AdminCommunityResponse,
     AdminPostDetailResponse,
@@ -44,6 +45,14 @@ async def get_recent_activity(
     db: AsyncSession = Depends(get_db),
 ):
     return await admin_service.get_recent_activity(db)
+
+
+@router.get("/ai/analytics", response_model=AIAnalyticsResponse)
+async def get_ai_analytics(
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await admin_service.get_ai_analytics(db)
 
 
 @router.get("/moderation", response_model=ModerationQueueResponse)

@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   BadgeCheck,
+  Brain,
   Check,
   CheckCircle,
   Clock,
@@ -46,11 +47,13 @@ import {
   useActivateUser,
   useChangeUserRole,
   useHidePost,
+  useAIAnalytics,
 } from "@/lib/hooks/useAdmin";
 import type {
   AdminVerification,
   AdminReport,
   AdminUser,
+  AIAnalyticsResponse,
 } from "@/lib/api/admin";
 import { cn, formatRelativeTime, compactNumber } from "@/lib/utils";
 
@@ -59,7 +62,8 @@ type AdminTab =
   | "Reports"
   | "Verification"
   | "Users"
-  | "Moderation log";
+  | "Moderation log"
+  | "AI Analytics";
 
 const ADMIN_NAV: { label: AdminTab; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
@@ -67,6 +71,7 @@ const ADMIN_NAV: { label: AdminTab; icon: typeof LayoutDashboard }[] = [
   { label: "Verification", icon: BadgeCheck },
   { label: "Users", icon: Users },
   { label: "Moderation log", icon: ShieldAlert },
+  { label: "AI Analytics", icon: Brain },
 ];
 
 type ToastKind = "success" | "error" | "pending";
@@ -160,6 +165,7 @@ export default function AdminPage() {
           )}
           {activeTab === "Users" && <UsersTab showToast={showToast} />}
           {activeTab === "Moderation log" && <ModerationLogTab />}
+          {activeTab === "AI Analytics" && <AIAnalyticsTab />}
         </div>
       </AppShell>
 
@@ -1324,6 +1330,436 @@ function ModerationLogTab() {
         </Card>
       )}
     </section>
+  );
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  AI Analytics Tab
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+const CATEGORY_COLORS: Record<string, string> = {
+  academic: "bg-brand-blue",
+  research: "bg-brand-purple",
+  internship: "bg-[#10b981]",
+  job: "bg-[#f59e0b]",
+  housing: "bg-[#ef4444]",
+  event: "bg-[#ec4899]",
+  marketplace: "bg-[#8b5cf6]",
+  general: "bg-fg-3",
+};
+
+function AIAnalyticsTab() {
+  const { data, isLoading, isError, refetch } = useAIAnalytics();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return <ErrorState onRetry={() => refetch()} />;
+  }
+
+  const { categorization, community_recommendation, job_matching, lora } = data;
+
+  return (
+    <div className="space-y-6">
+      {/* Link to full evaluation page */}
+      <div className="flex items-center justify-between rounded-lg border border-brand-purple/20 bg-brand-purple/[0.06] px-4 py-3">
+        <div className="text-[13px] text-fg-2">
+          View detailed evaluation metrics with per-category breakdowns, confusion
+          matrix, and tier statistics.
+        </div>
+        <Link
+          href="/ai/evaluation"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-acc-gradient px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-acc"
+        >
+          <ArrowUpRight className="h-3.5 w-3.5" />
+          Full Evaluation Report
+        </Link>
+      </div>
+
+      {/* ── Post Categorization ──────────────────────── */}
+      <Card>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-[16px] font-bold tracking-tighter">
+              Post Categorization
+            </h3>
+            <p className="mt-0.5 text-[12.5px] text-fg-3">
+              LLM-powered post classification into 8 categories
+            </p>
+          </div>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+              categorization.provider === "gemini"
+                ? "border-brand-blue/28 bg-brand-blue/12 text-brand-blue"
+                : "border-warn/28 bg-warn/12 text-warn",
+            )}
+          >
+            {categorization.provider === "gemini"
+              ? "Gemini"
+              : categorization.provider === "rule-based"
+                ? "Rule-Based"
+                : categorization.provider}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+              {categorization.total_categorized}
+            </div>
+            <div className="text-[12px] text-fg-3">Categorized posts</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+              {categorization.total_uncategorized}
+            </div>
+            <div className="text-[12px] text-fg-3">Uncategorized</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+              {categorization.eval_accuracy != null
+                ? `${(categorization.eval_accuracy * 100).toFixed(1)}%`
+                : "—"}
+            </div>
+            <div className="text-[12px] text-fg-3">Eval accuracy</div>
+          </div>
+        </div>
+
+        {/* Distribution bar */}
+        {categorization.distribution.length > 0 ? (
+          <div className="mt-5">
+            <div className="mb-2 text-[12.5px] font-semibold text-fg-2">
+              Category distribution
+            </div>
+            <div className="flex h-3 overflow-hidden rounded-full bg-bg-3">
+              {categorization.distribution.map((d) => (
+                <div
+                  key={d.category}
+                  className={cn(
+                    "h-full transition-all",
+                    CATEGORY_COLORS[d.category] ?? "bg-fg-4",
+                  )}
+                  style={{ width: `${d.percentage}%` }}
+                  title={`${d.category}: ${d.count} (${d.percentage}%)`}
+                />
+              ))}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+              {categorization.distribution.map((d) => (
+                <div key={d.category} className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      CATEGORY_COLORS[d.category] ?? "bg-fg-4",
+                    )}
+                  />
+                  <span className="text-[11.5px] text-fg-2">
+                    {d.category}{" "}
+                    <span className="text-fg-4">
+                      {d.count} ({d.percentage}%)
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-lg border border-dashed border-line-2 py-6 text-center text-[13px] text-fg-3">
+            No categorized posts yet
+          </div>
+        )}
+
+        {/* Latest categorized posts */}
+        {categorization.latest_posts.length > 0 && (
+          <div className="mt-5">
+            <div className="mb-2 text-[12.5px] font-semibold text-fg-2">
+              Latest categorized
+            </div>
+            <div className="space-y-1.5">
+              {categorization.latest_posts.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2.5 rounded-md border border-line-1 bg-bg-2/40 px-3 py-2"
+                >
+                  <span
+                    className={cn(
+                      "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold text-white",
+                      CATEGORY_COLORS[p.category] ?? "bg-fg-4",
+                    )}
+                  >
+                    {p.category}
+                  </span>
+                  <span className="min-w-0 truncate text-[12.5px] text-fg-2">
+                    {p.content_preview}
+                  </span>
+                  <span className="ml-auto shrink-0 text-[11px] text-fg-4">
+                    {formatRelativeTime(p.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Community Recommendation & Job Matching (side by side) ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Community Recommendation */}
+        <Card>
+          <h3 className="text-[16px] font-bold tracking-tighter">
+            Community Recommendations
+          </h3>
+          <p className="mt-0.5 text-[12.5px] text-fg-3">
+            4-signal scoring algorithm for personalized suggestions
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+              <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+                {community_recommendation.total_communities}
+              </div>
+              <div className="text-[12px] text-fg-3">Active communities</div>
+            </div>
+            <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+              <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+                {community_recommendation.eval_scenarios ?? "—"}
+              </div>
+              <div className="text-[12px] text-fg-3">Eval scenarios</div>
+            </div>
+          </div>
+
+          {/* Algorithm signals */}
+          <div className="mt-5">
+            <div className="mb-2 text-[12.5px] font-semibold text-fg-2">
+              Algorithm signals
+            </div>
+            <div className="space-y-2">
+              {community_recommendation.algorithm_signals.map((s) => (
+                <div key={s.name} className="flex items-center gap-3">
+                  <span className="w-[130px] text-[12.5px] text-fg-2">
+                    {s.name}
+                  </span>
+                  <div className="flex-1">
+                    <div className="h-2 overflow-hidden rounded-full bg-bg-3">
+                      <div
+                        className="h-full rounded-full bg-brand-purple"
+                        style={{ width: `${s.weight * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="w-10 text-right text-[11.5px] font-semibold tabular-nums text-fg-3">
+                    {(s.weight * 100).toFixed(0)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Eval metrics */}
+          {community_recommendation.eval_precision_at_3 != null && (
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3">
+                <div className="text-[18px] font-bold tabular-nums tracking-tighter">
+                  {(community_recommendation.eval_precision_at_3 * 100).toFixed(0)}%
+                </div>
+                <div className="text-[11px] text-fg-3">Precision@3</div>
+              </div>
+              <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3">
+                <div className="text-[18px] font-bold tabular-nums tracking-tighter">
+                  {community_recommendation.eval_ndcg_at_3 != null
+                    ? `${(community_recommendation.eval_ndcg_at_3 * 100).toFixed(0)}%`
+                    : "—"}
+                </div>
+                <div className="text-[11px] text-fg-3">NDCG@3</div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Job Matching */}
+        <Card>
+          <h3 className="text-[16px] font-bold tracking-tighter">
+            Job Matching
+          </h3>
+          <p className="mt-0.5 text-[12.5px] text-fg-3">
+            Skill-based matching between student profiles and jobs
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+              <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+                {job_matching.total_jobs}
+              </div>
+              <div className="text-[12px] text-fg-3">Total jobs</div>
+            </div>
+            <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+              <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+                {job_matching.total_applications}
+              </div>
+              <div className="text-[12px] text-fg-3">Applications</div>
+            </div>
+          </div>
+
+          {/* Eval metrics */}
+          <div className="mt-5">
+            <div className="mb-2 text-[12.5px] font-semibold text-fg-2">
+              Evaluation metrics
+            </div>
+            <div className="space-y-2">
+              {[
+                {
+                  label: "Skill Extraction",
+                  value: job_matching.eval_skill_accuracy,
+                },
+                {
+                  label: "Tier Accuracy",
+                  value: job_matching.eval_tier_accuracy,
+                },
+                {
+                  label: "Ranking Accuracy",
+                  value: job_matching.eval_ranking_accuracy,
+                },
+              ].map((m) => (
+                <div key={m.label} className="flex items-center gap-3">
+                  <span className="w-[130px] text-[12.5px] text-fg-2">
+                    {m.label}
+                  </span>
+                  <div className="flex-1">
+                    <div className="h-2 overflow-hidden rounded-full bg-bg-3">
+                      <div
+                        className={cn(
+                          "h-full rounded-full",
+                          m.value != null && m.value >= 0.8
+                            ? "bg-success"
+                            : m.value != null && m.value >= 0.5
+                              ? "bg-warn"
+                              : "bg-danger",
+                        )}
+                        style={{
+                          width: m.value != null ? `${m.value * 100}%` : "0%",
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <span className="w-10 text-right text-[11.5px] font-semibold tabular-nums text-fg-3">
+                    {m.value != null
+                      ? `${(m.value * 100).toFixed(0)}%`
+                      : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ── LoRA Fine-Tuning ─────────────────────────── */}
+      <Card>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-[16px] font-bold tracking-tighter">
+              Fine-Tuning Demo (LoRA)
+            </h3>
+            <p className="mt-0.5 text-[12.5px] text-fg-3">
+              {lora.model_name}
+            </p>
+          </div>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+              lora.dataset_ready
+                ? "border-success/28 bg-success/12 text-success"
+                : "border-warn/28 bg-warn/12 text-warn",
+            )}
+          >
+            {lora.dataset_ready ? "Dataset Ready" : "No Dataset"}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+              {lora.train_examples}
+            </div>
+            <div className="text-[12px] text-fg-3">Train examples</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+              {lora.eval_examples}
+            </div>
+            <div className="text-[12px] text-fg-3">Eval examples</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="flex items-center gap-1.5">
+              {lora.training_status === "completed" ? (
+                <CheckCircle className="h-4 w-4 text-success" />
+              ) : (
+                <Clock className="h-4 w-4 text-warn" />
+              )}
+              <span className="text-[13px] font-semibold capitalize">
+                {lora.training_status}
+              </span>
+            </div>
+            <div className="mt-1 text-[12px] text-fg-3">Training</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="flex items-center gap-1.5">
+              {lora.evaluation_status === "ready" ? (
+                <CheckCircle className="h-4 w-4 text-success" />
+              ) : (
+                <Clock className="h-4 w-4 text-warn" />
+              )}
+              <span className="text-[13px] font-semibold capitalize">
+                {lora.evaluation_status}
+              </span>
+            </div>
+            <div className="mt-1 text-[12px] text-fg-3">Evaluation</div>
+          </div>
+        </div>
+
+        {/* Pipeline steps */}
+        <div className="mt-5">
+          <div className="mb-2 text-[12.5px] font-semibold text-fg-2">
+            Pipeline status
+          </div>
+          <div className="flex items-center gap-2">
+            {[
+              { label: "Dataset", done: lora.dataset_ready },
+              { label: "Training", done: lora.training_status === "completed" },
+              { label: "Evaluation", done: lora.evaluation_status === "ready" },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-2">
+                {i > 0 && (
+                  <div className="h-px w-6 bg-line-2" />
+                )}
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium",
+                    step.done
+                      ? "border-success/28 bg-success/12 text-success"
+                      : "border-line-2 bg-bg-3 text-fg-3",
+                  )}
+                >
+                  {step.done ? (
+                    <Check className="h-3 w-3" strokeWidth={2.5} />
+                  ) : (
+                    <Clock className="h-3 w-3" />
+                  )}
+                  {step.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
 

@@ -22,9 +22,11 @@ import {
   verifyUserManually,
   hidePost,
   restorePost,
+  getAIAnalytics,
   type AdminStatsResponse,
   type RecentActivityResponse,
   type ModerationQueueResponse,
+  type AIAnalyticsResponse,
   type AdminVerification,
   type AdminReport,
   type AdminUser,
@@ -37,6 +39,7 @@ export const adminKeys = {
   stats: ["admin", "stats"] as const,
   activity: ["admin", "activity"] as const,
   moderation: ["admin", "moderation"] as const,
+  aiAnalytics: ["admin", "ai-analytics"] as const,
   verifications: (filters?: Record<string, unknown>) =>
     ["admin", "verifications", filters] as const,
   reports: (filters?: Record<string, unknown>) =>
@@ -234,5 +237,18 @@ export function useRestorePost() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });
     },
+  });
+}
+
+/* ── AI Analytics ──────────────────────────────────────── */
+
+export function useAIAnalytics(
+  options?: Partial<UseQueryOptions<AIAnalyticsResponse>>,
+) {
+  return useQuery({
+    queryKey: adminKeys.aiAnalytics,
+    queryFn: getAIAnalytics,
+    staleTime: 60_000,
+    ...options,
   });
 }
