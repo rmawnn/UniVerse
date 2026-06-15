@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import {
+  Activity,
   AlertTriangle,
   ArrowUpRight,
   BadgeCheck,
@@ -48,12 +49,16 @@ import {
   useChangeUserRole,
   useHidePost,
   useAIAnalytics,
+  useAIUsageSummary,
+  useAIUsageLogs,
 } from "@/lib/hooks/useAdmin";
 import type {
   AdminVerification,
   AdminReport,
   AdminUser,
   AIAnalyticsResponse,
+  AIUsageSummary,
+  AIUsageLogItem,
 } from "@/lib/api/admin";
 import { cn, formatRelativeTime, compactNumber } from "@/lib/utils";
 
@@ -63,7 +68,8 @@ type AdminTab =
   | "Verification"
   | "Users"
   | "Moderation log"
-  | "AI Analytics";
+  | "AI Analytics"
+  | "AI Usage";
 
 const ADMIN_NAV: { label: AdminTab; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
@@ -72,6 +78,7 @@ const ADMIN_NAV: { label: AdminTab; icon: typeof LayoutDashboard }[] = [
   { label: "Users", icon: Users },
   { label: "Moderation log", icon: ShieldAlert },
   { label: "AI Analytics", icon: Brain },
+  { label: "AI Usage", icon: Activity },
 ];
 
 type ToastKind = "success" | "error" | "pending";
@@ -166,6 +173,7 @@ export default function AdminPage() {
           {activeTab === "Users" && <UsersTab showToast={showToast} />}
           {activeTab === "Moderation log" && <ModerationLogTab />}
           {activeTab === "AI Analytics" && <AIAnalyticsTab />}
+          {activeTab === "AI Usage" && <AIUsageTab />}
         </div>
       </AppShell>
 
@@ -1758,6 +1766,192 @@ function AIAnalyticsTab() {
             ))}
           </div>
         </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  AI Usage Tab
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function AIUsageTab() {
+  const [page, setPage] = useState(1);
+  const [featureFilter, setFeatureFilter] = useState<string | undefined>();
+  const { data: summary, isLoading: summaryLoading, isError: summaryError, refetch: refetchSummary } = useAIUsageSummary();
+  const { data: logs, isLoading: logsLoading, isError: logsError, refetch: refetchLogs } = useAIUsageLogs(page, 50, featureFilter);
+
+  if (summaryLoading || logsLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
+      </div>
+    );
+  }
+
+  if (summaryError || logsError || !summary) {
+    return <ErrorState onRetry={() => { refetchSummary(); refetchLogs(); }} />;
+  }
+
+  const FEATURE_OPTIONS = ["categorization", "recommendation", "job_matching"];
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <div className="text-[26px] font-bold tabular-nums tracking-tighter">
+            {summary.total_requests.toLocaleString()}
+          </div>
+          <div className="mt-1 text-[12.5px] font-medium text-fg-2">
+            Total requests
+          </div>
+        </Card>
+        <Card>
+          <div className="text-[26px] font-bold tabular-nums tracking-tighter">
+            {summary.success_rate}%
+          </div>
+          <div className="mt-1 text-[12.5px] font-medium text-fg-2">
+            Success rate
+          </div>
+        </Card>
+        <Card>
+          <div className="text-[26px] font-bold tabular-nums tracking-tighter">
+            {summary.avg_latency_ms}
+            <span className="text-[14px] font-semibold text-fg-3"> ms</span>
+          </div>
+          <div className="mt-1 text-[12.5px] font-medium text-fg-2">
+            Avg latency
+          </div>
+        </Card>
+      </div>
+
+      {/* By Feature Breakdown */}
+      {summary.by_feature.length > 0 && (
+        <Card>
+          <h3 className="text-[16px] font-bold tracking-tighter">
+            Requests by Feature
+          </h3>
+          <div className="mt-4 space-y-3">
+            {summary.by_feature.map((f) => (
+              <div
+                key={f.feature}
+                className="flex items-center gap-4 rounded-lg border border-line-1 bg-bg-2/40 px-4 py-3"
+              >
+                <span className="w-[140px] text-[13px] font-semibold capitalize text-fg-1">
+                  {f.feature.replace(/_/g, " ")}
+                </span>
+                <div className="flex-1">
+                  <div className="h-2 overflow-hidden rounded-full bg-bg-3">
+                    <div
+                      className="h-full rounded-full bg-brand-purple"
+                      style={{
+                        width: `${summary.total_requests ? (f.count / summary.total_requests) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <span className="w-12 text-right text-[12px] font-semibold tabular-nums text-fg-2">
+                  {f.count}
+                </span>
+                <span className="w-16 text-right text-[11px] tabular-nums text-fg-3">
+                  {f.avg_latency_ms}ms
+                </span>
+                <span
+                  className={cn(
+                    "w-14 text-right text-[11px] font-semibold tabular-nums",
+                    f.success_rate >= 95
+                      ? "text-success"
+                      : f.success_rate >= 80
+                        ? "text-warn"
+                        : "text-danger",
+                  )}
+                >
+                  {f.success_rate}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Logs Table */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <h3 className="text-[16px] font-bold tracking-tighter">
+            Usage Logs
+          </h3>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => { setFeatureFilter(undefined); setPage(1); }}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-[11.5px] font-medium",
+                !featureFilter
+                  ? "bg-brand-purple/15 text-brand-purple"
+                  : "text-fg-3 hover:text-fg-2",
+              )}
+            >
+              All
+            </button>
+            {FEATURE_OPTIONS.map((f) => (
+              <button
+                key={f}
+                onClick={() => { setFeatureFilter(f); setPage(1); }}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11.5px] font-medium capitalize",
+                  featureFilter === f
+                    ? "bg-brand-purple/15 text-brand-purple"
+                    : "text-fg-3 hover:text-fg-2",
+                )}
+              >
+                {f.replace(/_/g, " ")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {logs && logs.items.length > 0 ? (
+          <>
+            <div className="mt-4 space-y-1.5">
+              {logs.items.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center gap-3 rounded-md border border-line-1 bg-bg-2/40 px-3 py-2"
+                >
+                  <span
+                    className={cn(
+                      "inline-flex h-2 w-2 shrink-0 rounded-full",
+                      log.success ? "bg-success" : "bg-danger",
+                    )}
+                  />
+                  <span className="w-[110px] shrink-0 text-[12px] font-semibold capitalize text-fg-1">
+                    {log.feature.replace(/_/g, " ")}
+                  </span>
+                  <span className="w-[140px] shrink-0 truncate text-[11.5px] text-fg-3">
+                    {log.provider}
+                  </span>
+                  <span className="w-16 shrink-0 text-right text-[11.5px] tabular-nums text-fg-3">
+                    {log.latency_ms}ms
+                  </span>
+                  <span className="ml-auto shrink-0 text-[11px] text-fg-4">
+                    {formatRelativeTime(log.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {logs.total_pages > 1 && (
+              <Pagination
+                page={page}
+                totalPages={logs.total_pages}
+                onPageChange={setPage}
+              />
+            )}
+          </>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-line-2 py-8 text-center text-[13px] text-fg-3">
+            No usage logs yet. Logs appear when AI features are used.
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from pathlib import Path
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from app.schemas.recommendation import (
 )
 from app.services.recommendation_service import get_community_recommendations
 from app.services.job_matching_service import compute_job_match
+from app.services.ai_usage_service import log_ai_usage
 from app.services.llm import get_llm_provider
 from app.services.llm.provider import RuleBasedProvider
 
@@ -36,10 +38,13 @@ class DemoCategorizationResponse(BaseModel):
 async def demo_categorize(
     body: DemoCategorizationRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Classify arbitrary text into a post category for demo purposes."""
     provider = get_llm_provider()
     provider_name = type(provider).__name__.replace("Provider", "")
+    t0 = time.perf_counter()
+    success = True
     try:
         category = await provider.classify(body.text)
     except Exception:
@@ -47,6 +52,13 @@ async def demo_categorize(
         fallback = RuleBasedProvider()
         category = await fallback.classify(body.text)
         provider_name = "RuleBased (fallback)"
+        success = False
+    latency_ms = int((time.perf_counter() - t0) * 1000)
+    await log_ai_usage(
+        db, user_id=current_user.id, feature="categorization",
+        provider=provider_name, latency_ms=latency_ms, success=success,
+    )
+    await db.commit()
     return DemoCategorizationResponse(
         category=category,
         provider=provider_name,
@@ -63,7 +75,20 @@ async def recommend_communities(
     db: AsyncSession = Depends(get_db),
 ):
     """AI-powered community recommendations based on user profile and activity."""
-    results = await get_community_recommendations(db, current_user, limit=limit)
+    t0 = time.perf_counter()
+    success = True
+    try:
+        results = await get_community_recommendations(db, current_user, limit=limit)
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        await log_ai_usage(
+            db, user_id=current_user.id, feature="recommendation",
+            provider="weighted_multi_signal", latency_ms=latency_ms, success=success,
+        )
+        await db.commit()
     return CommunityRecommendationsResponse(recommendations=results)
 
 
@@ -77,7 +102,21 @@ async def get_job_match(
     db: AsyncSession = Depends(get_db),
 ):
     """AI-powered job match score based on student profile and activity."""
-    return await compute_job_match(db, current_user, job_id)
+    t0 = time.perf_counter()
+    success = True
+    try:
+        result = await compute_job_match(db, current_user, job_id)
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        await log_ai_usage(
+            db, user_id=current_user.id, feature="job_matching",
+            provider="skill_factor_scoring", latency_ms=latency_ms, success=success,
+        )
+        await db.commit()
+    return result
 
 
 @router.get("/ai/evaluation")

@@ -24,6 +24,7 @@ from app.schemas.admin import (
 from app.schemas.common import PaginatedResponse
 from app.schemas.report import AdminReportResponse, ReportStatusUpdate
 from app.services import admin_service, report_service
+from app.services.ai_usage_service import get_ai_usage_logs, get_ai_usage_summary
 
 router = APIRouter()
 
@@ -53,6 +54,25 @@ async def get_ai_analytics(
     db: AsyncSession = Depends(get_db),
 ):
     return await admin_service.get_ai_analytics(db)
+
+
+@router.get("/ai/logs")
+async def get_ai_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    feature: str | None = Query(None),
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_ai_usage_logs(db, page=page, page_size=page_size, feature=feature)
+
+
+@router.get("/ai/logs/summary")
+async def get_ai_logs_summary(
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_ai_usage_summary(db)
 
 
 @router.get("/moderation", response_model=ModerationQueueResponse)

@@ -28,3 +28,4 @@ from app.models.saved_job import SavedJob  # noqa: F401
 from app.models.report import Report  # noqa: F401
 from app.models.password_reset import PasswordResetToken  # noqa: F401
 from app.models.repost import Repost  # noqa: F401
+from app.models.ai_usage_log import AIUsageLog  # noqa: F401

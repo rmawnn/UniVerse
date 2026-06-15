@@ -180,6 +180,32 @@ export interface AIAnalyticsResponse {
   lora: LoRAAnalytics;
 }
 
+/* ── AI Usage Logs types ────────────────────────────── */
+
+export interface AIUsageLogItem {
+  id: string;
+  user_id: string;
+  feature: string;
+  provider: string;
+  latency_ms: number;
+  success: boolean;
+  created_at: string;
+}
+
+export interface AIUsageByFeature {
+  feature: string;
+  count: number;
+  avg_latency_ms: number;
+  success_rate: number;
+}
+
+export interface AIUsageSummary {
+  total_requests: number;
+  success_rate: number;
+  avg_latency_ms: number;
+  by_feature: AIUsageByFeature[];
+}
+
 /* ── API calls ────────────────────────────────────────── */
 
 // Stats & Activity
@@ -317,5 +343,22 @@ export async function restorePost(postId: string): Promise<AdminPost> {
 // AI Analytics
 export async function getAIAnalytics(): Promise<AIAnalyticsResponse> {
   const res = await api.get<AIAnalyticsResponse>("/admin/ai/analytics");
+  return res.data;
+}
+
+// AI Usage Logs
+export async function getAIUsageLogs(
+  page = 1,
+  pageSize = 50,
+  feature?: string,
+): Promise<PaginatedResponse<AIUsageLogItem>> {
+  const res = await api.get<PaginatedResponse<AIUsageLogItem>>("/admin/ai/logs", {
+    params: { page, page_size: pageSize, feature },
+  });
+  return res.data;
+}
+
+export async function getAIUsageSummary(): Promise<AIUsageSummary> {
+  const res = await api.get<AIUsageSummary>("/admin/ai/logs/summary");
   return res.data;
 }

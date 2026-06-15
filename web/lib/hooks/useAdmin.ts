@@ -23,10 +23,14 @@ import {
   hidePost,
   restorePost,
   getAIAnalytics,
+  getAIUsageLogs,
+  getAIUsageSummary,
   type AdminStatsResponse,
   type RecentActivityResponse,
   type ModerationQueueResponse,
   type AIAnalyticsResponse,
+  type AIUsageSummary,
+  type AIUsageLogItem,
   type AdminVerification,
   type AdminReport,
   type AdminUser,
@@ -40,6 +44,9 @@ export const adminKeys = {
   activity: ["admin", "activity"] as const,
   moderation: ["admin", "moderation"] as const,
   aiAnalytics: ["admin", "ai-analytics"] as const,
+  aiUsageSummary: ["admin", "ai-usage-summary"] as const,
+  aiUsageLogs: (filters?: Record<string, unknown>) =>
+    ["admin", "ai-usage-logs", filters] as const,
   verifications: (filters?: Record<string, unknown>) =>
     ["admin", "verifications", filters] as const,
   reports: (filters?: Record<string, unknown>) =>
@@ -250,5 +257,30 @@ export function useAIAnalytics(
     queryFn: getAIAnalytics,
     staleTime: 60_000,
     ...options,
+  });
+}
+
+/* ── AI Usage Logs ─────────────────────────────────── */
+
+export function useAIUsageSummary(
+  options?: Partial<UseQueryOptions<AIUsageSummary>>,
+) {
+  return useQuery({
+    queryKey: adminKeys.aiUsageSummary,
+    queryFn: getAIUsageSummary,
+    staleTime: 30_000,
+    ...options,
+  });
+}
+
+export function useAIUsageLogs(
+  page = 1,
+  pageSize = 50,
+  feature?: string,
+) {
+  return useQuery({
+    queryKey: adminKeys.aiUsageLogs({ page, pageSize, feature }),
+    queryFn: () => getAIUsageLogs(page, pageSize, feature),
+    staleTime: 15_000,
   });
 }
