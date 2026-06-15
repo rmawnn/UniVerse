@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,9 +16,41 @@ from app.schemas.recommendation import (
 )
 from app.services.recommendation_service import get_community_recommendations
 from app.services.job_matching_service import compute_job_match
+from app.services.llm import get_llm_provider
+from app.services.llm.provider import RuleBasedProvider
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class DemoCategorizationRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+class DemoCategorizationResponse(BaseModel):
+    category: str
+    provider: str
+
+
+@router.post("/ai/demo/categorize", response_model=DemoCategorizationResponse)
+async def demo_categorize(
+    body: DemoCategorizationRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Classify arbitrary text into a post category for demo purposes."""
+    provider = get_llm_provider()
+    provider_name = type(provider).__name__.replace("Provider", "")
+    try:
+        category = await provider.classify(body.text)
+    except Exception:
+        logger.warning("LLM provider failed for demo categorize, falling back to rule-based")
+        fallback = RuleBasedProvider()
+        category = await fallback.classify(body.text)
+        provider_name = "RuleBased (fallback)"
+    return DemoCategorizationResponse(
+        category=category,
+        provider=provider_name,
+    )
 
 
 @router.get(
