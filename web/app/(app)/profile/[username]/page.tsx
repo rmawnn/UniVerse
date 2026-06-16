@@ -62,6 +62,7 @@ export default function ProfilePage({ params }: PageProps) {
   } = useQuery({
     queryKey: ["profile", username],
     queryFn: () => getProfileByUsername(username),
+    staleTime: 5 * 60_000,
   });
 
   /* ── User posts ───────────────────────────────────────── */
@@ -69,6 +70,7 @@ export default function ProfilePage({ params }: PageProps) {
     queryKey: ["profile", username, "posts"],
     queryFn: () => getUserPosts(profile!.id),
     enabled: !!profile,
+    staleTime: 5 * 60_000,
   });
 
   const posts = postsData?.items ?? [];

@@ -29,6 +29,7 @@ export default function FeedPage() {
   } = useQuery({
     queryKey: ["feed"],
     queryFn: () => getFeed(1, 20),
+    staleTime: 30_000,
   });
 
   const posts: FeedPost[] = data?.items ?? [];

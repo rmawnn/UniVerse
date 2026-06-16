@@ -84,6 +84,7 @@ export default function SearchPage() {
     queryKey: ["search", debouncedQ],
     queryFn: () => unifiedSearch(debouncedQ),
     enabled: debouncedQ.length >= 2,
+    staleTime: 2 * 60_000,
   });
 
   const clearInput = useCallback(() => {

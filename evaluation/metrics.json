@@ -1,0 +1,1451 @@
+{
+  "categorization": {
+    "dataset_size": 80,
+    "accuracy": 0.7625,
+    "correct": 61,
+    "total": 80,
+    "per_category": {
+      "academic": {
+        "precision": 0.615,
+        "recall": 0.8,
+        "f1": 0.696,
+        "support": 10
+      },
+      "research": {
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1": 0.9,
+        "support": 10
+      },
+      "internship": {
+        "precision": 1.0,
+        "recall": 0.9,
+        "f1": 0.947,
+        "support": 10
+      },
+      "job": {
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1": 0.9,
+        "support": 10
+      },
+      "housing": {
+        "precision": 0.7,
+        "recall": 0.7,
+        "f1": 0.7,
+        "support": 10
+      },
+      "event": {
+        "precision": 0.857,
+        "recall": 0.6,
+        "f1": 0.706,
+        "support": 10
+      },
+      "marketplace": {
+        "precision": 0.857,
+        "recall": 0.6,
+        "f1": 0.706,
+        "support": 10
+      },
+      "general": {
+        "precision": 0.5,
+        "recall": 0.7,
+        "f1": 0.583,
+        "support": 10
+      }
+    },
+    "confusion_matrix": {
+      "academic": {
+        "academic": 8,
+        "general": 2
+      },
+      "research": {
+        "research": 9,
+        "academic": 1
+      },
+      "internship": {
+        "job": 1,
+        "internship": 9
+      },
+      "job": {
+        "job": 9,
+        "academic": 1
+      },
+      "housing": {
+        "housing": 7,
+        "marketplace": 1,
+        "academic": 1,
+        "research": 1
+      },
+      "event": {
+        "event": 6,
+        "housing": 1,
+        "general": 3
+      },
+      "marketplace": {
+        "marketplace": 6,
+        "general": 2,
+        "housing": 1,
+        "event": 1
+      },
+      "general": {
+        "general": 7,
+        "academic": 2,
+        "housing": 1
+      }
+    },
+    "errors": [
+      {
+        "content": "Anyone else struggling with the stats problem set? Question 5 is brutal",
+        "expected": "academic",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "Looking for a tutor for organic chemistry. Will pay $30/hr",
+        "expected": "academic",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "We need participants for a psychology study. 30 min, $15 compensation",
+        "expected": "research",
+        "predicted": "academic",
+        "correct": false
+      },
+      {
+        "content": "Google is hiring summer interns for 2026! Apply before March 15",
+        "expected": "internship",
+        "predicted": "job",
+        "correct": false
+      },
+      {
+        "content": "The CS department is hiring a teaching assistant for next semester",
+        "expected": "job",
+        "predicted": "academic",
+        "correct": false
+      },
+      {
+        "content": "Moving out! Furniture for sale: desk, chair, bookshelf. DM me",
+        "expected": "housing",
+        "predicted": "marketplace",
+        "correct": false
+      },
+      {
+        "content": "Looking for housing near campus for the fall semester",
+        "expected": "housing",
+        "predicted": "academic",
+        "correct": false
+      },
+      {
+        "content": "Two rooms available in a shared house. Walking distance to campus",
+        "expected": "housing",
+        "predicted": "research",
+        "correct": false
+      },
+      {
+        "content": "Club meeting tonight at 7pm in Room 301. Everyone welcome",
+        "expected": "event",
+        "predicted": "housing",
+        "correct": false
+      },
+      {
+        "content": "Game night this Saturday at the student lounge. Board games and snacks",
+        "expected": "event",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "The debate club is hosting a public forum on AI ethics tomorrow",
+        "expected": "event",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "Charity run this Sunday morning. Sign up at the gym front desk",
+        "expected": "event",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "Trading my mechanical keyboard for a wireless one. Any takers?",
+        "expected": "marketplace",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "Garage sale this Saturday! Dorm furniture, electronics, clothes",
+        "expected": "marketplace",
+        "predicted": "housing",
+        "correct": false
+      },
+      {
+        "content": "Selling concert tickets for next Friday. Face value, $80 each",
+        "expected": "marketplace",
+        "predicted": "event",
+        "correct": false
+      },
+      {
+        "content": "Looking for a cheap desk lamp. Anyone upgrading theirs?",
+        "expected": "marketplace",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "The dining hall food has gotten so much worse this semester",
+        "expected": "general",
+        "predicted": "academic",
+        "correct": false
+      },
+      {
+        "content": "Lost my AirPods somewhere near the gym. Please DM if found!",
+        "expected": "general",
+        "predicted": "housing",
+        "correct": false
+      },
+      {
+        "content": "Shoutout to Professor Kim for being the best instructor ever",
+        "expected": "general",
+        "predicted": "academic",
+        "correct": false
+      }
+    ],
+    "examples": [
+      {
+        "content": "Can anyone share notes from today's CS 301 lecture?",
+        "expected": "academic",
+        "predicted": "academic",
+        "correct": true
+      },
+      {
+        "content": "Study group for the calculus final \u2014 meet at library Tuesday at 3pm",
+        "expected": "academic",
+        "predicted": "academic",
+        "correct": true
+      },
+      {
+        "content": "The homework deadline for PHYS 101 was extended to Friday!",
+        "expected": "academic",
+        "predicted": "academic",
+        "correct": true
+      },
+      {
+        "content": "Need help understanding recursion in my algorithms class",
+        "expected": "academic",
+        "predicted": "academic",
+        "correct": true
+      },
+      {
+        "content": "Professor just posted the midterm grades on Blackboard",
+        "expected": "academic",
+        "predicted": "academic",
+        "correct": true
+      },
+      {
+        "content": "Anyone else struggling with the stats problem set? Question 5 is brutal",
+        "expected": "academic",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "Looking for a tutor for organic chemistry. Will pay $30/hr",
+        "expected": "academic",
+        "predicted": "general",
+        "correct": false
+      },
+      {
+        "content": "We need participants for a psychology study. 30 min, $15 compensation",
+        "expected": "research",
+        "predicted": "academic",
+        "correct": false
+      },
+      {
+        "content": "Google is hiring summer interns for 2026! Apply before March 15",
+        "expected": "internship",
+        "predicted": "job",
+        "correct": false
+      },
+      {
+        "content": "The CS department is hiring a teaching assistant for next semester",
+        "expected": "job",
+        "predicted": "academic",
+        "correct": false
+      }
+    ]
+  },
+  "community_recommendation": {
+    "dataset_size": 20,
+    "metrics_by_k": {
+      "k=3": {
+        "avg_precision": 0.8,
+        "avg_recall": 0.925,
+        "avg_ndcg": 0.95,
+        "avg_mrr": 0.95,
+        "num_scenarios": 20
+      },
+      "k=5": {
+        "avg_precision": 0.5375,
+        "avg_recall": 0.95,
+        "avg_ndcg": 0.95,
+        "avg_mrr": 0.95,
+        "num_scenarios": 20
+      }
+    },
+    "scenario_details": [
+      {
+        "scenario": "CS student, strong interest signals",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 0.75,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 8,
+        "total_relevant": 4,
+        "ranking": [
+          [
+            "AI Club",
+            1.0,
+            true
+          ],
+          [
+            "Web Dev",
+            0.775,
+            true
+          ],
+          [
+            "Data Science",
+            0.6587,
+            true
+          ],
+          [
+            "Robotics",
+            0.6562,
+            true
+          ],
+          [
+            "Music Society",
+            0.36,
+            false
+          ],
+          [
+            "Chess Club",
+            0.265,
+            false
+          ],
+          [
+            "Photography",
+            0.0375,
+            false
+          ],
+          [
+            "Cooking Club",
+            0.0225,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "New user (cold start)",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 5,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Campus Events",
+            0.4,
+            true
+          ],
+          [
+            "CS Hub",
+            0.375,
+            true
+          ],
+          [
+            "Study Buddies",
+            0.35,
+            true
+          ],
+          [
+            "Art Gallery",
+            0.025,
+            false
+          ],
+          [
+            "Off-Campus Club",
+            0.005,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "User with friends, no interest history",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 5,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Startup Club",
+            0.6,
+            true
+          ],
+          [
+            "Hack Club",
+            0.525,
+            true
+          ],
+          [
+            "Game Dev",
+            0.5175,
+            true
+          ],
+          [
+            "Debate Team",
+            0.37,
+            false
+          ],
+          [
+            "Running Club",
+            0.0612,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Cross-university interest mix",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 6,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Biology Lab",
+            0.925,
+            true
+          ],
+          [
+            "Pre-Med",
+            0.6933,
+            true
+          ],
+          [
+            "CS Club",
+            0.5667,
+            true
+          ],
+          [
+            "Dance Team",
+            0.28,
+            false
+          ],
+          [
+            "Film Club",
+            0.095,
+            false
+          ],
+          [
+            "Yoga Club",
+            0.015,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "High-activity noise vs relevant niche",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 5,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "NLP Group",
+            0.7842,
+            true
+          ],
+          [
+            "ML Research",
+            0.7575,
+            true
+          ],
+          [
+            "Meme Page",
+            0.4389,
+            false
+          ],
+          [
+            "Sports Talk",
+            0.42,
+            false
+          ],
+          [
+            "Random Chat",
+            0.325,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Engineering student",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 6,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Community_6_0",
+            0.9625,
+            true
+          ],
+          [
+            "Community_6_1",
+            0.725,
+            true
+          ],
+          [
+            "Community_6_3",
+            0.685,
+            true
+          ],
+          [
+            "Community_6_2",
+            0.4,
+            false
+          ],
+          [
+            "Community_6_4",
+            0.3458,
+            false
+          ],
+          [
+            "Community_6_5",
+            0.265,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Art/design student",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 6,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Community_7_0",
+            0.8867,
+            true
+          ],
+          [
+            "Community_7_2",
+            0.85,
+            true
+          ],
+          [
+            "Community_7_4",
+            0.5933,
+            true
+          ],
+          [
+            "Community_7_3",
+            0.4,
+            false
+          ],
+          [
+            "Community_7_1",
+            0.33,
+            false
+          ],
+          [
+            "Community_7_5",
+            0.33,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Business major",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 6,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Community_8_0",
+            1.0,
+            true
+          ],
+          [
+            "Community_8_1",
+            0.8125,
+            true
+          ],
+          [
+            "Community_8_4",
+            0.6837,
+            true
+          ],
+          [
+            "Community_8_2",
+            0.3875,
+            false
+          ],
+          [
+            "Community_8_3",
+            0.3312,
+            false
+          ],
+          [
+            "Community_8_5",
+            0.2725,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Pre-med student",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 6,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Community_9_0",
+            0.95,
+            true
+          ],
+          [
+            "Community_9_2",
+            0.7922,
+            true
+          ],
+          [
+            "Community_9_3",
+            0.6244,
+            true
+          ],
+          [
+            "Community_9_4",
+            0.4,
+            false
+          ],
+          [
+            "Community_9_1",
+            0.3389,
+            false
+          ],
+          [
+            "Community_9_5",
+            0.27,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Music enthusiast",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 6,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "Community_10_0",
+            1.0,
+            true
+          ],
+          [
+            "Community_10_1",
+            0.82,
+            true
+          ],
+          [
+            "Community_10_5",
+            0.65,
+            true
+          ],
+          [
+            "Community_10_3",
+            0.3438,
+            false
+          ],
+          [
+            "Community_10_2",
+            0.33,
+            false
+          ],
+          [
+            "Community_10_4",
+            0.28,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Single relevant community",
+        "k": 3,
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 1,
+        "ranking": [
+          [
+            "EC_10_0",
+            1.0,
+            true
+          ],
+          [
+            "EC_10_1",
+            0.1125,
+            false
+          ],
+          [
+            "EC_10_2",
+            0.075,
+            false
+          ],
+          [
+            "EC_10_3",
+            0.0375,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "All relevant communities",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 0.75,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 4,
+        "ranking": [
+          [
+            "EC_11_3",
+            1.0,
+            true
+          ],
+          [
+            "EC_11_2",
+            0.8875,
+            true
+          ],
+          [
+            "EC_11_1",
+            0.775,
+            true
+          ],
+          [
+            "EC_11_0",
+            0.6625,
+            true
+          ]
+        ]
+      },
+      {
+        "scenario": "No relevant communities",
+        "k": 3,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "ndcg_at_k": 0.0,
+        "mrr": 0.0,
+        "total_communities": 4,
+        "total_relevant": 0,
+        "ranking": [
+          [
+            "EC_12_3",
+            0.15,
+            false
+          ],
+          [
+            "EC_12_2",
+            0.1125,
+            false
+          ],
+          [
+            "EC_12_1",
+            0.075,
+            false
+          ],
+          [
+            "EC_12_0",
+            0.0375,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Tie-breaking scenario",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "EC_13_0",
+            1.0,
+            true
+          ],
+          [
+            "EC_13_2",
+            1.0,
+            true
+          ],
+          [
+            "EC_13_1",
+            0.75,
+            false
+          ],
+          [
+            "EC_13_3",
+            0.75,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Interest-only signal",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "EC_14_0",
+            0.6,
+            true
+          ],
+          [
+            "EC_14_1",
+            0.53,
+            true
+          ],
+          [
+            "EC_14_2",
+            0.0,
+            false
+          ],
+          [
+            "EC_14_3",
+            0.0,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Friends-only signal",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "EC_15_0",
+            0.5,
+            true
+          ],
+          [
+            "EC_15_1",
+            0.4375,
+            true
+          ],
+          [
+            "EC_15_2",
+            0.0,
+            false
+          ],
+          [
+            "EC_15_3",
+            0.0,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "University-only signal",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "EC_16_0",
+            0.25,
+            true
+          ],
+          [
+            "EC_16_2",
+            0.25,
+            true
+          ],
+          [
+            "EC_16_1",
+            0.0,
+            false
+          ],
+          [
+            "EC_16_3",
+            0.0,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Activity-only signal",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 4,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "EC_17_0",
+            0.4,
+            true
+          ],
+          [
+            "EC_17_1",
+            0.375,
+            true
+          ],
+          [
+            "EC_17_2",
+            0.025,
+            false
+          ],
+          [
+            "EC_17_3",
+            0.01,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Mixed strong signals",
+        "k": 3,
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 5,
+        "total_relevant": 3,
+        "ranking": [
+          [
+            "EC_18_0",
+            0.9625,
+            true
+          ],
+          [
+            "EC_18_1",
+            0.7789,
+            true
+          ],
+          [
+            "EC_18_3",
+            0.6833,
+            true
+          ],
+          [
+            "EC_18_2",
+            0.1889,
+            false
+          ],
+          [
+            "EC_18_4",
+            0.0375,
+            false
+          ]
+        ]
+      },
+      {
+        "scenario": "Sparse data scenario",
+        "k": 3,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "mrr": 1.0,
+        "total_communities": 8,
+        "total_relevant": 2,
+        "ranking": [
+          [
+            "EC_19_0",
+            1.0,
+            true
+          ],
+          [
+            "EC_19_7",
+            0.8533,
+            true
+          ],
+          [
+            "EC_19_1",
+            0.03,
+            false
+          ],
+          [
+            "EC_19_2",
+            0.03,
+            false
+          ],
+          [
+            "EC_19_3",
+            0.03,
+            false
+          ],
+          [
+            "EC_19_4",
+            0.03,
+            false
+          ],
+          [
+            "EC_19_5",
+            0.03,
+            false
+          ],
+          [
+            "EC_19_6",
+            0.03,
+            false
+          ]
+        ]
+      }
+    ]
+  },
+  "job_matching": {
+    "dataset_size": 15,
+    "skill_extraction": {
+      "accuracy": 0.8,
+      "correct": 8,
+      "total": 10,
+      "details": [
+        {
+          "text": "I know Python, Java, and React",
+          "expected": [
+            "java",
+            "python",
+            "react"
+          ],
+          "extracted": [
+            "java",
+            "python",
+            "react"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "Experience with machine learning and deep learning",
+          "expected": [
+            "deep learning",
+            "machine learning"
+          ],
+          "extracted": [
+            "deep learning",
+            "machine learning"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "Docker and Kubernetes for CI/CD pipelines",
+          "expected": [
+            "ci/cd",
+            "docker",
+            "kubernetes"
+          ],
+          "extracted": [
+            "ci/cd",
+            "docker",
+            "kubernetes"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "Built apps with React Native and Flutter",
+          "expected": [
+            "flutter",
+            "react native"
+          ],
+          "extracted": [
+            "flutter",
+            "react",
+            "react native"
+          ],
+          "missed": [],
+          "false_positives": [
+            "react"
+          ],
+          "correct": false
+        },
+        {
+          "text": "PostgreSQL database and Redis caching",
+          "expected": [
+            "postgresql",
+            "redis"
+          ],
+          "extracted": [
+            "postgresql",
+            "redis"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "AWS cloud infrastructure with Terraform",
+          "expected": [
+            "aws",
+            "terraform"
+          ],
+          "extracted": [
+            "aws",
+            "terraform"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "The developer used R for statistical analysis",
+          "expected": [
+            "r"
+          ],
+          "extracted": [
+            "r"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "FastAPI backend with SQLAlchemy ORM",
+          "expected": [
+            "fastapi"
+          ],
+          "extracted": [
+            "fastapi"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        },
+        {
+          "text": "Next.js frontend with Tailwind CSS",
+          "expected": [
+            "next.js",
+            "tailwind"
+          ],
+          "extracted": [
+            "css",
+            "next.js",
+            "tailwind"
+          ],
+          "missed": [],
+          "false_positives": [
+            "css"
+          ],
+          "correct": false
+        },
+        {
+          "text": "TensorFlow and PyTorch for neural networks",
+          "expected": [
+            "pytorch",
+            "tensorflow"
+          ],
+          "extracted": [
+            "pytorch",
+            "tensorflow"
+          ],
+          "missed": [],
+          "false_positives": [],
+          "correct": true
+        }
+      ]
+    },
+    "match_quality": {
+      "tier_accuracy": 1.0,
+      "correct": 15,
+      "total": 15,
+      "tier_stats": {
+        "strong": {
+          "count": 5,
+          "mean": 63.4,
+          "min": 57,
+          "max": 65
+        },
+        "moderate": {
+          "count": 5,
+          "mean": 20.6,
+          "min": 0,
+          "max": 38
+        },
+        "weak": {
+          "count": 5,
+          "mean": 8.0,
+          "min": 0,
+          "max": 20
+        }
+      },
+      "pairs": [
+        {
+          "name": "Python dev -> Python job",
+          "score": 57,
+          "expected_tier": "strong",
+          "actual_tier": "moderate",
+          "correct": true,
+          "matching_skills": [
+            "api",
+            "django",
+            "python",
+            "rest"
+          ],
+          "missing_skills": [
+            "postgresql"
+          ]
+        },
+        {
+          "name": "React dev -> Frontend job",
+          "score": 65,
+          "expected_tier": "strong",
+          "actual_tier": "strong",
+          "correct": true,
+          "matching_skills": [
+            "css",
+            "react",
+            "typescript"
+          ],
+          "missing_skills": []
+        },
+        {
+          "name": "ML student -> ML research",
+          "score": 65,
+          "expected_tier": "strong",
+          "actual_tier": "strong",
+          "correct": true,
+          "matching_skills": [
+            "deep learning",
+            "machine learning",
+            "python",
+            "pytorch"
+          ],
+          "missing_skills": []
+        },
+        {
+          "name": "DevOps student -> DevOps job",
+          "score": 65,
+          "expected_tier": "strong",
+          "actual_tier": "strong",
+          "correct": true,
+          "matching_skills": [
+            "aws",
+            "ci/cd",
+            "docker",
+            "kubernetes"
+          ],
+          "missing_skills": []
+        },
+        {
+          "name": "Mobile dev -> Mobile job",
+          "score": 65,
+          "expected_tier": "strong",
+          "actual_tier": "strong",
+          "correct": true,
+          "matching_skills": [
+            "android",
+            "flutter",
+            "ios",
+            "react",
+            "react native"
+          ],
+          "missing_skills": []
+        },
+        {
+          "name": "Python dev -> Java job",
+          "score": 33,
+          "expected_tier": "moderate",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [
+            "git",
+            "sql"
+          ],
+          "missing_skills": [
+            "java",
+            "microservices",
+            "spring"
+          ]
+        },
+        {
+          "name": "Web dev -> Data analyst",
+          "score": 15,
+          "expected_tier": "moderate",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": [
+            "python",
+            "sql",
+            "statistics",
+            "tableau"
+          ]
+        },
+        {
+          "name": "CS student -> UX designer",
+          "score": 38,
+          "expected_tier": "moderate",
+          "actual_tier": "moderate",
+          "correct": true,
+          "matching_skills": [
+            "figma"
+          ],
+          "missing_skills": [
+            "ui",
+            "ux"
+          ]
+        },
+        {
+          "name": "Data science -> Backend",
+          "score": 0,
+          "expected_tier": "moderate",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": [
+            "docker",
+            "express",
+            "mongodb",
+            "node",
+            "node.js"
+          ]
+        },
+        {
+          "name": "Game dev -> Web dev",
+          "score": 17,
+          "expected_tier": "moderate",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": [
+            "api",
+            "node",
+            "node.js",
+            "postgresql",
+            "react"
+          ]
+        },
+        {
+          "name": "Art student -> ML engineer",
+          "score": 0,
+          "expected_tier": "weak",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": [
+            "deep learning",
+            "machine learning",
+            "python",
+            "pytorch",
+            "tensorflow"
+          ]
+        },
+        {
+          "name": "Music student -> DevOps",
+          "score": 0,
+          "expected_tier": "weak",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": [
+            "aws",
+            "ci/cd",
+            "docker",
+            "kubernetes",
+            "terraform"
+          ]
+        },
+        {
+          "name": "Business -> Embedded systems",
+          "score": 20,
+          "expected_tier": "weak",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": []
+        },
+        {
+          "name": "Psychology -> Cybersecurity",
+          "score": 20,
+          "expected_tier": "weak",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": []
+        },
+        {
+          "name": "Literature -> Blockchain",
+          "score": 0,
+          "expected_tier": "weak",
+          "actual_tier": "weak",
+          "correct": true,
+          "matching_skills": [],
+          "missing_skills": [
+            "go",
+            "rust"
+          ]
+        }
+      ]
+    },
+    "ranking_correlation": {
+      "pairwise_accuracy": 0.92,
+      "correct_pairs": 69,
+      "total_pairs": 75
+    }
+  }
+}

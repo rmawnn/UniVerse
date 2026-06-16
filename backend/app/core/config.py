@@ -97,6 +97,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
+    # ── Frontend ─────────────────────────────────────────────────
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # ── CORS ─────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 

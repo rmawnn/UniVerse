@@ -27,7 +27,6 @@ from app.services.email_service import send_password_reset_email
 logger = logging.getLogger(__name__)
 
 RESET_TOKEN_EXPIRY_MINUTES = 30
-FRONTEND_BASE_URL = "http://localhost:3000"
 
 
 def _hash_reset_token(raw_token: str) -> str:
@@ -74,11 +73,7 @@ async def forgot_password(db: AsyncSession, email: str) -> dict[str, str]:
     await reset_repo.create(reset_token)
 
     # Build reset URL and send email
-    # Use first CORS origin as frontend URL, fallback to localhost
-    frontend_url = FRONTEND_BASE_URL
-    if settings.CORS_ORIGINS:
-        frontend_url = settings.CORS_ORIGINS[0].rstrip("/")
-
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
     reset_url = f"{frontend_url}/reset-password?token={raw_token}"
 
     email_sent = await send_password_reset_email(
