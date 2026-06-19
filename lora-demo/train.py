@@ -71,9 +71,21 @@ def main():
 
     # Auto-detect precision
     if not args.fp16 and not args.bf16:
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+            args.bf16 = True
+            logger.info("Using bf16 (matches Qwen model dtype)")
+        elif torch.cuda.is_available():
             args.fp16 = True
-            logger.info("Using fp16 (recommended for QLoRA)")
+            logger.info("Using fp16")
+
+    # ── Load datasets (before model to avoid PyArrow/bitsandbytes conflict) ──
+
+    logger.info("Loading datasets")
+    train_dataset = load_dataset(args.train_data)
+    eval_dataset = load_dataset(args.eval_data)
+
+    logger.info("Train: %d examples, Eval: %d examples",
+                len(train_dataset), len(eval_dataset))
 
     # ── Load tokenizer and model ───────────────────────────────
 
@@ -85,10 +97,11 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    compute_dtype = torch.bfloat16 if args.bf16 else torch.float16
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_compute_dtype=compute_dtype,
         bnb_4bit_use_double_quant=True,
     )
 
@@ -114,15 +127,6 @@ def main():
 
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
-
-    # ── Load datasets ──────────────────────────────────────────
-
-    logger.info("Loading datasets")
-    train_dataset = load_dataset(args.train_data)
-    eval_dataset = load_dataset(args.eval_data)
-
-    logger.info("Train: %d examples, Eval: %d examples",
-                len(train_dataset), len(eval_dataset))
 
     # ── Training arguments ─────────────────────────────────────
 

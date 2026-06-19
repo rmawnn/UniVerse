@@ -71,8 +71,8 @@ async def create_post(
     )
     post = await post_repo.create(post)
 
-    category = await categorize_post(db, post.id, data.content)
-    post.category = category
+    await categorize_post(db, post.id, data.content)
+    await db.refresh(post)
 
     return _build_response(post, current_user, like_count=0, liked_by_me=False, saved_by_me=False)
 

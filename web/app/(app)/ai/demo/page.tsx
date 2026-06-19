@@ -106,7 +106,7 @@ function CategorizationDemo() {
     if (text.trim().length > 0) mutation.mutate(text.trim());
   };
 
-  const useSample = (sample: string) => {
+  const handleSample = (sample: string) => {
     setText(sample);
     mutation.reset();
   };
@@ -130,7 +130,7 @@ function CategorizationDemo() {
             {SAMPLE_POSTS.map((s, i) => (
               <button
                 key={i}
-                onClick={() => useSample(s)}
+                onClick={() => handleSample(s)}
                 className="rounded-lg border border-line-2 bg-bg-3 px-3 py-1.5 text-left text-[12px] text-fg-2 transition hover:border-brand-purple/40 hover:bg-brand-purple/[0.06] hover:text-fg-1"
               >
                 {s.slice(0, 50)}...
