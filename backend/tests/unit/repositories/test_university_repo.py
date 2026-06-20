@@ -51,6 +51,21 @@ class TestGetByDomain:
         assert result == uni
 
 
+class TestGetByDomainSuffix:
+    @pytest.mark.asyncio
+    async def test_suffix_match(self, repo, mock_db):
+        uni = MagicMock()
+        mock_db.execute = AsyncMock(return_value=_mock_scalar_or_none_result(uni))
+        result = await repo.get_by_domain_suffix("rumeli.com.tr")
+        assert result == uni
+
+    @pytest.mark.asyncio
+    async def test_no_match(self, repo, mock_db):
+        mock_db.execute = AsyncMock(return_value=_mock_scalar_or_none_result(None))
+        result = await repo.get_by_domain_suffix("nonexistent.edu.tr")
+        assert result is None
+
+
 class TestGetAll:
     @pytest.mark.asyncio
     async def test_list(self, repo, mock_db):

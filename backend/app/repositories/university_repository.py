@@ -16,8 +16,28 @@ class UniversityRepository:
         return await self.db.get(University, university_id)
 
     async def get_by_domain(self, domain: str) -> University | None:
-        """Lookup by email domain — used during student verification."""
+        """Lookup by exact email domain — used during student verification."""
         stmt = select(University).where(University.domain == domain.lower())
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_domain_suffix(self, root_domain: str) -> University | None:
+        """Find a university whose stored domain ends with the given root.
+
+        Handles cases where the DB stores ``stu.rumeli.com.tr`` but the
+        lookup key is ``rumeli.com.tr``, or the DB stores ``acibadem.edu.tr``
+        and the lookup key is also ``acibadem.edu.tr``.
+        """
+        root = root_domain.lower()
+        pattern = f"%.{root}"
+        stmt = (
+            select(University)
+            .where(
+                (University.domain == root)
+                | (University.domain.like(pattern))
+            )
+            .limit(1)
+        )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 

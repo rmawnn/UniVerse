@@ -33,6 +33,59 @@ class TestSendVerificationCode:
                 await send_verification_code(mock_db, sample_user, "user@gmail.com")
 
 
+    @pytest.mark.asyncio
+    async def test_university_not_found_raises(self, mock_db, sample_user):
+        """Unknown domain raises NotFound after all lookup strategies fail."""
+        sample_user.is_verified_student = False
+        mock_valid = MagicMock(valid=True, domain="unknown.edu.tr")
+
+        mock_uni_repo = MagicMock()
+        mock_uni_repo.get_by_domain = AsyncMock(return_value=None)
+        mock_uni_repo.get_by_domain_suffix = AsyncMock(return_value=None)
+
+        with patch("app.services.verification_service.validate_university_email", return_value=mock_valid), \
+             patch("app.services.verification_service.UniversityRepository", return_value=mock_uni_repo):
+            with pytest.raises(NotFound, match="No university found"):
+                await send_verification_code(mock_db, sample_user, "student@unknown.edu.tr")
+
+    @pytest.mark.asyncio
+    async def test_university_subdomain_tries_base_domain(self, mock_db, sample_user):
+        """stu.rumeli.edu.tr → exact miss → falls back to base domain lookup."""
+        sample_user.is_verified_student = False
+        mock_valid = MagicMock(valid=True, domain="stu.rumeli.edu.tr")
+
+        mock_uni_repo = MagicMock()
+        mock_uni_repo.get_by_domain = AsyncMock(return_value=None)
+        mock_uni_repo.get_by_domain_suffix = AsyncMock(return_value=None)
+
+        with patch("app.services.verification_service.validate_university_email", return_value=mock_valid), \
+             patch("app.services.verification_service.UniversityRepository", return_value=mock_uni_repo):
+            with pytest.raises(NotFound):
+                await send_verification_code(mock_db, sample_user, "student@stu.rumeli.edu.tr")
+            # Verify it tried both exact and base domain lookups
+            calls = mock_uni_repo.get_by_domain.call_args_list
+            assert len(calls) == 2
+            assert calls[0].args[0] == "stu.rumeli.edu.tr"
+            assert calls[1].args[0] == "rumeli.edu.tr"
+
+    @pytest.mark.asyncio
+    async def test_university_subdomain_tries_suffix_search(self, mock_db, sample_user):
+        """live.acibadem.edu.tr → exact miss → base miss → suffix search attempted."""
+        sample_user.is_verified_student = False
+        mock_valid = MagicMock(valid=True, domain="live.acibadem.edu.tr")
+
+        mock_uni_repo = MagicMock()
+        mock_uni_repo.get_by_domain = AsyncMock(return_value=None)
+        mock_uni_repo.get_by_domain_suffix = AsyncMock(return_value=None)
+
+        with patch("app.services.verification_service.validate_university_email", return_value=mock_valid), \
+             patch("app.services.verification_service.UniversityRepository", return_value=mock_uni_repo):
+            with pytest.raises(NotFound):
+                await send_verification_code(mock_db, sample_user, "student@live.acibadem.edu.tr")
+            # Verify suffix search was called with the base domain
+            mock_uni_repo.get_by_domain_suffix.assert_called_once_with("acibadem.edu.tr")
+
+
 class TestConfirmVerificationCode:
     @pytest.mark.asyncio
     async def test_already_verified(self, mock_db, sample_user):

@@ -94,16 +94,25 @@ async def send_verification_code(
 
     # Step 2: Match to known university in DB
     domain = _extract_domain(university_email)
+    base_domain = extract_base_domain(university_email)
     uni_repo = UniversityRepository(db)
 
-    # Try exact domain match first
+    # 1) Exact domain match (e.g. "stu.rumeli.edu.tr" stored as-is)
     university = await uni_repo.get_by_domain(domain)
 
-    # If not found, try base domain (handles stu.rumeli.com.tr → rumeli.com.tr)
+    # 2) Exact base domain match (e.g. "rumeli.edu.tr")
+    if not university and base_domain != domain:
+        university = await uni_repo.get_by_domain(base_domain)
+
+    # 3) Suffix search — DB may store a different subdomain variant
+    #    e.g. DB has "stu.rumeli.com.tr", user sends "stu.rumeli.edu.tr"
+    #    → base_domain "rumeli.edu.tr" won't match, but searching for
+    #    domains ending in "rumeli" catches "stu.rumeli.com.tr"
     if not university:
-        base_domain = extract_base_domain(university_email)
-        if base_domain != domain:
-            university = await uni_repo.get_by_domain(base_domain)
+        # Extract institution name (e.g. "rumeli" from "rumeli.edu.tr")
+        institution = base_domain.split(".")[0]
+        if len(institution) >= 3:
+            university = await uni_repo.get_by_domain_suffix(base_domain)
 
     if not university:
         raise NotFound(
