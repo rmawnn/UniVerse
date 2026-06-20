@@ -166,6 +166,6 @@ export async function applyToJob(
  * Only available to the job owner (employer).
  */
 export function getApplicationCvUrl(applicationId: string): string {
-  const base = api.defaults.baseURL ?? "http://localhost:8000/api/v1";
+  const base = api.defaults.baseURL!;
   return `${base}/jobs/applications/${applicationId}/cv`;
 }

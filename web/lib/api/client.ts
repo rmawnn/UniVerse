@@ -6,8 +6,11 @@ import axios from "axios";
  * - Attaches Authorization header automatically
  * - Attempts token refresh on 401 before forcing logout
  */
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1",
+  baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
   timeout: 30_000, // 30s request timeout
 });

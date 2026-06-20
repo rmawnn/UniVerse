@@ -20,6 +20,7 @@ SECRET_KEY_PLACEHOLDERS: frozenset[str] = frozenset({
     "change-me",
     "change-me-in-production",
     "change-me-to-a-random-64-char-string",
+    "dev-only-secret-key-change-in-production-abc123xyz",
     "secret",
     "supersecret",
 })

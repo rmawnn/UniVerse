@@ -211,6 +211,10 @@ async def _send_via_resend(
     if resp.status_code >= 500:
         raise RuntimeError(f"Resend server error: {resp.status_code} {resp.text}")
     if resp.status_code >= 400:
+        logger.error(
+            "Resend rejected email to %s (from=%s): %d %s",
+            to, settings.EMAIL_FROM, resp.status_code, resp.text,
+        )
         raise ValueError(f"Resend client error: {resp.status_code} {resp.text}")
 
     logger.info("Email sent via Resend to %s (id=%s)", to, resp.json().get("id"))

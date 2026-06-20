@@ -18,7 +18,7 @@ import { OtpInput } from "@/components/ui/OtpInput";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { getMe } from "@/lib/api/auth";
-import api from "@/lib/api/client";
+import api, { ApiError } from "@/lib/api/client";
 
 /**
  * Verification flow — sequential:
@@ -137,10 +137,7 @@ function VerifyPageInner() {
       setResendCooldown(60);
       setStep("email-otp");
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail ?? "Failed to send verification code.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : "Failed to send verification code.");
     } finally {
       setLoading(false);
     }
@@ -157,10 +154,7 @@ function VerifyPageInner() {
       setVerificationId(res.data.verification_id);
       setResendCooldown(60);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail ?? "Failed to resend code.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : "Failed to resend code.");
     } finally {
       setLoading(false);
     }
@@ -195,10 +189,7 @@ function VerifyPageInner() {
       setStep("doc-upload");
       setError(null);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail ?? "Invalid or expired code. Please try again.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : "Invalid or expired code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -276,10 +267,7 @@ function VerifyPageInner() {
         setStep("doc-pending");
       }
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail ?? "Failed to upload document. Please try again.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : "Failed to upload document. Please try again.");
     } finally {
       setLoading(false);
     }

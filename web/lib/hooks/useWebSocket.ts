@@ -30,9 +30,9 @@ interface UseWebSocketReturn {
 
 /* ── Derive WS base URL from the HTTP API URL ────────── */
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
-const WS_BASE = API_URL.replace(/^http/, "ws");
+import { API_BASE_URL } from "@/lib/api/client";
+
+const WS_BASE = API_BASE_URL.replace(/^http/, "ws");
 
 /** Reconnect back-off steps (ms). */
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];

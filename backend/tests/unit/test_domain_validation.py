@@ -38,6 +38,10 @@ class TestValidateUniversityEmail:
     def test_valid_known_subdomain(self):
         result = validate_university_email("x@stu.rumeli.edu.tr")
         assert result.valid is True
+
+    def test_valid_known_non_edu_domain(self):
+        result = validate_university_email("x@stu.rumeli.com.tr")
+        assert result.valid is True
         assert "known:" in (result.matched_pattern or "")
 
     def test_reject_gmail(self):
@@ -96,6 +100,65 @@ class TestValidateUniversityEmail:
         result = validate_university_email("s@ogrenci.gazi.edu.tr")
         assert result.valid is True
 
+    # ── Turkish university subdomains (the original bug) ──────
+    def test_valid_live_subdomain_edu_tr(self):
+        result = validate_university_email("aynaz@live.acibadem.edu.tr")
+        assert result.valid is True
+        assert result.domain == "live.acibadem.edu.tr"
+
+    def test_valid_mail_subdomain_edu_tr(self):
+        result = validate_university_email("student@mail.itu.edu.tr")
+        assert result.valid is True
+
+    def test_valid_students_subdomain_edu_tr(self):
+        result = validate_university_email("student@students.metu.edu.tr")
+        assert result.valid is True
+
+    def test_valid_my_subdomain_edu_tr(self):
+        result = validate_university_email("student@my.ku.edu.tr")
+        assert result.valid is True
+
+    def test_valid_stu_subdomain_edu_tr(self):
+        result = validate_university_email("student@stu.rumeli.edu.tr")
+        assert result.valid is True
+
+    def test_valid_ogr_subdomain_edu_tr(self):
+        result = validate_university_email("student@ogr.hacettepe.edu.tr")
+        assert result.valid is True
+
+    def test_valid_deep_subdomain_edu(self):
+        result = validate_university_email("student@cs.dept.stanford.edu")
+        assert result.valid is True
+
+    def test_valid_edu_au(self):
+        result = validate_university_email("student@unsw.edu.au")
+        assert result.valid is True
+
+    def test_valid_ac_jp(self):
+        result = validate_university_email("student@u-tokyo.ac.jp")
+        assert result.valid is True
+
+    # ── Must still reject non-academic domains ────────────────
+    def test_reject_icloud(self):
+        result = validate_university_email("user@icloud.com")
+        assert result.valid is False
+
+    def test_reject_live_com(self):
+        result = validate_university_email("user@live.com")
+        assert result.valid is False
+
+    def test_reject_random_domain(self):
+        result = validate_university_email("user@randomdomain.com")
+        assert result.valid is False
+
+    def test_reject_random_org(self):
+        result = validate_university_email("user@company.org")
+        assert result.valid is False
+
+    def test_reject_random_net(self):
+        result = validate_university_email("user@mysite.net")
+        assert result.valid is False
+
 
 class TestExtractBaseDomain:
     def test_stu_prefix_removed(self):
@@ -114,10 +177,16 @@ class TestExtractBaseDomain:
         assert extract_base_domain("x@mit.edu") == "mit.edu"
 
     def test_long_domain_trimmed(self):
-        assert extract_base_domain("x@a.b.c.stanford.edu") == "c.stanford.edu"
+        assert extract_base_domain("x@a.b.c.stanford.edu") == "stanford.edu"
 
     def test_ogrenci_prefix(self):
         assert extract_base_domain("x@ogrenci.gazi.edu.tr") == "gazi.edu.tr"
+
+    def test_live_subdomain(self):
+        assert extract_base_domain("x@live.acibadem.edu.tr") == "acibadem.edu.tr"
+
+    def test_my_subdomain(self):
+        assert extract_base_domain("x@my.ku.edu.tr") == "ku.edu.tr"
 
 
 class TestIsStudentSubdomain:

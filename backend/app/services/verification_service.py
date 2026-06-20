@@ -144,10 +144,15 @@ async def send_verification_code(
         message = f"Verification code sent to {university_email}"
     else:
         message = f"Verification code generated for {university_email}"
-        if not settings.is_development:
+        if settings.is_production:
             logger.warning(
-                "Email delivery failed for user %s — code not sent",
+                "Email delivery failed for user %s to %s "
+                "(provider=%s, from=%s). "
+                "Check RESEND_API_KEY and EMAIL_FROM configuration.",
                 current_user.id,
+                university_email,
+                settings.EMAIL_PROVIDER,
+                settings.EMAIL_FROM,
             )
 
     return VerificationSendResponse(

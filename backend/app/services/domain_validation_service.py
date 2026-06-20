@@ -2,12 +2,12 @@
 University email domain validation service.
 
 Validates that an email belongs to a recognized university domain pattern.
-Supports complex patterns like subdomains (stu.rumeli.com.tr) and rejects
-generic email providers.
+Any subdomain of a recognized academic TLD (.edu, .edu.xx, .ac.xx) is accepted.
+Generic email providers are always rejected.
 
 Usage:
-    result = validate_university_email("221201931@stu.rumeli.com.tr")
-    # result = { "valid": True, "domain": "stu.rumeli.com.tr", "reason": None }
+    result = validate_university_email("student@live.acibadem.edu.tr")
+    # result = { "valid": True, "domain": "live.acibadem.edu.tr", ... }
 """
 
 import re
@@ -24,59 +24,28 @@ GENERIC_DOMAINS = frozenset({
     "sina.com", "126.com", "yeah.net",
 })
 
-# ── Configurable university domain patterns ──────────────────
+# ── Academic TLD patterns ────────────────────────────────────
+# Compiled regexes that match the *suffix* of a domain.
+# Any subdomain rooted under one of these suffixes is academic.
+_ACADEMIC_SUFFIX_RE = re.compile(
+    r"\.edu$"           # .edu (US)
+    r"|\.edu\.[a-z]{2,3}$"  # .edu.tr, .edu.au, .edu.pk, …
+    r"|\.ac\.[a-z]{2,3}$"   # .ac.uk, .ac.jp, .ac.kr, …
+    r"|\.ac$"                # .ac (standalone)
+)
 
-# Each entry is a regex that should match valid university email domains.
-# Patterns are tested against the FULL domain part of the email.
-# Add new patterns here to support more universities.
-UNIVERSITY_DOMAIN_PATTERNS: list[re.Pattern] = [
-    # Standard .edu domains (US)
-    re.compile(r"^[\w\-]+\.edu$"),
-    # Subdomains of .edu
-    re.compile(r"^[\w\-]+\.[\w\-]+\.edu$"),
-    # International university patterns
-    re.compile(r"^[\w\-]+\.edu\.\w{2,3}$"),            # .edu.tr, .edu.au, etc.
-    re.compile(r"^[\w\-]+\.ac\.\w{2,3}$"),              # .ac.uk, .ac.jp, etc.
-    re.compile(r"^[\w\-]+\.ac\.[\w\-]+\.\w{2,3}$"),     # sub.ac.uk patterns
-    # Student subdomain patterns (e.g., stu.rumeli.com.tr, ogr.metu.edu.tr)
-    re.compile(r"^stu\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
-    re.compile(r"^student\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
-    re.compile(r"^students\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
-    re.compile(r"^ogr\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
-    re.compile(r"^ogrenci\.[\w\-]+\.[\w\-]+\.\w{2,3}$"),
-    re.compile(r"^stu\.[\w\-]+\.\w{2,4}$"),
-    re.compile(r"^student\.[\w\-]+\.\w{2,4}$"),
-    re.compile(r"^students\.[\w\-]+\.\w{2,4}$"),
-    re.compile(r"^ogr\.[\w\-]+\.\w{2,4}$"),
-    re.compile(r"^ogrenci\.[\w\-]+\.\w{2,4}$"),
-    # Student subdomain with .edu infix (e.g., ogr.metu.edu.tr, stu.rumeli.edu.tr)
-    re.compile(r"^(?:stu|student|students|ogr|ogrenci)\.[\w\-]+\.edu\.\w{2,3}$"),
-    # European patterns
-    re.compile(r"^[\w\-]+\.uni[\w\-]*\.[\w\-]+\.\w{2,3}$"),  # .uni-*.de
-    re.compile(r"^[\w\-]+\.univ[\w\-]*\.\w{2,4}$"),
-    # Generic institutional
-    re.compile(r"^mail\.[\w\-]+\.edu[\.\w]*$"),
-    re.compile(r"^[\w\-]+\.edu\.[\w\-]+\.\w{2,3}$"),
-]
+# Known non-academic domains that accidentally match patterns above.
+# e.g. "educa.com" does NOT end with .edu so it won't match, but guard
+# against future edge cases here.
+_FALSE_POSITIVE_DOMAINS = frozenset({
+    # none yet — add if discovered
+})
 
-# Known valid university subdomains (exact match database)
-# This supplements the regex patterns above for edge cases
-KNOWN_UNIVERSITY_SUBDOMAINS: dict[str, str] = {
-    # Turkish universities with stu./ogr. prefix
-    "stu.rumeli.edu.tr": "Istanbul Rumeli University",
-    "stu.rumeli.com.tr": "Istanbul Rumeli University",
-    "stu.iku.edu.tr": "Istanbul Kultur University",
-    "ogr.iu.edu.tr": "Istanbul University",
-    "ogr.metu.edu.tr": "Middle East Technical University",
-    "ogr.itu.edu.tr": "Istanbul Technical University",
-    "ogr.boun.edu.tr": "Bogazici University",
-    "ogr.hacettepe.edu.tr": "Hacettepe University",
-    "ogr.gazi.edu.tr": "Gazi University",
-    "ogr.ankara.edu.tr": "Ankara University",
-    "stu.yeditepe.edu.tr": "Yeditepe University",
-    "stu.medipol.edu.tr": "Istanbul Medipol University",
-    # Add more as needed
-}
+# Known valid university domains that don't follow standard academic TLDs.
+# e.g. Turkish universities using .com.tr instead of .edu.tr
+KNOWN_UNIVERSITY_DOMAINS: frozenset[str] = frozenset({
+    "rumeli.com.tr",
+})
 
 
 @dataclass
@@ -87,21 +56,34 @@ class DomainValidationResult:
     matched_pattern: str | None = None
 
 
+def _has_academic_suffix(domain: str) -> bool:
+    """Check if the domain ends with a recognized academic TLD."""
+    return bool(_ACADEMIC_SUFFIX_RE.search(domain))
+
+
+def _is_known_university_domain(domain: str) -> str | None:
+    """Check if any suffix of the domain is in the known university list."""
+    parts = domain.split(".")
+    for i in range(len(parts) - 1):
+        candidate = ".".join(parts[i:])
+        if candidate in KNOWN_UNIVERSITY_DOMAINS:
+            return candidate
+    return None
+
+
 def validate_university_email(email: str) -> DomainValidationResult:
     """
     Validate that an email address belongs to a recognized university domain.
 
-    Rules:
-      1. Must contain @ with a non-empty domain
-      2. Must NOT be a generic email provider
-      3. Must match a known university domain pattern OR be in the known list
-      4. Configurable patterns support .edu, .ac.*, stu.*, student.*, etc.
-
-    Returns a DomainValidationResult with validation outcome.
+    Strategy (in order):
+      1. Basic format check
+      2. Reject generic providers (gmail, outlook, …)
+      3. Accept if domain has an academic TLD suffix (.edu, .edu.xx, .ac.xx)
+      4. Accept if domain is a subdomain of a known university domain
+      5. Reject everything else
     """
     email = email.lower().strip()
 
-    # Basic format check
     if "@" not in email:
         return DomainValidationResult(
             valid=False,
@@ -117,9 +99,8 @@ def validate_university_email(email: str) -> DomainValidationResult:
             reason="Invalid email format",
         )
 
-    local_part, domain = parts
+    _, domain = parts
 
-    # Reject generic providers
     if domain in GENERIC_DOMAINS:
         return DomainValidationResult(
             valid=False,
@@ -127,22 +108,27 @@ def validate_university_email(email: str) -> DomainValidationResult:
             reason=f"'{domain}' is a generic email provider, not a university domain",
         )
 
-    # Check known university subdomains (exact match)
-    if domain in KNOWN_UNIVERSITY_SUBDOMAINS:
+    if domain in _FALSE_POSITIVE_DOMAINS:
+        return DomainValidationResult(
+            valid=False,
+            domain=domain,
+            reason=f"'{domain}' does not match any recognized university email pattern. Contact support if this is your university email.",
+        )
+
+    if _has_academic_suffix(domain):
         return DomainValidationResult(
             valid=True,
             domain=domain,
-            matched_pattern=f"known:{domain}",
+            matched_pattern="academic_tld",
         )
 
-    # Check against configurable regex patterns
-    for pattern in UNIVERSITY_DOMAIN_PATTERNS:
-        if pattern.match(domain):
-            return DomainValidationResult(
-                valid=True,
-                domain=domain,
-                matched_pattern=pattern.pattern,
-            )
+    known = _is_known_university_domain(domain)
+    if known:
+        return DomainValidationResult(
+            valid=True,
+            domain=domain,
+            matched_pattern=f"known:{known}",
+        )
 
     return DomainValidationResult(
         valid=False,
@@ -155,24 +141,23 @@ def extract_base_domain(email: str) -> str:
     """
     Extract the base institutional domain from a university email.
     Examples:
-      "student@cs.stanford.edu" → "stanford.edu"
-      "221201931@stu.rumeli.com.tr" → "rumeli.com.tr"
-      "user@mail.uni-berlin.de" → "uni-berlin.de"
+      "student@cs.stanford.edu"           → "stanford.edu"
+      "221201931@stu.rumeli.com.tr"        → "rumeli.com.tr"
+      "user@live.acibadem.edu.tr"          → "acibadem.edu.tr"
+      "user@mail.uni-berlin.de"            → "uni-berlin.de"
     """
     domain = email.split("@")[-1].lower()
-
-    # Remove known student/mail prefixes
-    prefixes = ("stu.", "student.", "students.", "mail.", "ogr.", "ogrenci.")
-    for prefix in prefixes:
-        if domain.startswith(prefix):
-            domain = domain[len(prefix):]
-            break
-
-    # For domains with 4+ parts (e.g. cs.dept.uni.edu), keep last 3
     parts = domain.split(".")
-    if len(parts) > 3:
-        domain = ".".join(parts[-3:])
 
+    # For academic TLDs, find the .edu or .ac segment and take
+    # one label before it as the institution name.
+    for i, part in enumerate(parts):
+        if part in ("edu", "ac") and i > 0:
+            return ".".join(parts[i - 1:])
+
+    # Fallback: keep last 2-3 parts
+    if len(parts) > 3:
+        return ".".join(parts[-3:])
     return domain
 
 

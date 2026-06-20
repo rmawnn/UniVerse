@@ -1,30 +1,13 @@
-import { Platform } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../utils/config";
 
 const STORAGE_KEY = "universe_access_token";
-
-// ── Base URL ────────────────────────────────────────────────
-// Android emulator:  10.0.2.2 maps to host machine's localhost
-// iOS simulator:     localhost works directly
-// Physical device:   replace with your machine's LAN IP
-//                    (run `ipconfig` on Windows or `ifconfig` on Mac)
-//
-// Backend must be running on port 8000 (docker-compose or uvicorn).
-// Docker-compose exposes backend on 0.0.0.0:8000, which is reachable
-// from emulators via the addresses above.
-
-const API_HOST = Platform.select({
-  android: "10.0.2.2",  // Android emulator → host machine
-  default: "localhost",  // iOS simulator / web
-});
-
-const BASE_URL = `http://${API_HOST}:8000/api/v1`;
 
 // ── Axios instance ──────────────────────────────────────────
 
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE_URL,
   timeout: 15_000,
   headers: { "Content-Type": "application/json" },
 });
