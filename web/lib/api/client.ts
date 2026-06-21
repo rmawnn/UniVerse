@@ -47,10 +47,11 @@ api.interceptors.response.use(
 
     if (error.response) {
       const status = error.response.status;
-      const detail =
+      const rawDetail =
         error.response.data?.detail ??
         error.response.data?.message ??
         "Something went wrong";
+      const detail = formatApiError(rawDetail);
 
       // On 401, attempt silent token refresh (once per request)
       if (
@@ -131,6 +132,28 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
+}
+
+export function formatApiError(detail: unknown): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && typeof item.msg === "string") {
+          return item.msg;
+        }
+        return null;
+      })
+      .filter(Boolean) as string[];
+    if (msgs.length > 0) return msgs.join(". ");
+  }
+  if (detail && typeof detail === "object") {
+    const obj = detail as Record<string, unknown>;
+    if (typeof obj.message === "string") return obj.message;
+    if (typeof obj.msg === "string") return obj.msg;
+  }
+  return "Something went wrong";
 }
 
 export default api;

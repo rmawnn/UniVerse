@@ -142,6 +142,147 @@ class TestRegister:
                 )
 
 
+    @pytest.mark.asyncio
+    async def test_register_rumeli_email_accepted(self, mock_db):
+        user_id = uuid4()
+        created_user = MagicMock()
+        created_user.id = user_id
+        created_user.email = "221201931@stu.rumeli.edu.tr"
+        created_user.username = "rumeli_stu"
+        created_user.full_name = "Test Student"
+        created_user.university_id = None
+        created_user.department = None
+        created_user.academic_year = None
+        created_user.bio = None
+        created_user.profile_image_url = None
+        created_user.is_active = True
+        created_user.email_verified = False
+        created_user.is_verified_student = False
+        created_user.role = "student"
+        created_user.created_at = MagicMock()
+        created_user.updated_at = MagicMock()
+        created_user.notify_job_applications = True
+        created_user.notify_new_jobs = True
+
+        mock_repo = MagicMock()
+        mock_repo.get_by_email = AsyncMock(return_value=None)
+        mock_repo.get_by_username = AsyncMock(return_value=None)
+        mock_repo.create = AsyncMock(return_value=created_user)
+
+        with (
+            patch("app.services.auth_service.UserRepository", return_value=mock_repo),
+            patch("app.services.domain_validation_service.validate_university_email") as mock_val,
+            patch("app.services.auth_service.hash_password", return_value="hashed"),
+        ):
+            mock_val.return_value = MagicMock(valid=True)
+            result = await auth_service.register(
+                mock_db,
+                _make_register_request(email="221201931@stu.rumeli.edu.tr", username="rumeli_stu"),
+            )
+        assert result.email == "221201931@stu.rumeli.edu.tr"
+
+    @pytest.mark.asyncio
+    async def test_register_acibadem_email_accepted(self, mock_db):
+        user_id = uuid4()
+        created_user = MagicMock()
+        created_user.id = user_id
+        created_user.email = "aynaz@live.acibadem.edu.tr"
+        created_user.username = "aynaz"
+        created_user.full_name = "Aynaz K"
+        created_user.university_id = None
+        created_user.department = None
+        created_user.academic_year = None
+        created_user.bio = None
+        created_user.profile_image_url = None
+        created_user.is_active = True
+        created_user.email_verified = False
+        created_user.is_verified_student = False
+        created_user.role = "student"
+        created_user.created_at = MagicMock()
+        created_user.updated_at = MagicMock()
+        created_user.notify_job_applications = True
+        created_user.notify_new_jobs = True
+
+        mock_repo = MagicMock()
+        mock_repo.get_by_email = AsyncMock(return_value=None)
+        mock_repo.get_by_username = AsyncMock(return_value=None)
+        mock_repo.create = AsyncMock(return_value=created_user)
+
+        with (
+            patch("app.services.auth_service.UserRepository", return_value=mock_repo),
+            patch("app.services.domain_validation_service.validate_university_email") as mock_val,
+            patch("app.services.auth_service.hash_password", return_value="hashed"),
+        ):
+            mock_val.return_value = MagicMock(valid=True)
+            result = await auth_service.register(
+                mock_db,
+                _make_register_request(email="aynaz@live.acibadem.edu.tr", username="aynaz"),
+            )
+        assert result.email == "aynaz@live.acibadem.edu.tr"
+
+
+class TestRegisterSchema:
+    def test_valid_register_request(self):
+        from app.schemas.auth import RegisterRequest
+        req = RegisterRequest(
+            email="test@university.edu.tr",
+            password="StrongPass1",
+            full_name="Test User",
+            username="testuser",
+        )
+        assert req.email == "test@university.edu.tr"
+
+    def test_password_missing_uppercase_gives_clear_error(self):
+        from app.schemas.auth import RegisterRequest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError) as exc_info:
+            RegisterRequest(
+                email="test@uni.edu",
+                password="weakpass1",
+                full_name="Test",
+                username="testuser",
+            )
+        errors = exc_info.value.errors()
+        assert any("uppercase" in e["msg"].lower() for e in errors)
+
+    def test_password_missing_digit_gives_clear_error(self):
+        from app.schemas.auth import RegisterRequest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError) as exc_info:
+            RegisterRequest(
+                email="test@uni.edu",
+                password="WeakPasss",
+                full_name="Test",
+                username="testuser",
+            )
+        errors = exc_info.value.errors()
+        assert any("digit" in e["msg"].lower() for e in errors)
+
+    def test_username_invalid_chars_gives_clear_error(self):
+        from app.schemas.auth import RegisterRequest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError) as exc_info:
+            RegisterRequest(
+                email="test@uni.edu",
+                password="StrongPass1",
+                full_name="Test",
+                username="bad user!",
+            )
+        assert len(exc_info.value.errors()) > 0
+
+    def test_password_too_short_gives_clear_error(self):
+        from app.schemas.auth import RegisterRequest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError) as exc_info:
+            RegisterRequest(
+                email="test@uni.edu",
+                password="Ab1",
+                full_name="Test",
+                username="testuser",
+            )
+        assert len(exc_info.value.errors()) > 0
+
+
 class TestRefresh:
     @pytest.mark.asyncio
     async def test_refresh_invalid_token(self, mock_db):
