@@ -3,6 +3,8 @@
 import pytest
 from httpx import AsyncClient
 
+pytestmark = pytest.mark.integration
+
 
 class TestRegister:
     async def test_register_success(self, client: AsyncClient, unique_suffix: str):

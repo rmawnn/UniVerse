@@ -1,6 +1,9 @@
 """Tests for student verification flow."""
 
+import pytest
 from httpx import AsyncClient
+
+pytestmark = pytest.mark.integration
 
 
 class TestVerification:

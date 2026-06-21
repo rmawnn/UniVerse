@@ -2,7 +2,10 @@
 
 from uuid import uuid4
 
+import pytest
 from httpx import AsyncClient
+
+pytestmark = pytest.mark.integration
 
 
 class TestCreatePost:

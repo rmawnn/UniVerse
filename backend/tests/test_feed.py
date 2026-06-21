@@ -1,6 +1,9 @@
 """Tests for the home feed endpoint."""
 
+import pytest
 from httpx import AsyncClient
+
+pytestmark = pytest.mark.integration
 
 
 class TestHomeFeed:
