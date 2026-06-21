@@ -15,6 +15,7 @@ export interface PublicUserProfile {
   university_id: string | null;
   university_name: string | null;
   is_verified_student: boolean;
+  skills: string[];
   communities: CommunitySummary[];
   posts_count: number;
   followers_count: number;
@@ -88,32 +89,15 @@ export interface UnifiedSearchResponse {
 /* ── API calls ──────────────────────────────────────────────── */
 
 /**
- * Lookup a user by username via the search endpoint,
- * then fetch their full public profile by ID.
+ * Look up a user's public profile by username.
  */
 export async function getProfileByUsername(
   username: string,
 ): Promise<PublicUserProfile> {
-  // Step 1: search for the user by exact username
-  const searchRes = await api.get<
-    PaginatedResponse<SearchUserItem>
-  >("/users/search", {
-    params: { q: username, page_size: 20 },
-  });
-
-  const match = searchRes.data.items.find(
-    (u) => u.username.toLowerCase() === username.toLowerCase(),
+  const res = await api.get<PublicUserProfile>(
+    `/users/by-username/${encodeURIComponent(username)}`,
   );
-
-  if (!match) {
-    throw new ApiError("User not found", 404);
-  }
-
-  // Step 2: fetch full public profile
-  const profileRes = await api.get<PublicUserProfile>(
-    `/users/${match.id}`,
-  );
-  return profileRes.data;
+  return res.data;
 }
 
 /**

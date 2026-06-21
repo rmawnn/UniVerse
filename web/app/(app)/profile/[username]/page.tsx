@@ -12,11 +12,15 @@ import {
   Mail,
   MapPin,
   MoreVertical,
+  Pencil,
+  Plus,
   RefreshCw,
   School,
   ShieldCheck,
   ShieldOff,
+  Sparkles,
   Users,
+  X,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
@@ -33,6 +37,7 @@ import {
   followUser,
   unfollowUser,
 } from "@/lib/api/users";
+import { updateProfile } from "@/lib/api/settings";
 import { createConversation } from "@/lib/api/conversations";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { compactNumber } from "@/lib/utils";
@@ -124,6 +129,45 @@ export default function ProfilePage({ params }: PageProps) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
+
+  /* ── Skills editing ──────────────────────────────────── */
+  const [editingSkills, setEditingSkills] = useState(false);
+  const [skillInput, setSkillInput] = useState("");
+  const [pendingSkills, setPendingSkills] = useState<string[]>([]);
+  const [skillsSaving, setSkillsSaving] = useState(false);
+
+  const startEditSkills = useCallback(() => {
+    setPendingSkills(profile?.skills ?? []);
+    setSkillInput("");
+    setEditingSkills(true);
+  }, [profile?.skills]);
+
+  const addSkill = useCallback(() => {
+    const val = skillInput.trim();
+    if (!val || pendingSkills.length >= 20) return;
+    if (pendingSkills.some((s) => s.toLowerCase() === val.toLowerCase())) {
+      setSkillInput("");
+      return;
+    }
+    setPendingSkills((prev) => [...prev, val]);
+    setSkillInput("");
+  }, [skillInput, pendingSkills]);
+
+  const removeSkill = useCallback((idx: number) => {
+    setPendingSkills((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const saveSkills = useCallback(async () => {
+    setSkillsSaving(true);
+    try {
+      await updateProfile({ skills: pendingSkills });
+      qc.invalidateQueries({ queryKey: ["profile", username] });
+      setEditingSkills(false);
+    } catch {
+    } finally {
+      setSkillsSaving(false);
+    }
+  }, [pendingSkills, qc, username]);
 
   const handleCopyProfileLink = useCallback(async () => {
     setMenuOpen(false);
@@ -364,6 +408,105 @@ export default function ProfilePage({ params }: PageProps) {
           <p className="mt-4 max-w-[680px] text-pretty text-[14.5px] leading-[1.55] text-fg-2">
             {profile.bio}
           </p>
+        )}
+
+        {/* Skills */}
+        {(profile.skills.length > 0 || isOwnProfile) && (
+          <div className="mt-4">
+            {!editingSkills ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-fg-3" />
+                {profile.skills.length > 0 ? (
+                  profile.skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="rounded-full border border-brand-purple/25 bg-brand-purple/10 px-2.5 py-1 text-[12px] font-medium text-brand-purple"
+                    >
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[12.5px] text-fg-4">
+                    No skills added yet
+                  </span>
+                )}
+                {isOwnProfile && (
+                  <button
+                    onClick={startEditSkills}
+                    className="flex items-center gap-1 rounded-full border border-line-2 bg-bg-2 px-2.5 py-1 text-[12px] font-medium text-fg-3 hover:border-brand-purple/40 hover:text-brand-purple"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    {profile.skills.length > 0 ? "Edit" : "Add skills"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-line-2 bg-bg-2 p-4">
+                <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-fg-1">
+                  <Sparkles className="h-4 w-4 text-brand-purple" />
+                  Edit skills
+                  <span className="ml-auto text-[11px] font-normal text-fg-4">
+                    {pendingSkills.length}/20
+                  </span>
+                </div>
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {pendingSkills.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="flex items-center gap-1 rounded-full border border-brand-purple/25 bg-brand-purple/10 px-2.5 py-1 text-[12px] font-medium text-brand-purple"
+                    >
+                      {skill}
+                      <button
+                        onClick={() => removeSkill(idx)}
+                        className="ml-0.5 rounded-full p-0.5 hover:bg-brand-purple/20"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addSkill();
+                      }
+                    }}
+                    placeholder="Type a skill and press Enter"
+                    maxLength={100}
+                    className="flex-1 rounded-md border border-line-2 bg-bg-1 px-3 py-2 text-[13px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple/60 focus:outline-none"
+                  />
+                  <button
+                    onClick={addSkill}
+                    disabled={!skillInput.trim() || pendingSkills.length >= 20}
+                    className="flex items-center gap-1 rounded-md border border-line-2 bg-bg-1 px-3 py-2 text-[13px] text-fg-2 hover:text-fg-1 disabled:opacity-40"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add
+                  </button>
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSkills(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={saveSkills}
+                    disabled={skillsSaving}
+                  >
+                    {skillsSaving ? "Saving..." : "Save skills"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Stats */}

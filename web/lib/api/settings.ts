@@ -9,6 +9,7 @@ export interface UpdateProfileRequest {
   profile_image_url?: string;
   department?: string;
   academic_year?: number;
+  skills?: string[];
 }
 
 export interface ChangePasswordRequest {

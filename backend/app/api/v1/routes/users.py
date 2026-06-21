@@ -119,6 +119,18 @@ async def get_my_insights(
     return await user_service.get_user_insights(db, current_user)
 
 
+@router.get("/by-username/{username}", response_model=PublicUserProfileResponse)
+async def get_user_profile_by_username(
+    username: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Look up a user's public profile by username."""
+    return await user_service.get_public_profile_by_username(
+        db, username, current_user_id=current_user.id,
+    )
+
+
 @router.get("/{user_id}", response_model=PublicUserProfileResponse)
 async def get_user_profile(
     user_id: UUID,

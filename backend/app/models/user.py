@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -62,6 +62,7 @@ class User(BaseModel):
     # ── Profile ──────────────────────────────────────────────────
     bio: Mapped[str | None] = mapped_column(Text)
     profile_image_url: Mapped[str | None] = mapped_column(String(500))
+    skills: Mapped[list[str] | None] = mapped_column(ARRAY(String(100)))
 
     # ── Status & permissions ─────────────────────────────────────
     is_active: Mapped[bool] = mapped_column(default=True)

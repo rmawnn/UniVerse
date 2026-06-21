@@ -39,6 +39,7 @@ class MyProfileResponse(BaseModel):
     academic_year: int | None = None
     bio: str | None = None
     profile_image_url: str | None = None
+    skills: list[str] = []
     is_active: bool
     email_verified: bool = False
     is_verified_student: bool
@@ -59,6 +60,7 @@ class UserUpdateRequest(BaseModel):
     profile_image_url: str | None = Field(None, max_length=500)
     department: str | None = Field(None, max_length=150)
     academic_year: int | None = Field(None, ge=1, le=8)
+    skills: list[str] | None = Field(None, max_length=20)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -94,6 +96,7 @@ class PublicUserProfileResponse(BaseModel):
     university_id: uuid.UUID | None = None
     university_name: str | None = None
     is_verified_student: bool
+    skills: list[str] = []
     communities: list[CommunitySummary] = []
     posts_count: int = 0
     followers_count: int = 0

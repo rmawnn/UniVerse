@@ -100,6 +100,7 @@ async def get_my_profile(
         academic_year=current_user.academic_year,
         bio=current_user.bio,
         profile_image_url=current_user.profile_image_url,
+        skills=current_user.skills or [],
         is_active=current_user.is_active,
         email_verified=current_user.email_verified,
         is_verified_student=current_user.is_verified_student,
@@ -147,6 +148,18 @@ async def search_users(
     )
 
 
+async def get_public_profile_by_username(
+    db: AsyncSession,
+    username: str,
+    current_user_id: UUID | None = None,
+) -> PublicUserProfileResponse:
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_username(username)
+    if not user or not user.is_active:
+        raise NotFound("User")
+    return await _build_public_profile(db, user, current_user_id)
+
+
 async def get_public_profile(
     db: AsyncSession,
     target_user_id: UUID,
@@ -162,7 +175,14 @@ async def get_public_profile(
     if not user or not user.is_active:
         raise NotFound("User")
 
-    # Resolve university name
+    return await _build_public_profile(db, user, current_user_id)
+
+
+async def _build_public_profile(
+    db: AsyncSession,
+    user: User,
+    current_user_id: UUID | None = None,
+) -> PublicUserProfileResponse:
     university_name: str | None = None
     if user.university_id:
         uni_repo = UniversityRepository(db)
@@ -170,24 +190,22 @@ async def get_public_profile(
         if university:
             university_name = university.name
 
-    # Resolve communities
     community_repo = CommunityRepository(db)
-    communities = await community_repo.list_by_user(target_user_id)
+    communities = await community_repo.list_by_user(user.id)
     community_summaries = [
         CommunitySummary(id=c.id, name=c.name) for c in communities
     ]
 
-    # Resolve counts
     post_repo = PostRepository(db)
-    posts_count = await post_repo.count_by_author(target_user_id)
+    posts_count = await post_repo.count_by_author(user.id)
 
     follow_repo = FollowRepository(db)
-    followers_count = await follow_repo.count_followers(target_user_id)
-    following_count = await follow_repo.count_following(target_user_id)
+    followers_count = await follow_repo.count_followers(user.id)
+    following_count = await follow_repo.count_following(user.id)
 
     is_following = False
-    if current_user_id and current_user_id != target_user_id:
-        is_following = await follow_repo.exists(current_user_id, target_user_id)
+    if current_user_id and current_user_id != user.id:
+        is_following = await follow_repo.exists(current_user_id, user.id)
 
     return PublicUserProfileResponse(
         id=user.id,
@@ -200,6 +218,7 @@ async def get_public_profile(
         university_id=user.university_id,
         university_name=university_name,
         is_verified_student=user.is_verified_student,
+        skills=user.skills or [],
         communities=community_summaries,
         posts_count=posts_count,
         followers_count=followers_count,
