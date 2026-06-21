@@ -34,8 +34,22 @@ export function OtpInput({ length = 6, defaultValue = "", onChange }: OtpInputPr
     }
   }
 
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
+    if (!pasted) return;
+    e.preventDefault();
+    const next = [...digits];
+    for (let i = 0; i < pasted.length; i++) {
+      next[i] = pasted[i];
+    }
+    setDigits(next);
+    onChange?.(next.join(""));
+    const focusIdx = Math.min(pasted.length, length - 1);
+    refs.current[focusIdx]?.focus();
+  }
+
   return (
-    <div className="flex gap-2.5" role="group" aria-label="One-time code">
+    <div className="flex justify-center gap-2.5" role="group" aria-label="One-time code">
       {digits.map((d, i) => (
         <input
           key={i}
@@ -49,8 +63,9 @@ export function OtpInput({ length = 6, defaultValue = "", onChange }: OtpInputPr
           aria-label={`Digit ${i + 1}`}
           onChange={(e) => update(i, e.target.value)}
           onKeyDown={(e) => handleKey(i, e)}
+          onPaste={handlePaste}
           className={cn(
-            "h-[60px] flex-1 rounded-md border bg-bg-2 text-center text-[26px] font-semibold text-fg-1",
+            "h-[56px] w-[56px] rounded-md border bg-bg-2 text-center text-[26px] font-semibold text-fg-1",
             "focus:outline-none focus:ring-4",
             d
               ? "border-line-3"

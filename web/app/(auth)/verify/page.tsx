@@ -135,6 +135,7 @@ function VerifyPageInner() {
       });
       setVerificationId(res.data.verification_id);
       setResendCooldown(60);
+      setError(null);
       setStep("email-otp");
     } catch (err: unknown) {
       setError(err instanceof ApiError ? err.message : "Failed to send verification code.");
@@ -469,7 +470,11 @@ function VerifyPageInner() {
             {loading ? "Verifying..." : "Verify & continue"}
           </Button>
 
-          <p className="mt-4 text-center text-[13px] text-fg-3">
+          <p className="mt-3 text-center text-[12px] text-fg-4">
+            Can&rsquo;t find the email? Check your spam or junk folder.
+          </p>
+
+          <p className="mt-2 text-center text-[13px] text-fg-3">
             Wrong email?{" "}
             <button
               onClick={() => {

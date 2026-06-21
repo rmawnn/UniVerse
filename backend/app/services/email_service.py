@@ -336,7 +336,7 @@ async def send_verification_email(
         logger.error("Unknown EMAIL_PROVIDER '%s'. Supported: resend, sendgrid, smtp", provider)
         return False
 
-    subject = f"UniVerse Verification Code: {code}"
+    subject = "UniVerse — Verify your university email"
     html = _build_verification_html(code, expiry_minutes)
     text = _build_verification_text(code, expiry_minutes)
 
