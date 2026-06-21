@@ -53,6 +53,8 @@ TABLES_WITH_UUID_PK = [
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+
     # ── 1. Add server_default to all UUID primary keys ──────────
     for table in TABLES_WITH_UUID_PK:
         op.alter_column(
@@ -69,30 +71,42 @@ def upgrade() -> None:
     )
 
     # ── 3. Fix FK: users.university_id → ON DELETE SET NULL ────
-    #    Drop the existing FK and recreate with SET NULL.
-    op.drop_constraint(
-        "users_university_id_fkey", "users", type_="foreignkey"
-    )
-    op.create_foreign_key(
-        "users_university_id_fkey",
-        "users", "universities",
-        ["university_id"], ["id"],
-        ondelete="SET NULL",
-    )
+    fk_users = conn.execute(
+        sa.text(
+            "SELECT confdeltype FROM pg_constraint "
+            "WHERE conname = 'users_university_id_fkey'"
+        )
+    ).scalar()
+    if fk_users and fk_users != 'n':
+        op.drop_constraint(
+            "users_university_id_fkey", "users", type_="foreignkey"
+        )
+        op.create_foreign_key(
+            "users_university_id_fkey",
+            "users", "universities",
+            ["university_id"], ["id"],
+            ondelete="SET NULL",
+        )
 
     # ── 4. Fix FK: verification_requests.university_id → SET NULL
-    op.drop_constraint(
-        "verification_requests_university_id_fkey",
-        "verification_requests",
-        type_="foreignkey",
-    )
-    op.create_foreign_key(
-        "verification_requests_university_id_fkey",
-        "verification_requests", "universities",
-        ["university_id"], ["id"],
-        ondelete="SET NULL",
-    )
-    # Also make it nullable so SET NULL can work
+    fk_vr = conn.execute(
+        sa.text(
+            "SELECT confdeltype FROM pg_constraint "
+            "WHERE conname = 'verification_requests_university_id_fkey'"
+        )
+    ).scalar()
+    if fk_vr and fk_vr != 'n':
+        op.drop_constraint(
+            "verification_requests_university_id_fkey",
+            "verification_requests",
+            type_="foreignkey",
+        )
+        op.create_foreign_key(
+            "verification_requests_university_id_fkey",
+            "verification_requests", "universities",
+            ["university_id"], ["id"],
+            ondelete="SET NULL",
+        )
     op.alter_column(
         "verification_requests", "university_id",
         existing_type=sa.UUID(),
