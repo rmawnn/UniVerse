@@ -45,7 +45,7 @@ class TestSendVerificationCode:
 
         with patch("app.services.verification_service.validate_university_email", return_value=mock_valid), \
              patch("app.services.verification_service.UniversityRepository", return_value=mock_uni_repo):
-            with pytest.raises(NotFound, match="No university found"):
+            with pytest.raises(BadRequest, match="No university found"):
                 await send_verification_code(mock_db, sample_user, "student@unknown.edu.tr")
 
     @pytest.mark.asyncio
@@ -60,7 +60,7 @@ class TestSendVerificationCode:
 
         with patch("app.services.verification_service.validate_university_email", return_value=mock_valid), \
              patch("app.services.verification_service.UniversityRepository", return_value=mock_uni_repo):
-            with pytest.raises(NotFound):
+            with pytest.raises(BadRequest):
                 await send_verification_code(mock_db, sample_user, "student@stu.rumeli.edu.tr")
             # Verify it tried both exact and base domain lookups
             calls = mock_uni_repo.get_by_domain.call_args_list
@@ -80,7 +80,7 @@ class TestSendVerificationCode:
 
         with patch("app.services.verification_service.validate_university_email", return_value=mock_valid), \
              patch("app.services.verification_service.UniversityRepository", return_value=mock_uni_repo):
-            with pytest.raises(NotFound):
+            with pytest.raises(BadRequest):
                 await send_verification_code(mock_db, sample_user, "student@live.acibadem.edu.tr")
             # Verify suffix search was called with the base domain
             mock_uni_repo.get_by_domain_suffix.assert_called_once_with("acibadem.edu.tr")

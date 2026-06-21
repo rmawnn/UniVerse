@@ -115,7 +115,7 @@ async def send_verification_code(
             university = await uni_repo.get_by_domain_suffix(base_domain)
 
     if not university:
-        raise NotFound(
+        raise BadRequest(
             f"No university found for email domain '{domain}'. "
             "Make sure you are using your official university email."
         )
