@@ -20,6 +20,7 @@ import {
   Search,
   ShieldAlert,
   Trash2,
+  UserPlus,
   UserX,
   Users,
   WifiOff,
@@ -47,6 +48,7 @@ import {
   useDeactivateUser,
   useActivateUser,
   useChangeUserRole,
+  useCreateUser,
   useHidePost,
   useAIAnalytics,
   useAIUsageSummary,
@@ -981,6 +983,14 @@ function UsersTab({
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [actionUser, setActionUser] = useState<AdminUser | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    email: "",
+    username: "",
+    full_name: "",
+    password: "",
+    role: "student",
+  });
 
   const { data, isLoading, isError, refetch } = useAdminUsers(
     page,
@@ -994,6 +1004,7 @@ function UsersTab({
   const deactivate = useDeactivateUser();
   const activate = useActivateUser();
   const changeRole = useChangeUserRole();
+  const createUserMutation = useCreateUser();
 
   const handleDeactivate = async (u: AdminUser) => {
     try {
@@ -1012,6 +1023,34 @@ function UsersTab({
       setActionUser(null);
     } catch {
       showToast("Failed to activate user", "error");
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (
+      !createForm.email ||
+      !createForm.username ||
+      !createForm.full_name ||
+      !createForm.password
+    ) {
+      showToast("All fields are required", "error");
+      return;
+    }
+    try {
+      await createUserMutation.mutateAsync(createForm);
+      showToast(`User @${createForm.username} created`, "success");
+      setShowCreateForm(false);
+      setCreateForm({
+        email: "",
+        username: "",
+        full_name: "",
+        password: "",
+        role: "student",
+      });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to create user";
+      showToast(msg, "error");
     }
   };
 
@@ -1062,6 +1101,13 @@ function UsersTab({
                 </button>
               ))}
             </div>
+            <Button
+              size="sm"
+              icon={<UserPlus className="h-3.5 w-3.5" />}
+              onClick={() => setShowCreateForm(true)}
+            >
+              Create user
+            </Button>
           </div>
         </div>
 
@@ -1198,35 +1244,46 @@ function UsersTab({
               </Button>
             )}
 
-            {actionUser.role !== "admin" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<ShieldAlert className="h-3.5 w-3.5" />}
-                onClick={async () => {
-                  const newRole =
-                    actionUser.role === "moderator" ? "student" : "moderator";
-                  try {
-                    await changeRole.mutateAsync({
-                      userId: actionUser.id,
-                      role: newRole,
-                    });
-                    showToast(
-                      `@${actionUser.username} role changed to ${newRole}`,
-                      "success",
-                    );
-                    setActionUser(null);
-                  } catch {
-                    showToast("Failed to change role", "error");
-                  }
-                }}
-                disabled={changeRole.isPending}
-              >
-                {actionUser.role === "moderator"
-                  ? "Remove moderator"
-                  : "Make moderator"}
-              </Button>
-            )}
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-4">
+                Change role
+              </p>
+              <div className="flex gap-1.5">
+                {(["student", "moderator", "admin"] as const).map((r) => (
+                  <button
+                    key={r}
+                    disabled={
+                      actionUser.role === r || changeRole.isPending
+                    }
+                    onClick={async () => {
+                      try {
+                        await changeRole.mutateAsync({
+                          userId: actionUser.id,
+                          role: r,
+                        });
+                        showToast(
+                          `@${actionUser.username} role changed to ${r}`,
+                          "success",
+                        );
+                        setActionUser(null);
+                      } catch {
+                        showToast("Failed to change role", "error");
+                      }
+                    }}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
+                      actionUser.role === r
+                        ? "bg-acc-gradient text-white"
+                        : "bg-bg-3 text-fg-3 hover:text-fg-1",
+                      (actionUser.role === r || changeRole.isPending) &&
+                        "opacity-50 cursor-not-allowed",
+                    )}
+                  >
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 flex justify-end">
@@ -1236,6 +1293,115 @@ function UsersTab({
               onClick={() => setActionUser(null)}
             >
               Close
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Create user modal */}
+      {showCreateForm && (
+        <Modal
+          open={showCreateForm}
+          onClose={() => setShowCreateForm(false)}
+          title="Create new user"
+        >
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-fg-3">
+                Email (any email allowed)
+              </label>
+              <input
+                type="email"
+                value={createForm.email}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, email: e.target.value }))
+                }
+                placeholder="user@gmail.com"
+                className="h-9 w-full rounded-md border border-line-2 bg-bg-2 px-3 text-[13px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-fg-3">
+                Username
+              </label>
+              <input
+                type="text"
+                value={createForm.username}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, username: e.target.value }))
+                }
+                placeholder="johndoe"
+                className="h-9 w-full rounded-md border border-line-2 bg-bg-2 px-3 text-[13px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-fg-3">
+                Full name
+              </label>
+              <input
+                type="text"
+                value={createForm.full_name}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, full_name: e.target.value }))
+                }
+                placeholder="John Doe"
+                className="h-9 w-full rounded-md border border-line-2 bg-bg-2 px-3 text-[13px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-fg-3">
+                Password
+              </label>
+              <input
+                type="password"
+                value={createForm.password}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, password: e.target.value }))
+                }
+                placeholder="Min 8 characters"
+                className="h-9 w-full rounded-md border border-line-2 bg-bg-2 px-3 text-[13px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-fg-3">
+                Role
+              </label>
+              <div className="flex gap-1.5">
+                {(["student", "moderator", "admin"] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() =>
+                      setCreateForm((f) => ({ ...f, role: r }))
+                    }
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
+                      createForm.role === r
+                        ? "bg-acc-gradient text-white"
+                        : "bg-bg-3 text-fg-3 hover:text-fg-1",
+                    )}
+                  >
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCreateForm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              icon={<UserPlus className="h-3.5 w-3.5" />}
+              onClick={handleCreateUser}
+              disabled={createUserMutation.isPending}
+            >
+              {createUserMutation.isPending ? "Creating…" : "Create user"}
             </Button>
           </div>
         </Modal>

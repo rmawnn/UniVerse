@@ -10,6 +10,7 @@ from app.schemas.admin import (
     AIAnalyticsResponse,
     AdminCommunityDetailResponse,
     AdminCommunityResponse,
+    AdminCreateUserRequest,
     AdminPostDetailResponse,
     AdminPostResponse,
     AdminStatsResponse,
@@ -84,6 +85,22 @@ async def get_moderation_queue(
 
 
 # ── Users ────────────────────────────────────────────────────
+
+
+@router.post("/users", response_model=AdminUserResponse, status_code=201)
+async def create_user(
+    body: AdminCreateUserRequest,
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await admin_service.create_user(
+        db,
+        email=body.email,
+        username=body.username,
+        full_name=body.full_name,
+        password=body.password,
+        role=body.role,
+    )
 
 
 @router.get("/users", response_model=PaginatedResponse[AdminUserResponse])

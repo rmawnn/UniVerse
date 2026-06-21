@@ -16,6 +16,7 @@ import {
   getReports,
   updateReportStatus,
   getAdminUsers,
+  createUser,
   deactivateUser,
   activateUser,
   changeUserRole,
@@ -34,6 +35,7 @@ import {
   type AdminVerification,
   type AdminReport,
   type AdminUser,
+  type AdminCreateUserRequest,
   type PaginatedResponse,
 } from "@/lib/api/admin";
 
@@ -181,6 +183,16 @@ export function useAdminUsers(
     queryKey: adminKeys.users({ page, pageSize, search, isActive, isVerified, role }),
     queryFn: () => getAdminUsers(page, pageSize, search, isActive, isVerified, role),
     staleTime: 15_000,
+  });
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: AdminCreateUserRequest) => createUser(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
   });
 }
 

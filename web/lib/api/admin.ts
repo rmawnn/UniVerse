@@ -283,6 +283,21 @@ export async function updateReportStatus(
 }
 
 // Users
+export interface AdminCreateUserRequest {
+  email: string;
+  username: string;
+  full_name: string;
+  password: string;
+  role: string;
+}
+
+export async function createUser(
+  data: AdminCreateUserRequest,
+): Promise<AdminUser> {
+  const res = await api.post<AdminUser>("/admin/users", data);
+  return res.data;
+}
+
 export async function getAdminUsers(
   page = 1,
   pageSize = 50,

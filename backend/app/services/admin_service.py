@@ -579,6 +579,31 @@ async def activate_user(db: AsyncSession, target_user_id: UUID) -> AdminUserResp
     return _user_response(user)
 
 
+async def create_user(
+    db: AsyncSession, *, email: str, username: str, full_name: str,
+    password: str, role: str = "student",
+) -> AdminUserResponse:
+    from app.core.security import hash_password
+
+    valid_roles = {r.value for r in UserRole}
+    if role not in valid_roles:
+        raise BadRequest(f"Invalid role. Must be one of: {', '.join(valid_roles)}")
+    repo = UserRepository(db)
+    if await repo.get_by_email(email):
+        raise BadRequest("A user with this email already exists")
+    if await repo.get_by_username(username):
+        raise BadRequest("A user with this username already exists")
+    user = User(
+        email=email,
+        username=username,
+        full_name=full_name,
+        password_hash=hash_password(password),
+        role=role,
+    )
+    user = await repo.create(user)
+    return _user_response(user)
+
+
 async def change_role(
     db: AsyncSession, target_user_id: UUID, new_role: str, admin_user: User,
 ) -> AdminUserResponse:
