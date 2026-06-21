@@ -38,10 +38,10 @@ class VerificationRequest(BaseModel):
         index=True,
         nullable=False,
     )
-    university_id: Mapped[uuid.UUID] = mapped_column(
+    university_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("universities.id"),
-        nullable=False,
+        ForeignKey("universities.id", ondelete="SET NULL"),
+        nullable=True,
     )
     verification_method: Mapped[str] = mapped_column(
         String(20),

@@ -53,7 +53,7 @@ class User(BaseModel):
     # ── Academic info ────────────────────────────────────────────
     university_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("universities.id"),
+        ForeignKey("universities.id", ondelete="SET NULL"),
         index=True,
     )
     department: Mapped[str | None] = mapped_column(String(150))
