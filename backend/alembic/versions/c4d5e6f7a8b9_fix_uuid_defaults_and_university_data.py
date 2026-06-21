@@ -24,32 +24,23 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 # Every table that inherits BaseModel and needs the UUID server_default.
-TABLES_WITH_UUID_PK = [
-    "universities",
-    "users",
-    "communities",
-    "posts",
-    "comments",
-    "conversations",
-    "messages",
-    "notifications",
-    "verification_requests",
-    "stories",
-    "saved_collections",
-    "job_posts",
-    "job_applications",
-    "reports",
-    "password_reset_tokens",
-    "reposts",
-    "ai_usage_logs",
-]
-
-
 def upgrade() -> None:
     conn = op.get_bind()
 
     # ── 1. Add server_default to all UUID primary keys ──────────
-    for table in TABLES_WITH_UUID_PK:
+    #    Query the actual schema to find tables that have an "id" column,
+    #    so we don't break on junction tables with composite PKs.
+    rows = conn.execute(
+        sa.text(
+            "SELECT table_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' "
+            "AND column_name = 'id' "
+            "AND table_name NOT IN ('alembic_version')"
+        )
+    ).fetchall()
+    tables_with_id = [r[0] for r in rows]
+
+    for table in tables_with_id:
         op.alter_column(
             table, "id",
             server_default=sa.text("gen_random_uuid()"),
@@ -142,9 +133,18 @@ def downgrade() -> None:
         )
     )
 
-    # Remove server_default from all tables
-    for table in TABLES_WITH_UUID_PK:
+    # Remove server_default from tables that have an id column
+    conn = op.get_bind()
+    rows = conn.execute(
+        sa.text(
+            "SELECT table_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' "
+            "AND column_name = 'id' "
+            "AND table_name NOT IN ('alembic_version')"
+        )
+    ).fetchall()
+    for row in rows:
         op.alter_column(
-            table, "id",
+            row[0], "id",
             server_default=None,
         )
