@@ -113,7 +113,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 client_ip,
             )
 
-            if duration_ms > 5000:
+            if duration_ms > 2000:
                 logger.warning("[%s] SLOW REQUEST: %s %s took %.1fms", request_id, request.method, request.url.path, duration_ms)
 
             # Add request ID to response for client-side debugging

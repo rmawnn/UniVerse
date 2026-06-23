@@ -155,12 +155,14 @@ export default function ExplorePage() {
   const trendingPostsQuery = useQuery({
     queryKey: ["trending", "posts"],
     queryFn: () => getTrendingPosts(20, 7),
+    enabled: tab === "Trending",
   });
 
   // ── Trending communities (dedicated endpoint for the Communities tab)
   const trendingCommunitiesQuery = useQuery({
     queryKey: ["trending", "communities"],
     queryFn: () => getTrendingCommunities(20, 7),
+    enabled: tab === "Communities",
   });
 
   // Derive data

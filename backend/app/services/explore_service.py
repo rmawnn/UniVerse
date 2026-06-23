@@ -34,11 +34,7 @@ async def get_explore(
     if posts:
         user_repo = UserRepository(db)
         author_ids = {p.author_id for p in posts}
-        authors: dict[UUID, User] = {}
-        for aid in author_ids:
-            user = await user_repo.get_by_id(aid)
-            if user:
-                authors[aid] = user
+        authors = await user_repo.get_by_ids(author_ids)
 
         post_ids = [p.id for p in posts]
         like_repo = PostLikeRepository(db)

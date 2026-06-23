@@ -55,17 +55,18 @@ async def create_job(
     follow_repo = FollowRepository(db)
     user_repo = UserRepository(db)
     follower_ids = await follow_repo.get_follower_ids(current_user.id)
-    for fid in follower_ids:
-        follower = await user_repo.get_by_id(fid)
-        if follower and follower.notify_new_jobs:
-            await notify(
-                db,
-                user_id=fid,
-                actor_id=current_user.id,
-                type="job_posted",
-                reference_id=job.id,
-                content=f"{current_user.full_name} posted a new job: {job.title}",
-            )
+    if follower_ids:
+        followers = await user_repo.get_by_ids(follower_ids)
+        for fid, follower in followers.items():
+            if follower.notify_new_jobs:
+                await notify(
+                    db,
+                    user_id=fid,
+                    actor_id=current_user.id,
+                    type="job_posted",
+                    reference_id=job.id,
+                    content=f"{current_user.full_name} posted a new job: {job.title}",
+                )
 
     return _build_job_response(job, current_user, application_count=0, has_applied=False, saved_by_me=False)
 
@@ -126,11 +127,7 @@ async def list_jobs(
     # Batch-load authors
     user_repo = UserRepository(db)
     author_ids = {j.author_id for j in jobs}
-    authors: dict[UUID, User] = {}
-    for aid in author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(author_ids)
 
     # Batch-load application counts, applied set, and saved set
     job_ids = [j.id for j in jobs]
@@ -226,11 +223,7 @@ async def get_job_activity(
     # Batch-load applicant users
     user_repo = UserRepository(db)
     applicant_ids = {a.applicant_id for a in applications}
-    applicants: dict[UUID, User] = {}
-    for uid in applicant_ids:
-        u = await user_repo.get_by_id(uid)
-        if u:
-            applicants[uid] = u
+    applicants = await user_repo.get_by_ids(applicant_ids)
 
     events: list[JobActivityEvent] = []
 
@@ -545,11 +538,7 @@ async def list_saved_jobs(
     # Batch-load authors
     user_repo = UserRepository(db)
     author_ids = {j.author_id for j in jobs}
-    authors: dict[UUID, User] = {}
-    for aid in author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(author_ids)
 
     # Batch-load application counts and applied/saved sets
     job_ids = [j.id for j in jobs]
@@ -629,11 +618,7 @@ async def list_recommended_jobs(
 
     # Batch-load enrichment (same pattern as list_jobs)
     author_ids = {j.author_id for j in jobs}
-    authors: dict[UUID, User] = {}
-    for aid in author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(author_ids)
 
     job_ids = [j.id for j in jobs]
     app_counts = await repo.count_applications_by_jobs(job_ids)
