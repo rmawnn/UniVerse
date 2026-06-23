@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy import select, func, case, literal_column, or_
@@ -20,6 +21,14 @@ class UserRepository:
 
     async def get_by_id(self, user_id: UUID) -> User | None:
         return await self.db.get(User, user_id)
+
+    async def get_by_ids(self, user_ids: Iterable[UUID]) -> dict[UUID, User]:
+        ids = list(set(user_ids))
+        if not ids:
+            return {}
+        stmt = select(User).where(User.id.in_(ids))
+        result = await self.db.execute(stmt)
+        return {u.id: u for u in result.scalars().all()}
 
     async def get_by_email(self, email: str) -> User | None:
         stmt = select(User).where(User.email == email)

@@ -56,8 +56,8 @@ class Settings(BaseSettings):
     DB_PORT: int = 5432
     DB_NAME: str = "universe_db"
     DB_SSLMODE: str = ""  # "require" for Supabase; auto-detected when empty
-    DATABASE_POOL_SIZE: int = 5
-    DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 20
 
     # ── Supabase ─────────────────────────────────────────────────
     # Required for Storage and Realtime features.

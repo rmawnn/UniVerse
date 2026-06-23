@@ -12,6 +12,7 @@ Extracted fields:
   - expiration_date: Card expiry (if present)
 """
 
+import asyncio
 import io
 import logging
 import re
@@ -232,6 +233,6 @@ async def run_ocr_pipeline(
     Returns:
       (raw_text, extracted_data_dict)
     """
-    raw_text = extract_text(file_content, content_type)
+    raw_text = await asyncio.to_thread(extract_text, file_content, content_type)
     extracted_data = parse_extracted_data(raw_text)
     return raw_text, extracted_data

@@ -29,15 +29,19 @@ api.interceptors.request.use((config) => {
 /* ── Response interceptor: handle errors + token refresh ─── */
 
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<{
+  resolve: (token: string) => void;
+  reject: (err: Error) => void;
+}> = [];
 
 function onTokenRefreshed(newToken: string) {
-  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers.forEach((sub) => sub.resolve(newToken));
   refreshSubscribers = [];
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+function onRefreshFailed(err: Error) {
+  refreshSubscribers.forEach((sub) => sub.reject(err));
+  refreshSubscribers = [];
 }
 
 api.interceptors.response.use(
@@ -53,7 +57,6 @@ api.interceptors.response.use(
         "Something went wrong";
       const detail = formatApiError(rawDetail);
 
-      // On 401, attempt silent token refresh (once per request)
       if (
         status === 401 &&
         typeof window !== "undefined" &&
@@ -80,35 +83,35 @@ api.interceptors.response.use(
               isRefreshing = false;
               onTokenRefreshed(access_token);
 
-              // Retry original request with new token
               originalRequest.headers.Authorization = `Bearer ${access_token}`;
               return api(originalRequest);
             } catch {
               isRefreshing = false;
-              refreshSubscribers = [];
-              // Refresh failed — clear tokens and redirect
+              const sessionErr = new ApiError("Session expired", 401);
+              onRefreshFailed(sessionErr);
               localStorage.removeItem("uv_token");
               localStorage.removeItem("uv_refresh");
               if (!window.location.pathname.startsWith("/login")) {
                 window.location.href = "/login";
               }
-              return Promise.reject(new ApiError("Session expired", 401));
+              return Promise.reject(sessionErr);
             }
           } else {
             isRefreshing = false;
           }
         }
 
-        // If another request is already refreshing, queue this one
-        return new Promise((resolve) => {
-          addRefreshSubscriber((newToken: string) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            resolve(api(originalRequest));
+        return new Promise((resolve, reject) => {
+          refreshSubscribers.push({
+            resolve: (newToken: string) => {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              resolve(api(originalRequest));
+            },
+            reject,
           });
         });
       }
 
-      // Non-401 errors or post-refresh failures
       if (status === 401 && typeof window !== "undefined") {
         localStorage.removeItem("uv_token");
         localStorage.removeItem("uv_refresh");
@@ -119,9 +122,12 @@ api.interceptors.response.use(
 
       return Promise.reject(new ApiError(detail, status));
     }
-    return Promise.reject(
-      new ApiError("Network error — please check your connection", 0),
-    );
+
+    const isTimeout = error.code === "ECONNABORTED";
+    const message = isTimeout
+      ? "Request timed out — the server may be starting up, please try again"
+      : "Network error — please check your connection";
+    return Promise.reject(new ApiError(message, 0));
   },
 );
 

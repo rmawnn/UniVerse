@@ -147,11 +147,7 @@ async def list_posts(
     # Batch-load authors
     user_repo = UserRepository(db)
     author_ids = {p.author_id for p in posts}
-    authors: dict[UUID, User] = {}
-    for aid in author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(author_ids)
 
     # Batch-load like counts, comment counts, repost counts, and user's likes/saves/reposts
     post_ids = [p.id for p in posts]
@@ -217,11 +213,7 @@ async def list_user_posts(
     # Batch-load authors (likely just one user, but keeps pattern consistent)
     user_repo = UserRepository(db)
     author_ids = {p.author_id for p in posts}
-    authors: dict[UUID, User] = {}
-    for aid in author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(author_ids)
 
     # Batch-load like counts, comment counts, repost counts, and current user's likes/saves/reposts
     post_ids = [p.id for p in posts]
@@ -285,11 +277,7 @@ async def list_shorts(
     # Batch-load authors
     user_repo = UserRepository(db)
     author_ids = {p.author_id for p in posts}
-    authors: dict[UUID, User] = {}
-    for aid in author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(author_ids)
 
     # Batch-load like counts, comment counts, repost counts, and user's likes/saves/reposts
     post_ids = [p.id for p in posts]

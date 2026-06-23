@@ -111,12 +111,7 @@ async def get_home_feed(
     saved_set = await save_repo.saved_by_user(post_ids, current_user.id)
     reposted_set = await repost_repo.reposted_by_user(post_ids, current_user.id)
 
-    # Batch-load authors
-    authors: dict[UUID, User] = {}
-    for aid in candidate_author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(candidate_author_ids)
 
     # ── 3. Build signal objects & score ──────────────────────────
     signals_list: list[PostSignals] = []

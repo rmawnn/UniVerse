@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.api import v1_router
 from app.core.config import settings
 from app.core.database import dispose_engine
-from app.core.exceptions import AppException, app_exception_handler
+from app.core.exceptions import AppException, app_exception_handler, unhandled_exception_handler
 from app.core.logging import logger, setup_logging
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
@@ -146,6 +146,7 @@ def create_app() -> FastAPI:
 
     # --- Exception handlers ---
     app.add_exception_handler(AppException, app_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
 
     # --- Routers ---
     app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
