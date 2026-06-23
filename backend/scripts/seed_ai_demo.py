@@ -47,68 +47,106 @@ PASSWORD_HASH = hash_password("AiDemo2025!")
 
 USER_DEFS = [
     ("ai_elif", "Elif Yilmaz", "elif.yilmaz@iru.edu.tr", "Computer Engineering", 3,
-     "Deep learning researcher, PyTorch enthusiast. Working on NLP for Turkish."),
+     "Deep learning researcher, PyTorch enthusiast. Working on NLP for Turkish.",
+     ["Python", "PyTorch", "NLP", "deep learning", "TensorFlow"]),
     ("ai_mert", "Mert Ozkan", "mert.ozkan@iru.edu.tr", "Software Engineering", 4,
-     "Full-stack developer, open-source contributor. React + FastAPI."),
+     "Full-stack developer, open-source contributor. React + FastAPI.",
+     ["React", "FastAPI", "TypeScript", "PostgreSQL", "Docker"]),
     ("ai_zeynep", "Zeynep Demir", "zeynep.demir@iru.edu.tr", "AI Engineering", 2,
-     "Computer vision and robotics. Building autonomous systems."),
+     "Computer vision and robotics. Building autonomous systems.",
+     ["Python", "OpenCV", "PyTorch", "computer vision", "ROS"]),
     ("ai_baris", "Baris Kaya", "baris.kaya@iru.edu.tr", "Cyber Security", 3,
-     "Penetration tester, CTF player. Security researcher."),
+     "Penetration tester, CTF player. Security researcher.",
+     ["penetration testing", "Linux", "Burp Suite", "Python", "network security"]),
     ("ai_selin", "Selin Arslan", "selin.arslan@iru.edu.tr", "Business", 4,
-     "Data-driven marketing, startup founder. Bridging tech and business."),
+     "Data-driven marketing, startup founder. Bridging tech and business.",
+     ["data analysis", "SQL", "marketing", "product management", "Excel"]),
     ("ai_can", "Can Polat", "can.polat@iru.edu.tr", "Architecture", 2,
-     "Computational design, parametric modeling. Grasshopper + Python."),
+     "Computational design, parametric modeling. Grasshopper + Python.",
+     ["Grasshopper", "Rhino", "Python", "parametric design", "BIM"]),
     ("ai_ayse", "Ayse Celik", "ayse.celik@iru.edu.tr", "Computer Engineering", 4,
-     "Backend developer, distributed systems. Kubernetes and Go."),
+     "Backend developer, distributed systems. Kubernetes and Go.",
+     ["Go", "Kubernetes", "Docker", "PostgreSQL", "distributed systems"]),
     ("ai_emre", "Emre Sahin", "emre.sahin@iru.edu.tr", "Software Engineering", 3,
-     "Mobile developer, Flutter and SwiftUI. UI/UX enthusiast."),
+     "Mobile developer, Flutter and SwiftUI. UI/UX enthusiast.",
+     ["Flutter", "Dart", "SwiftUI", "Firebase", "UI/UX"]),
     ("ai_deniz", "Deniz Yildiz", "deniz.yildiz@iru.edu.tr", "AI Engineering", 4,
-     "Reinforcement learning, game AI. Published at AAAI."),
+     "Reinforcement learning, game AI. Published at AAAI.",
+     ["Python", "PyTorch", "reinforcement learning", "game AI", "research"]),
     ("ai_hakan", "Hakan Erdogan", "hakan.erdogan@iru.edu.tr", "Cyber Security", 2,
-     "Network security, malware analysis. Blue team defender."),
+     "Network security, malware analysis. Blue team defender.",
+     ["SIEM", "network security", "malware analysis", "Linux", "Wireshark"]),
     ("ai_melis", "Melis Korkmaz", "melis.korkmaz@iru.edu.tr", "Business", 3,
-     "Product management, agile methodologies. Certified Scrum Master."),
+     "Product management, agile methodologies. Certified Scrum Master.",
+     ["product management", "Jira", "agile", "Scrum", "user research"]),
     ("ai_omer", "Omer Aksoy", "omer.aksoy@iru.edu.tr", "Architecture", 3,
-     "Sustainable design, BIM specialist. LEED certified."),
+     "Sustainable design, BIM specialist. LEED certified.",
+     ["BIM", "Revit", "AutoCAD", "sustainable design", "LEED"]),
     ("ai_ipek", "Ipek Turan", "ipek.turan@iru.edu.tr", "Computer Engineering", 2,
-     "Database systems, data engineering. Apache Spark enthusiast."),
+     "Database systems, data engineering. Apache Spark enthusiast.",
+     ["Python", "SQL", "Apache Spark", "data engineering", "ETL"]),
     ("ai_burak", "Burak Guler", "burak.guler@iru.edu.tr", "Software Engineering", 4,
-     "DevOps engineer, CI/CD pipelines. Terraform and AWS."),
+     "DevOps engineer, CI/CD pipelines. Terraform and AWS.",
+     ["AWS", "Terraform", "Docker", "CI/CD", "Linux"]),
     ("ai_naz", "Naz Ozturk", "naz.ozturk@iru.edu.tr", "AI Engineering", 3,
-     "NLP researcher, transformer models. Working on multilingual BERT."),
+     "NLP researcher, transformer models. Working on multilingual BERT.",
+     ["Python", "HuggingFace", "NLP", "transformers", "BERT"]),
     ("ai_kerem", "Kerem Acar", "kerem.acar@iru.edu.tr", "Cyber Security", 4,
-     "Application security, SAST/DAST tools. Bug bounty hunter."),
+     "Application security, SAST/DAST tools. Bug bounty hunter.",
+     ["application security", "SAST", "DAST", "Python", "Burp Suite"]),
     ("ai_yagmur", "Yagmur Sen", "yagmur.sen@iru.edu.tr", "Business", 2,
-     "Finance and fintech. Interested in blockchain applications."),
+     "Finance and fintech. Interested in blockchain applications.",
+     ["finance", "Excel", "data analysis", "blockchain", "fintech"]),
     ("ai_arda", "Arda Cetin", "arda.cetin@iru.edu.tr", "Architecture", 4,
-     "Urban planning, GIS analysis. Smart city advocate."),
+     "Urban planning, GIS analysis. Smart city advocate.",
+     ["GIS", "urban planning", "QGIS", "Python", "data visualization"]),
     ("ai_derya", "Derya Bozkurt", "derya.bozkurt@iru.edu.tr", "Computer Engineering", 3,
-     "Compiler design, programming languages. Rust contributor."),
+     "Compiler design, programming languages. Rust contributor.",
+     ["Rust", "C++", "compiler design", "systems programming", "LLVM"]),
     ("ai_tolga", "Tolga Bulut", "tolga.bulut@iru.edu.tr", "Software Engineering", 2,
-     "Game developer, Unity and Unreal. XR experiences."),
+     "Game developer, Unity and Unreal. XR experiences.",
+     ["Unity", "C#", "Unreal Engine", "game design", "VR/AR"]),
 ]
 
 # ── Community definitions ─────────────────────────────────────────
 
 COMMUNITY_DEFS = [
-    ("AI & Machine Learning",
-     "Discuss AI research, share ML projects, paper readings, and career advice in artificial intelligence.",
-     0),  # creator index
-    ("Cyber Security Club",
-     "CTF challenges, security news, vulnerability research, and career paths in cybersecurity.",
-     3),
-    ("Software Projects",
-     "Showcase your projects, find collaborators, code reviews, and open-source contributions.",
+    ("Yazılım Geliştirme Kulübü",
+     "Kod paylaşımı, proje geliştirme, code review ve açık kaynak katkıları. Her seviyeden yazılımcıya açık.",
      1),
-    ("Internship Network",
-     "Share internship opportunities, interview tips, resume reviews, and career guidance.",
+    ("Siber Güvenlik Topluluğu",
+     "CTF yarışmaları, güvenlik haberleri, zafiyet araştırması ve siber güvenlik kariyer yolları.",
+     3),
+    ("Yapay Zekâ ve Veri Bilimi Kulübü",
+     "Yapay zekâ araştırmaları, ML projeleri, makale okumaları ve AI kariyer tavsiyeleri.",
+     0),
+    ("Girişimcilik Kulübü",
+     "Startup fikirleri, pitch deck hazırlama, yatırımcı ağları ve girişimcilik deneyimleri.",
      4),
-    ("Campus Events",
-     "Hackathons, workshops, seminars, guest lectures, and social events on campus.",
-     7),
-    ("Housing & Roommates",
-     "Find housing near campus, roommate matching, moving tips, and neighborhood reviews.",
+    ("Erasmus ve Uluslararası Öğrenciler",
+     "Erasmus deneyimleri, değişim programları, uluslararası öğrenci yaşamı ve kültürel etkinlikler.",
      5),
+    ("Kariyer ve Staj Fırsatları",
+     "Staj ilanları, mülakat hazırlığı, CV incelemeleri ve kariyer rehberliği.",
+     10),
+    ("Mobil Uygulama Geliştirme",
+     "iOS, Android ve cross-platform mobil uygulama geliştirme, Flutter, React Native ve SwiftUI.",
+     7),
+    ("Oyun Geliştirme Kulübü",
+     "Unity, Unreal Engine, oyun tasarımı ve game jam etkinlikleri.",
+     19),
+    ("Grafik Tasarım ve UI/UX",
+     "UI/UX tasarım, Figma, kullanıcı araştırması, prototyping ve görsel tasarım paylaşımları.",
+     7),
+    ("Kitap ve Akademik Paylaşım",
+     "Kitap önerileri, akademik makale tartışmaları, ders notları ve çalışma grupları.",
+     11),
+    ("Spor ve Sağlıklı Yaşam",
+     "Kampüs sporları, fitness, sağlıklı beslenme ve takım sporları organizasyonları.",
+     5),
+    ("Kampüs Duyuruları",
+     "Hackathon'lar, workshoplar, seminerler, konuk konuşmacılar ve sosyal etkinlikler.",
+     0),
 ]
 
 # ── Post content (80 posts across 8 categories) ──────────────────
@@ -215,46 +253,46 @@ POST_CONTENT = {
 # ── Job definitions ───────────────────────────────────────────────
 
 JOB_DEFS = [
-    ("Junior Python Developer", "Backend development with Python, FastAPI, and PostgreSQL. Build REST APIs and microservices for our e-commerce platform.", "TechStart Istanbul", "Istanbul", "full-time",
+    ("SOC Analyst Intern", "Monitor security events in our 24/7 SOC, triage alerts, and assist with incident response. Hands-on experience with SIEM and EDR platforms.", "SecureNet Turkey", "Istanbul, Hybrid", "internship",
+     "SIEM, network security, Linux, log analysis, Wireshark"),
+    ("Backend Developer Intern", "Build REST APIs and microservices with Python and FastAPI. Work with PostgreSQL, Redis, and Docker in an agile team.", "TechStart Istanbul", "Istanbul, On-site", "internship",
      "Python, FastAPI, PostgreSQL, Docker, REST APIs"),
-    ("Machine Learning Intern", "Join our ML team to work on recommendation systems. You'll train models, run experiments, and help deploy to production.", "DataMinds AI", "Istanbul", "internship",
-     "Python, PyTorch, scikit-learn, pandas, SQL"),
-    ("Frontend Developer", "Build responsive web applications using React and TypeScript. Work closely with UX designers to implement pixel-perfect interfaces.", "WebCraft Studio", "Remote", "full-time",
+    ("Frontend Developer Intern", "Build responsive web applications using React and TypeScript. Work closely with UX designers on pixel-perfect interfaces.", "WebCraft Studio", "Remote", "internship",
      "React, TypeScript, Next.js, Tailwind CSS, Git"),
-    ("Cybersecurity Analyst Intern", "Monitor security events, perform vulnerability assessments, and assist with incident response in our SOC team.", "SecureNet Turkey", "Ankara", "internship",
-     "Network security, SIEM tools, Linux, Python, Wireshark"),
-    ("Mobile Developer (Flutter)", "Develop cross-platform mobile applications for our fintech products. Experience with state management and API integration required.", "PayTech Solutions", "Istanbul", "full-time",
+    ("Data Analyst Intern", "Analyze business data, build dashboards, and generate insights using SQL and Python. Present findings to stakeholders.", "AnalyticsCo", "Istanbul, Hybrid", "internship",
+     "Python, SQL, pandas, Tableau, data visualization"),
+    ("AI/ML Intern", "Work on recommendation systems and NLP pipelines. Train models, run experiments, and help deploy to production.", "DataMinds AI", "Istanbul, On-site", "internship",
+     "Python, PyTorch, scikit-learn, HuggingFace, SQL"),
+    ("Mobile Developer Intern", "Develop cross-platform mobile applications with Flutter. Experience with state management and API integration required.", "PayTech Solutions", "Istanbul, On-site", "internship",
      "Flutter, Dart, Firebase, REST APIs, Git"),
-    ("Data Engineering Intern", "Build and maintain ETL pipelines using Apache Airflow and dbt. Work with large datasets in our cloud data warehouse.", "AnalyticsCo", "Istanbul", "internship",
-     "Python, SQL, Apache Airflow, dbt, AWS/GCP"),
-    ("DevOps Engineer", "Manage CI/CD pipelines, Kubernetes clusters, and cloud infrastructure. Automate everything from testing to deployment.", "CloudFirst", "Istanbul", "full-time",
-     "Kubernetes, Docker, Terraform, AWS, CI/CD, Linux"),
-    ("NLP Research Assistant", "Work on Turkish language processing tasks including text classification, NER, and machine translation. Part-time position.", "University AI Lab", "Istanbul", "part-time",
-     "Python, HuggingFace Transformers, NLP, PyTorch"),
-    ("UI/UX Design Intern", "Design user interfaces for web and mobile applications. Conduct user research and create interactive prototypes.", "DesignHub Agency", "Istanbul", "internship",
-     "Figma, user research, prototyping, wireframing"),
+    ("Cybersecurity Intern", "Perform vulnerability assessments, assist with penetration testing, and support security operations in our cybersecurity team.", "CyberGuard TR", "Ankara, On-site", "internship",
+     "Network security, penetration testing, Linux, Python, Burp Suite"),
+    ("DevOps Intern", "Support CI/CD pipelines, manage container orchestration, and automate infrastructure tasks in a cloud-first environment.", "CloudFirst", "Istanbul, Hybrid", "internship",
+     "Docker, Kubernetes, Terraform, AWS, CI/CD, Linux"),
+    ("UI/UX Design Intern", "Design user interfaces for web and mobile applications. Conduct user research and create interactive prototypes.", "DesignHub Agency", "Istanbul, On-site", "internship",
+     "Figma, user research, prototyping, wireframing, Sketch"),
+    ("Software QA Intern", "Write automated tests, perform manual testing, and help improve the CI test pipeline. Great entry point into software engineering.", "TestPro Software", "Istanbul, Hybrid", "internship",
+     "Python, Selenium, API testing, CI/CD, SQL"),
     ("Full-Stack Developer", "Work on both frontend (React) and backend (Node.js) of our SaaS platform. Startup environment with rapid iteration.", "SaaSify", "Remote", "full-time",
      "React, Node.js, TypeScript, MongoDB, AWS"),
-    ("Blockchain Developer Intern", "Smart contract development on Ethereum and Solana. Build DeFi protocols and contribute to open-source Web3 tools.", "CryptoLab Turkey", "Istanbul", "internship",
-     "Solidity, Rust, Web3.js, blockchain, smart contracts"),
-    ("Game Developer", "Unity development for mobile games. Work on gameplay systems, UI, and performance optimization for our puzzle game.", "PlayMakers Studio", "Istanbul", "full-time",
+    ("Game Developer", "Unity development for mobile games. Work on gameplay systems, UI, and performance optimization for our puzzle game.", "PlayMakers Studio", "Istanbul, On-site", "full-time",
      "Unity, C#, game design, mobile development, Git"),
-    ("Cloud Solutions Intern", "Help customers migrate to cloud infrastructure. Learn AWS services hands-on and get certified during the internship.", "AWS Partner Co", "Ankara", "internship",
+    ("Cloud Solutions Intern", "Help customers migrate to cloud infrastructure. Learn AWS services hands-on and get certified during the internship.", "AWS Partner Co", "Ankara, On-site", "internship",
      "AWS, Linux, networking, Python, cloud architecture"),
-    ("Technical Writer", "Create documentation for our API and developer tools. Must be able to understand and explain complex technical concepts clearly.", "DevToolsCo", "Remote", "part-time",
-     "Technical writing, API documentation, Markdown, Git"),
-    ("Computer Vision Engineer", "Develop image processing pipelines for our autonomous drone navigation system. Work with real-time object detection models.", "DroneVision", "Istanbul", "full-time",
+    ("NLP Research Assistant", "Work on Turkish language processing tasks including text classification, NER, and machine translation. Part-time position.", "University AI Lab", "Istanbul, On-site", "part-time",
+     "Python, HuggingFace Transformers, NLP, PyTorch"),
+    ("Computer Vision Engineer", "Develop image processing pipelines for our autonomous drone navigation system. Work with real-time object detection models.", "DroneVision", "Istanbul, On-site", "full-time",
      "Python, OpenCV, PyTorch, YOLO, embedded systems"),
-    ("QA Engineering Intern", "Write automated tests, perform manual testing, and help improve our CI test pipeline. Great entry point into software engineering.", "TestPro Software", "Istanbul", "internship",
-     "Python, Selenium, API testing, CI/CD, SQL"),
-    ("Embedded Systems Developer", "Firmware development for IoT devices using C/C++ and RTOS. Interface with sensors, BLE modules, and cloud backends.", "IoTech Solutions", "Ankara", "full-time",
+    ("Embedded Systems Developer", "Firmware development for IoT devices using C/C++ and RTOS. Interface with sensors, BLE modules, and cloud backends.", "IoTech Solutions", "Ankara, On-site", "full-time",
      "C, C++, RTOS, embedded systems, IoT protocols"),
-    ("Product Management Intern", "Help define product roadmaps, analyze user metrics, and coordinate between engineering and design teams.", "StartupXYZ", "Istanbul", "internship",
+    ("Product Management Intern", "Help define product roadmaps, analyze user metrics, and coordinate between engineering and design teams.", "StartupXYZ", "Istanbul, Hybrid", "internship",
      "Product management, analytics, Jira, user research, SQL"),
-    ("Backend Developer (Go)", "Build high-performance microservices in Go. Focus on payment processing and real-time event systems.", "FinFlow", "Istanbul", "full-time",
+    ("Backend Developer (Go)", "Build high-performance microservices in Go. Focus on payment processing and real-time event systems.", "FinFlow", "Istanbul, On-site", "full-time",
      "Go, gRPC, PostgreSQL, Redis, Docker, Kafka"),
-    ("AI/ML Intern — Computer Vision", "Work on medical image analysis using deep learning. Segment and classify pathology slides using state-of-the-art models.", "HealthAI", "Istanbul", "internship",
+    ("AI/ML Intern — Computer Vision", "Work on medical image analysis using deep learning. Segment and classify pathology slides using state-of-the-art models.", "HealthAI", "Istanbul, On-site", "internship",
      "Python, PyTorch, computer vision, deep learning, medical imaging"),
+    ("Blockchain Developer Intern", "Smart contract development on Ethereum and Solana. Build DeFi protocols and contribute to open-source Web3 tools.", "CryptoLab Turkey", "Istanbul, Remote", "internship",
+     "Solidity, Rust, Web3.js, blockchain, smart contracts"),
 ]
 
 # ── Comment templates ─────────────────────────────────────────────
@@ -317,17 +355,17 @@ async def seed():
             uni_id = uuid4()
             uni = University(
                 id=uni_id,
-                name="Istanbul Rumeli University",
+                name="İstanbul Rumeli Üniversitesi",
                 domain="iru.edu.tr",
                 country="Turkey",
             )
             session.add(uni)
             await session.flush()
-            print("Created university: Istanbul Rumeli University")
+            print("Created university: İstanbul Rumeli Üniversitesi")
 
         # ── Users ─────────────────────────────────────────────
         users = []
-        for username, full_name, email, dept, year, bio in USER_DEFS:
+        for username, full_name, email, dept, year, bio, skills in USER_DEFS:
             # Skip if already exists
             check = await session.execute(
                 text("SELECT id FROM users WHERE username=:u"),
@@ -354,6 +392,7 @@ async def seed():
                 department=dept,
                 academic_year=year,
                 bio=bio,
+                skills=skills,
                 is_active=True,
                 email_verified=True,
                 is_verified_student=True,
@@ -398,23 +437,24 @@ async def seed():
 
         # ── Community memberships ─────────────────────────────
         # Map communities to departments with affinity
-        # 0=AI&ML, 1=CyberSec, 2=SoftProj, 3=Internship, 4=Events, 5=Housing
+        # 0=Yazılım, 1=Siber, 2=AI/Veri, 3=Girişimcilik, 4=Erasmus, 5=Kariyer/Staj
+        # 6=Mobil, 7=Oyun, 8=UI/UX, 9=Kitap, 10=Spor, 11=Kampüs
         dept_affinity = {
-            "Computer Engineering": [0, 2, 3, 4],
-            "Software Engineering": [2, 0, 3, 4],
-            "AI Engineering": [0, 2, 3, 4],
-            "Cyber Security": [1, 2, 3, 4],
-            "Business": [3, 4, 5],
-            "Architecture": [4, 5, 3],
+            "Computer Engineering": [0, 2, 5, 11, 6, 9],
+            "Software Engineering": [0, 2, 5, 11, 6, 7],
+            "AI Engineering": [2, 0, 5, 11, 9],
+            "Cyber Security": [1, 0, 5, 11],
+            "Business": [3, 5, 11, 10, 4],
+            "Architecture": [8, 11, 10, 5, 4],
         }
 
         membership_count = 0
-        for i, (username, _, _, dept, _, _) in enumerate(USER_DEFS):
+        for i, (username, _, _, dept, _, _, _) in enumerate(USER_DEFS):
             affinities = dept_affinity.get(dept, [3, 4])
             # Add extra random communities
             extra = random.sample(
-                [j for j in range(6) if j not in affinities],
-                k=min(2, 6 - len(affinities)),
+                [j for j in range(len(COMMUNITY_DEFS)) if j not in affinities],
+                k=min(2, len(COMMUNITY_DEFS) - len(affinities)),
             )
             member_of = affinities + extra
 
@@ -429,7 +469,7 @@ async def seed():
                 if check.first():
                     continue
 
-                role = "admin" if ci < len(COMMUNITY_DEFS) and COMMUNITY_DEFS[ci][2] == i else "member"
+                role = "admin" if COMMUNITY_DEFS[ci][2] == i else "member"
                 cm = CommunityMember(
                     user_id=users[i],
                     community_id=communities[ci],
@@ -444,15 +484,17 @@ async def seed():
 
         # ── Posts (80 across 8 categories) ────────────────────
         # Map categories to likely communities
+        # 0=Yazılım, 1=Siber, 2=AI/Veri, 3=Girişimcilik, 4=Erasmus, 5=Kariyer/Staj
+        # 6=Mobil, 7=Oyun, 8=UI/UX, 9=Kitap, 10=Spor, 11=Kampüs
         category_community_map = {
-            "academic": [0, 2],      # AI&ML, Software Projects
-            "research": [0],         # AI&ML
-            "internship": [3],       # Internship Network
-            "job": [3, 2],           # Internship Network, Software Projects
-            "housing": [5],          # Housing & Roommates
-            "event": [4],            # Campus Events
-            "marketplace": [4, 5],   # Campus Events, Housing
-            "general": [4],          # Campus Events
+            "academic": [2, 0, 9],
+            "research": [2, 0],
+            "internship": [5, 3],
+            "job": [5, 0, 3],
+            "housing": [11, 4],
+            "event": [11, 10],
+            "marketplace": [11],
+            "general": [11, 10, 4],
         }
 
         # Map categories to likely user departments
@@ -479,7 +521,7 @@ async def seed():
             # Filter users by department affinity
             if dept_filter:
                 eligible_users = [
-                    i for i, (_, _, _, dept, _, _) in enumerate(USER_DEFS)
+                    i for i, (_, _, _, dept, _, _, _) in enumerate(USER_DEFS)
                     if dept in dept_filter
                 ]
             else:
@@ -718,7 +760,7 @@ async def seed():
         print("\n" + "=" * 50)
         print("  AI Demo Seed — Summary")
         print("=" * 50)
-        print(f"  University : Istanbul Rumeli University")
+        print(f"  University : İstanbul Rumeli Üniversitesi")
         print(f"  Users      : {len(users)}")
         print(f"  Communities: {len(communities)}")
         print(f"  Posts      : {post_count} (across {len(POST_CONTENT)} categories)")

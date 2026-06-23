@@ -468,12 +468,19 @@ function JobMatchCard({ data }: { data: JobMatchEval }) {
 }
 
 function LoRACard({ data }: { data: LoRAEval }) {
+  const hasComparison =
+    data.base_accuracy != null && data.finetuned_accuracy != null;
+  const improvement =
+    hasComparison
+      ? ((data.finetuned_accuracy! - data.base_accuracy!) * 100).toFixed(1)
+      : null;
+
   return (
     <Card>
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-[16px] font-bold tracking-tighter">
-            LoRA Fine-Tuning
+            QLoRA Fine-Tuning
           </h2>
           <p className="mt-0.5 text-[12.5px] text-fg-3">
             {data.model_name} &middot; {data.adapter}
@@ -484,45 +491,92 @@ function LoRACard({ data }: { data: LoRAEval }) {
         />
       </div>
 
+      {/* Before / After comparison */}
+      {hasComparison && (
+        <div className="mt-5 rounded-xl border border-brand-purple/20 bg-brand-purple/[0.04] p-4">
+          <div className="mb-3 text-[12.5px] font-semibold text-fg-2">
+            Accuracy: Base vs Fine-Tuned
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-4">
+                Before
+              </div>
+              <div className="mt-1 text-[26px] font-bold tabular-nums tracking-tighter text-fg-3">
+                {(data.base_accuracy! * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <div className="rounded-full border border-success/30 bg-success/12 px-3 py-1 text-[13px] font-bold text-success">
+                +{improvement}%
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-4">
+                After
+              </div>
+              <div className="mt-1 text-[26px] font-bold tabular-nums tracking-tighter text-success">
+                {(data.finetuned_accuracy! * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Training stats */}
       <div className="mt-5 grid gap-3 sm:grid-cols-4">
         <BigStat
-          value={data.train_examples}
-          label="Train examples"
+          value={data.train_samples ?? data.train_examples}
+          label="Train samples"
           format="number"
         />
         <BigStat
-          value={data.eval_examples}
-          label="Eval examples"
+          value={data.eval_samples ?? data.eval_examples}
+          label="Eval samples"
           format="number"
         />
-        <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
-          <div className="flex items-center gap-1.5">
-            {data.training_status === "completed" ? (
-              <CheckCircle className="h-4 w-4 text-success" />
-            ) : (
-              <Clock className="h-4 w-4 text-warn" />
-            )}
-            <span className="text-[13px] font-semibold capitalize">
-              {data.training_status}
-            </span>
-          </div>
-          <div className="mt-1 text-[12px] text-fg-3">Training</div>
-        </div>
-        <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
-          <div className="flex items-center gap-1.5">
-            {data.evaluation_status === "ready" ||
-            data.evaluation_status === "completed" ? (
-              <CheckCircle className="h-4 w-4 text-success" />
-            ) : (
-              <Clock className="h-4 w-4 text-warn" />
-            )}
-            <span className="text-[13px] font-semibold capitalize">
-              {data.evaluation_status}
-            </span>
-          </div>
-          <div className="mt-1 text-[12px] text-fg-3">Evaluation</div>
-        </div>
+        <BigStat
+          value={data.epochs ?? null}
+          label="Epochs"
+          format="number"
+        />
+        <BigStat
+          value={
+            data.train_loss != null
+              ? Number(data.train_loss.toFixed(4))
+              : null
+          }
+          label="Final train loss"
+          format="number"
+        />
       </div>
+
+      {/* Training details row */}
+      {(data.eval_token_accuracy != null || data.eval_loss != null) && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {data.eval_token_accuracy != null && (
+            <BigStat
+              value={data.eval_token_accuracy}
+              label="Eval token accuracy"
+            />
+          )}
+          {data.eval_loss != null && (
+            <BigStat
+              value={Number(data.eval_loss.toFixed(4))}
+              label="Eval loss"
+              format="number"
+            />
+          )}
+          {data.train_runtime_sec != null && (
+            <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+              <div className="text-[22px] font-bold tabular-nums tracking-tighter">
+                {Math.round(data.train_runtime_sec / 60)}m
+              </div>
+              <div className="text-[12px] text-fg-3">Training time</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pipeline steps */}
       <div className="mt-5">

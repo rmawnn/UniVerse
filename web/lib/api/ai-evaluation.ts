@@ -51,6 +51,15 @@ export interface LoRAEval {
   dataset_ready: boolean;
   training_status: string;
   evaluation_status: string;
+  epochs?: number;
+  train_loss?: number;
+  eval_loss?: number;
+  eval_token_accuracy?: number;
+  train_runtime_sec?: number;
+  train_samples?: number;
+  eval_samples?: number;
+  base_accuracy?: number;
+  finetuned_accuracy?: number;
 }
 
 export interface AIEvaluationResponse {

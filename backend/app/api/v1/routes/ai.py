@@ -196,7 +196,7 @@ async def get_ai_evaluation(
 
     has_model = output_dir.exists() and any(output_dir.iterdir()) if output_dir.exists() else False
 
-    lora_data = {
+    lora_data: dict = {
         "model_name": "Qwen2.5-1.5B-Instruct",
         "adapter": "LoRA (rank=16, alpha=32)",
         "train_examples": train_count,
@@ -205,6 +205,33 @@ async def get_ai_evaluation(
         "training_status": "completed" if has_model else "pending",
         "evaluation_status": "ready" if has_model else "pending",
     }
+
+    # Training results
+    train_results_path = output_dir / "universe-lora" / "all_results.json" if output_dir else None
+    if train_results_path and train_results_path.exists():
+        try:
+            tr = json.loads(train_results_path.read_text())
+            lora_data["epochs"] = tr.get("epoch")
+            lora_data["train_loss"] = tr.get("train_loss")
+            lora_data["eval_loss"] = tr.get("eval_loss")
+            lora_data["eval_token_accuracy"] = tr.get("eval_mean_token_accuracy")
+            lora_data["train_runtime_sec"] = tr.get("train_runtime")
+            lora_data["train_samples"] = tr.get("train_samples")
+            lora_data["eval_samples"] = tr.get("eval_samples")
+        except Exception:
+            logger.exception("Failed to read LoRA training results")
+
+    # Fine-tuning comparison (base vs fine-tuned)
+    ft_eval_path = base_dir / "lora-demo" / "eval_results.json"
+    if ft_eval_path.exists():
+        try:
+            ft = json.loads(ft_eval_path.read_text())
+            base_acc = ft.get("base", {}).get("categorization", {}).get("accuracy")
+            ft_acc = ft.get("fine_tuned", {}).get("categorization", {}).get("accuracy")
+            lora_data["base_accuracy"] = base_acc
+            lora_data["finetuned_accuracy"] = ft_acc
+        except Exception:
+            logger.exception("Failed to read fine-tuning eval results")
 
     return {
         "categorization": cat_data,
