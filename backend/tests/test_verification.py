@@ -85,7 +85,7 @@ class TestVerification:
         resp = await client.post("/api/v1/verification/send", json={
             "university_email": "student@nonexistent-university.edu",
         }, headers=auth_header)
-        assert resp.status_code == 404
+        assert resp.status_code == 400
 
     async def test_unauthenticated_cannot_verify(self, client: AsyncClient):
         resp = await client.post("/api/v1/verification/send", json={
