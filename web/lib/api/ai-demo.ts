@@ -13,6 +13,7 @@ export async function demoCategorize(
   const res = await api.post<DemoCategorizationResponse>(
     "/ai/demo/categorize",
     { text },
+    { timeout: 60_000 },
   );
   return res.data;
 }

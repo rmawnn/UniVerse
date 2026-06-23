@@ -40,7 +40,7 @@ export async function getRecommendedCommunities(
 ): Promise<CommunityRecommendationsResponse> {
   const res = await api.get<CommunityRecommendationsResponse>(
     "/ai/recommendations/communities",
-    { params: { limit } },
+    { params: { limit }, timeout: 60_000 },
   );
   return res.data;
 }
@@ -48,6 +48,8 @@ export async function getRecommendedCommunities(
 export async function getJobMatch(
   jobId: string,
 ): Promise<JobMatchResponse> {
-  const res = await api.get<JobMatchResponse>(`/jobs/${jobId}/match`);
+  const res = await api.get<JobMatchResponse>(`/jobs/${jobId}/match`, {
+    timeout: 60_000,
+  });
   return res.data;
 }

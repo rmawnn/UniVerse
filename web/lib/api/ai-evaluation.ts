@@ -63,6 +63,8 @@ export interface AIEvaluationResponse {
 /* ── API call ───────────────────────────────────────── */
 
 export async function getAIEvaluation(): Promise<AIEvaluationResponse> {
-  const res = await api.get<AIEvaluationResponse>("/ai/evaluation");
+  const res = await api.get<AIEvaluationResponse>("/ai/evaluation", {
+    timeout: 60_000,
+  });
   return res.data;
 }
