@@ -26,7 +26,7 @@ ON CONFLICT (domain) DO NOTHING;
 DO $$
 DECLARE
   v_uni_id uuid;
-  v_pw text := '$2b$12$LJ3m4ys4yBNOmqMYaNU2/.nOBOBgFSAkjmGDsGOaM1Rv/W.4CxTW';
+  v_pw text := '$2b$12$xk31l00iLFEReWI2nnPWLejvbyPdpA0O9OnSf8HVreMALj5jaVjj2';
 BEGIN
   -- Get or create IRU university
   SELECT id INTO v_uni_id FROM universities WHERE domain = 'iru.edu.tr';
@@ -130,6 +130,108 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM job_posts jp WHERE jp.title = j.title AND jp.company_name = j.company
   );
+
+END $$;
+
+-- ── Posts (40+ across communities) ───────────────────────────────
+-- Insert posts with categories so AI categorization is visible
+DO $$
+DECLARE
+  v_uni_id uuid;
+BEGIN
+  SELECT id INTO v_uni_id FROM universities WHERE domain = 'iru.edu.tr';
+
+  -- Insert posts distributed across communities and categories
+  INSERT INTO posts (id, community_id, author_id, content, post_type, category, is_deleted, created_at, updated_at)
+  SELECT gen_random_uuid(), c.id, u.id, p.content, 'text', p.category, false,
+         now() - (p.hours_ago * interval '1 hour'), now()
+  FROM (VALUES
+    ('Yapay Zekâ ve Veri Bilimi Kulübü', 'ai_elif', 'academic', 'Just finished my thesis proposal on distributed consensus algorithms. My advisor suggested focusing on Byzantine fault tolerance in heterogeneous networks. Any recommendations for recent papers?', 8),
+    ('Yapay Zekâ ve Veri Bilimi Kulübü', 'ai_naz', 'research', 'Our lab just got accepted to CVPR 2025! Paper on self-supervised learning for medical image segmentation. Happy to share a preprint with anyone interested.', 12),
+    ('Yapay Zekâ ve Veri Bilimi Kulübü', 'ai_elif', 'research', 'Interesting finding: fine-tuning a 1.5B parameter model with LoRA achieves 94% of full fine-tuning performance at 1/10th the compute cost. Running more ablations this week.', 6),
+    ('Yapay Zekâ ve Veri Bilimi Kulübü', 'ai_deniz', 'academic', 'Just read the Mamba paper on selective state spaces. This could be a real alternative to transformers for long-sequence modeling. Anyone want to discuss?', 4),
+    ('Yapay Zekâ ve Veri Bilimi Kulübü', 'ai_zeynep', 'research', 'Running experiments on contrastive learning for recommendation systems. Current results show 15% improvement over collaborative filtering baselines.', 18),
+    ('Yazılım Geliştirme Kulübü', 'ai_mert', 'academic', 'Study group for BLG312 Computer Architecture final exam this Thursday at the library, 3rd floor. Bringing past exam solutions and summary notes. Everyone welcome!', 24),
+    ('Yazılım Geliştirme Kulübü', 'ai_ayse', 'academic', 'Completed the Stanford CS229 machine learning course on Coursera. Highly recommend it if you want a solid foundation before taking our university''s ML class.', 15),
+    ('Yazılım Geliştirme Kulübü', 'ai_derya', 'academic', 'Can someone recommend a good textbook for Operating Systems? I''ve heard Tanenbaum is the standard but Silberschatz seems more practical.', 20),
+    ('Yazılım Geliştirme Kulübü', 'ai_ipek', 'academic', 'Our capstone project team needs a 4th member with database experience. We''re building a real-time analytics dashboard using PostgreSQL and TimescaleDB.', 3),
+    ('Yazılım Geliştirme Kulübü', 'ai_mert', 'technology', 'Has anyone tried the new PyTorch 2.5 features? The compile mode improvements are significant for training speed.', 9),
+    ('Kariyer ve Staj Fırsatları', 'ai_burak', 'internship', 'Just got my summer internship offer from Google! Applied to the SWE intern position in Zurich. Happy to share my interview experience and preparation strategy.', 48),
+    ('Kariyer ve Staj Fırsatları', 'ai_selin', 'internship', 'Amazon Web Services is hiring intern cloud architects for Summer 2025. The application deadline is March 15. They specifically mentioned wanting students with Kubernetes experience.', 36),
+    ('Kariyer ve Staj Fırsatları', 'ai_kerem', 'internship', 'Completed my internship at a cybersecurity startup. Learned more in 3 months than in a full semester. If you get a chance to work at a startup, take it!', 72),
+    ('Kariyer ve Staj Fırsatları', 'ai_mert', 'career', 'Hiring a junior backend developer at our startup. Stack: Python, FastAPI, PostgreSQL, Docker. Remote-friendly, competitive salary. DM for the job description.', 24),
+    ('Kariyer ve Staj Fırsatları', 'ai_melis', 'internship', 'University career center is organizing an internship fair next Wednesday. Over 30 companies confirmed including Siemens, Bosch, and several local tech startups.', 10),
+    ('Kariyer ve Staj Fırsatları', 'ai_ayse', 'career', 'Graduation is 2 months away and I just accepted a full-time offer at Trendyol as a data engineer! The interview process had 4 rounds over 3 weeks.', 60),
+    ('Siber Güvenlik Topluluğu', 'ai_baris', 'technology', 'Free workshop: Introduction to Docker and Container Orchestration. Saturday 10 AM - 4 PM at the tech lab. Bring your laptop. Lunch provided.', 5),
+    ('Siber Güvenlik Topluluğu', 'ai_hakan', 'event', 'Cybersecurity workshop: hands-on CTF challenge for beginners. Learn web exploitation, reverse engineering, and cryptography basics. No experience required.', 8),
+    ('Siber Güvenlik Topluluğu', 'ai_kerem', 'technology', 'New zero-day in popular WordPress plugin affecting 2M+ sites. Patch is available — update immediately if you''re running WP.', 2),
+    ('Kampüs Duyuruları', 'ai_elif', 'event', 'HackIRU 2025 — 48-hour hackathon on campus! Theme: sustainable tech solutions. Prizes worth 50K TL. Teams of 3-5 people. Registration opens next Monday.', 7),
+    ('Kampüs Duyuruları', 'ai_mert', 'event', 'Guest lecture: Dr. Sarah Chen from DeepMind will talk about Scaling Laws in Large Language Models this Friday at 2 PM in the main auditorium. Do not miss it!', 14),
+    ('Kampüs Duyuruları', 'ai_selin', 'event', 'Student startup demo day! 8 teams will pitch their projects to a panel of investors and industry experts. Come support your classmates. Friday at 6 PM.', 20),
+    ('Kampüs Duyuruları', 'ai_can', 'event', 'End-of-semester concert at the campus amphitheater! Student bands performing, food trucks, and a DJ. Free entry with student ID. Saturday evening.', 30),
+    ('Kampüs Duyuruları', 'ai_omer', 'announcement', 'Photography exhibition by Architecture students in the campus gallery. Opening reception Thursday evening with free food and drinks. Showcasing 30+ works.', 16),
+    ('Kampüs Duyuruları', 'ai_melis', 'event', 'AI Ethics debate night: Should autonomous weapons be banned? Featuring professors from CS, Philosophy, and Political Science departments. Thursday 7 PM.', 11),
+    ('Girişimcilik Kulübü', 'ai_selin', 'career', 'Best resources for first-time founders? I''ve been reading The Lean Startup but looking for more practical advice.', 22),
+    ('Girişimcilik Kulübü', 'ai_yagmur', 'technology', 'Blockchain in education: Has anyone explored using smart contracts for credential verification? Could be interesting for UniVerse.', 40),
+    ('Girişimcilik Kulübü', 'ai_melis', 'career', 'Product management tip: Use the RICE framework for feature prioritization. Reach x Impact x Confidence / Effort. Changed how our startup makes decisions.', 15),
+    ('Mobil Uygulama Geliştirme', 'ai_emre', 'technology', 'Flutter 3.22 is out with Impeller renderer for Android. Performance improvements are impressive — tested on a low-end Samsung and it''s noticeably smoother.', 9),
+    ('Mobil Uygulama Geliştirme', 'ai_tolga', 'technology', 'Built a simple AR app with ARKit in 2 hours. Apple''s documentation has gotten much better. Thinking of building a campus navigation AR overlay.', 14),
+    ('Oyun Geliştirme Kulübü', 'ai_tolga', 'technology', 'Unity 6 performance benchmarks vs Unreal 5.4 for mobile games. Surprisingly close! Unity still wins on build size and iteration speed.', 28),
+    ('Oyun Geliştirme Kulübü', 'ai_deniz', 'academic', 'Game AI paper reading group starts next week. First paper: Monte Carlo Tree Search in real-time strategy games. Wednesday 6 PM at Lab 201.', 5),
+    ('Grafik Tasarım ve UI/UX', 'ai_emre', 'technology', 'Figma Config highlights: auto-layout improvements and the new slide deck feature. Might replace Google Slides for our presentations.', 33),
+    ('Grafik Tasarım ve UI/UX', 'ai_can', 'academic', 'Color theory crash course: Understanding HSL vs HSB and when to use each. Wrote a blog post with interactive examples. Link in comments!', 18),
+    ('Kitap ve Akademik Paylaşım', 'ai_omer', 'academic', 'Created a benchmark dataset for Turkish NLP tasks. 50K annotated sentences across sentiment, NER, and POS tagging. Will release on HuggingFace next month.', 44),
+    ('Kitap ve Akademik Paylaşım', 'ai_naz', 'academic', 'Writing a literature review on federated learning. Found 40+ papers but need help narrowing down to the most impactful ones. Suggestions?', 26),
+    ('Spor ve Sağlıklı Yaşam', 'ai_can', 'social', 'Annual sports tournament starts next week. Sign up for basketball, volleyball, or table tennis. Register at the student affairs office by Wednesday.', 50),
+    ('Spor ve Sağlıklı Yaşam', 'ai_arda', 'social', 'Who''s going to the football game this Saturday? We''re playing against Marmara University. Would be great to have a big student section!', 12),
+    ('Erasmus ve Uluslararası Öğrenciler', 'ai_can', 'social', 'Erasmus info session for Spring 2026 applications. Learn about partner universities, scholarships, and the application process. Tuesday 3 PM Room 102.', 38),
+    ('Erasmus ve Uluslararası Öğrenciler', 'ai_arda', 'social', 'Looking for someone who did Erasmus in Germany. Have questions about TU Munich''s computer science program and student life in Munich.', 55)
+  ) AS p(community_name, author_username, category, content, hours_ago)
+  JOIN communities c ON c.name = p.community_name AND c.university_id = v_uni_id
+  JOIN users u ON u.username = p.author_username
+  WHERE NOT EXISTS (
+    SELECT 1 FROM posts ps WHERE ps.content = p.content AND ps.is_deleted = false
+  );
+
+  -- ── Comments on posts ────────────────────────────────────────
+  INSERT INTO comments (id, post_id, author_id, content, is_deleted, created_at, updated_at)
+  SELECT gen_random_uuid(), ps.id, u.id, cm.content, false, ps.created_at + interval '1 hour', now()
+  FROM (
+    SELECT p.id, p.content AS post_content, ROW_NUMBER() OVER (ORDER BY p.created_at) AS rn
+    FROM posts p WHERE p.is_deleted = false
+    ORDER BY p.created_at DESC LIMIT 30
+  ) ps
+  CROSS JOIN LATERAL (VALUES
+    ('Great post! Thanks for sharing this.', 'ai_mert'),
+    ('This is really helpful, I was looking for exactly this information.', 'ai_elif'),
+    ('Interesting perspective. Can you share more details?', 'ai_zeynep')
+  ) AS cm(content, commenter)
+  JOIN users u ON u.username = cm.commenter
+  WHERE ps.rn <= 20
+    AND NOT EXISTS (
+      SELECT 1 FROM comments c2 WHERE c2.post_id = ps.id AND c2.author_id = u.id AND c2.content = cm.content
+    )
+  LIMIT 60;
+
+  -- ── Post likes ────────────────────────────────────────────────
+  INSERT INTO post_likes (user_id, post_id, created_at)
+  SELECT u.id, p.id, p.created_at + interval '30 minutes'
+  FROM users u
+  CROSS JOIN (SELECT id, created_at FROM posts WHERE is_deleted = false ORDER BY created_at DESC LIMIT 40) p
+  WHERE u.username LIKE 'ai_%'
+    AND random() < 0.3
+  ON CONFLICT (user_id, post_id) DO NOTHING;
+
+  -- ── User follows ──────────────────────────────────────────────
+  INSERT INTO user_follows (follower_id, following_id, created_at)
+  SELECT u1.id, u2.id, now() - (random() * interval '60 days')
+  FROM users u1
+  CROSS JOIN users u2
+  WHERE u1.username LIKE 'ai_%'
+    AND u2.username LIKE 'ai_%'
+    AND u1.id != u2.id
+    AND random() < 0.4
+  ON CONFLICT (follower_id, following_id) DO NOTHING;
 
 END $$;
 
