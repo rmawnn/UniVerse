@@ -77,7 +77,7 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
       <Card padded={false} className="mb-3.5 overflow-hidden">
         <article className="flex gap-3.5 p-[18px]">
           <Link href={`/profile/${author.username}`} className="shrink-0">
-            <Avatar name={author.full_name} size={44} />
+            <Avatar name={author.full_name} src={author.profile_image_url} size={44} />
           </Link>
           <div className="min-w-0 flex-1">
             {/* Author row */}

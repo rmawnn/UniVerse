@@ -35,6 +35,16 @@ export interface NotificationSettingsResponse {
 
 /* ── API calls ──────────────────────────────────────────────── */
 
+export async function uploadAvatar(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post<{ url: string }>("/uploads/avatar", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 30_000,
+  });
+  return res.data.url;
+}
+
 export async function updateProfile(
   data: UpdateProfileRequest,
 ): Promise<MyProfileResponse> {

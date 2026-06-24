@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowUp,
   BadgeCheck,
   Bell,
+  Camera,
   Check,
   Eye,
   Flag,
   Globe,
   Hash,
   KeyRound,
+  Loader2,
   Lock,
   Mail,
   Moon,
@@ -28,8 +30,10 @@ import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
 import { Switch } from "@/components/ui/Switch";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
+import { Avatar } from "@/components/ui/Avatar";
 import {
   updateProfile,
+  uploadAvatar,
   changePassword,
   getNotificationSettings,
   updateNotificationSettings,
@@ -212,6 +216,34 @@ function ProfileSection() {
     message: string;
   } | null>(null);
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const handleAvatarChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setAvatarUploading(true);
+      setFeedback(null);
+      try {
+        const url = await uploadAvatar(file);
+        const updated = await updateProfile({ profile_image_url: url });
+        setUser(updated);
+        qc.invalidateQueries({ queryKey: ["profile"] });
+        setFeedback({ type: "success", message: "Profile photo updated." });
+      } catch (err: unknown) {
+        setFeedback({
+          type: "error",
+          message: err instanceof Error ? err.message : "Upload failed.",
+        });
+      } finally {
+        setAvatarUploading(false);
+        if (avatarInputRef.current) avatarInputRef.current.value = "";
+      }
+    },
+    [qc, setUser],
+  );
+
   // Sync form when user data loads/changes
   useEffect(() => {
     if (user) {
@@ -264,6 +296,46 @@ function ProfileSection() {
       </p>
 
       <Card padded className="mt-5">
+        <div className="mb-5 flex items-center gap-5">
+          <div className="relative">
+            <Avatar
+              name={user?.full_name ?? "User"}
+              src={user?.profile_image_url}
+              size={72}
+            />
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 opacity-0 transition-all hover:bg-black/40 hover:opacity-100"
+              aria-label="Change profile photo"
+            >
+              {avatarUploading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-white" />
+              ) : (
+                <Camera className="h-5 w-5 text-white drop-shadow-lg" />
+              )}
+            </button>
+          </div>
+          <div>
+            <div className="text-[14px] font-semibold">{user?.full_name ?? "User"}</div>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="mt-1 text-[13px] font-medium text-brand-purple hover:underline"
+            >
+              {avatarUploading ? "Uploading..." : "Change photo"}
+            </button>
+          </div>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field
             label="Full name"

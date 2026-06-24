@@ -168,7 +168,7 @@ export function NavRail() {
       {/* User card pinned to bottom */}
       <div className="mt-auto hidden items-center gap-2.5 rounded-md border border-line-1 bg-bg-2 p-2 lg:flex">
         <Link href={profileHref} className="flex min-w-0 flex-1 items-center gap-2.5">
-          <Avatar name={displayName} size={36} online />
+          <Avatar name={displayName} src={user?.profile_image_url} size={36} online />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1 text-[13px] font-semibold">
               <span className="truncate">{displayName}</span>

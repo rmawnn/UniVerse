@@ -117,7 +117,7 @@ export function TopBar({ breadcrumb, title, action }: TopBarProps) {
             aria-label="Account menu"
             onClick={() => setMenuOpen((v) => !v)}
           >
-            <Avatar name={displayName} size={30} />
+            <Avatar name={displayName} src={user?.profile_image_url} size={30} />
             <ChevronDown className="h-3.5 w-3.5 text-fg-3" />
           </button>
           {menuOpen && (

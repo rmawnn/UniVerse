@@ -175,7 +175,7 @@ export function ComposeModal({
 
         {/* Audience picker */}
         <div className="flex items-start gap-3 px-5 pt-3.5">
-          <Avatar name={displayName} size={42} />
+          <Avatar name={displayName} src={user?.profile_image_url} size={42} />
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-semibold">{displayName}</div>
             <div className="mt-1 flex flex-wrap gap-1.5">

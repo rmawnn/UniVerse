@@ -47,7 +47,7 @@ export function ComposerInline({
   return (
     <Card padded className="mb-3.5">
       <div className="flex gap-3">
-        <Avatar name={displayName} size={40} />
+        <Avatar name={displayName} src={user?.profile_image_url} size={40} />
         <div className="min-w-0 flex-1">
           {!expanded ? (
             <button

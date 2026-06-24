@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
+  Camera,
   Check,
   Copy,
   Flag,
   Link as LinkIcon,
+  Loader2,
   Mail,
   MapPin,
   MoreVertical,
@@ -37,7 +39,7 @@ import {
   followUser,
   unfollowUser,
 } from "@/lib/api/users";
-import { updateProfile } from "@/lib/api/settings";
+import { updateProfile, uploadAvatar } from "@/lib/api/settings";
 import { createConversation } from "@/lib/api/conversations";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { compactNumber } from "@/lib/utils";
@@ -129,6 +131,30 @@ export default function ProfilePage({ params }: PageProps) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
+
+  /* ── Avatar upload ───────────────────────────────────── */
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const setUser = useAuthStore((s) => s.setUser);
+
+  const handleAvatarChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setAvatarUploading(true);
+      try {
+        const url = await uploadAvatar(file);
+        const updated = await updateProfile({ profile_image_url: url });
+        setUser(updated);
+        qc.invalidateQueries({ queryKey: ["profile", username] });
+      } catch {
+      } finally {
+        setAvatarUploading(false);
+        if (avatarInputRef.current) avatarInputRef.current.value = "";
+      }
+    },
+    [qc, username, setUser],
+  );
 
   /* ── Skills editing ──────────────────────────────────── */
   const [editingSkills, setEditingSkills] = useState(false);
@@ -293,8 +319,32 @@ export default function ProfilePage({ params }: PageProps) {
       {/* Profile head */}
       <div className="relative z-[2] -mt-[60px] px-4 sm:px-8">
         <div className="flex flex-wrap items-end gap-5">
-          <div className="rounded-full bg-bg-1 p-[5px]">
-            <Avatar name={profile.full_name} size={120} />
+          <div className="relative rounded-full bg-bg-1 p-[5px]">
+            <Avatar name={profile.full_name} src={profile.profile_image_url} size={120} />
+            {isOwnProfile && (
+              <>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="absolute inset-[5px] flex items-center justify-center rounded-full bg-black/0 opacity-0 transition-all hover:bg-black/40 hover:opacity-100"
+                  aria-label="Change profile photo"
+                >
+                  {avatarUploading ? (
+                    <Loader2 className="h-7 w-7 animate-spin text-white" />
+                  ) : (
+                    <Camera className="h-7 w-7 text-white drop-shadow-lg" />
+                  )}
+                </button>
+              </>
+            )}
           </div>
           <div className="flex-1 min-w-0 pb-3.5">
             <div className="flex items-center gap-2">
