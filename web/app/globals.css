@@ -3,7 +3,58 @@
 @tailwind utilities;
 
 /* ─── UniVerse design tokens ────────────────────────── */
+
+/* Light mode (default) */
 :root {
+  /* Surfaces */
+  --bg-0: #f5f5f7;
+  --bg-1: #ffffff;
+  --bg-2: #f9f9fb;
+  --bg-3: #f0f0f4;
+  --bg-4: #e6e6ec;
+  --bg-elev: #ffffff;
+
+  /* Borders */
+  --line-1: rgba(0, 0, 0, 0.06);
+  --line-2: rgba(0, 0, 0, 0.10);
+  --line-3: rgba(0, 0, 0, 0.16);
+
+  /* Text */
+  --fg-1: #1a1a2e;
+  --fg-2: #5a5a6e;
+  --fg-3: #8a8a9a;
+  --fg-4: #b0b0be;
+
+  /* Accents */
+  --acc-purple: #7c3aed;
+  --acc-blue: #3b82f6;
+  --acc-gradient: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+  --acc-gradient-soft: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.12),
+    rgba(59, 130, 246, 0.10)
+  );
+
+  /* Semantic */
+  --success: #16a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --verified: #3b82f6;
+
+  /* Shadows */
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 0 rgba(0, 0, 0, 0.03);
+  --sh-2: 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --sh-acc: 0 10px 30px rgba(124, 58, 237, 0.18),
+    0 4px 12px rgba(59, 130, 246, 0.10);
+
+  /* TopBar glass */
+  --topbar-bg: rgba(255, 255, 255, 0.78);
+
+  color-scheme: light;
+}
+
+/* Dark mode */
+html.dark {
   /* Surfaces */
   --bg-0: #07070c;
   --bg-1: #0e0e18;
@@ -44,10 +95,10 @@
   --sh-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
   --sh-acc: 0 10px 30px rgba(124, 82, 255, 0.35),
     0 4px 12px rgba(80, 140, 255, 0.2);
-}
 
-/* Force dark mode app-wide (no light variant designed yet) */
-html {
+  /* TopBar glass */
+  --topbar-bg: rgba(14, 14, 24, 0.72);
+
   color-scheme: dark;
 }
 

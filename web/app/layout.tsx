@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { AuthHydrator } from "@/lib/providers/AuthHydrator";
+import { ThemeProvider } from "@/lib/providers/ThemeProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,12 +19,21 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} dark`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('uv_theme');if(t==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body>
         <QueryProvider>
-          <AuthHydrator>{children}</AuthHydrator>
+          <ThemeProvider>
+            <AuthHydrator>{children}</AuthHydrator>
+          </ThemeProvider>
         </QueryProvider>
       </body>
     </html>

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronDown, LogOut, MessageCircle, Search, Settings, User } from "lucide-react";
+import { Bell, ChevronDown, LogOut, MessageCircle, Moon, Search, Settings, Sun, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useThemeStore } from "@/lib/stores/theme-store";
 
 interface TopBarProps {
   breadcrumb?: string;
@@ -21,6 +22,8 @@ export function TopBar({ breadcrumb, title, action }: TopBarProps) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const theme = useThemeStore((s) => s.theme);
+  const toggleTheme = useThemeStore((s) => s.toggle);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +46,7 @@ export function TopBar({ breadcrumb, title, action }: TopBarProps) {
     <div
       className="sticky top-0 z-[5] flex h-16 items-center gap-4 border-b border-line-1 px-7"
       style={{
-        background: "rgba(14,14,24,0.72)",
+        background: "var(--topbar-bg)",
         backdropFilter: "blur(20px) saturate(180%)",
         WebkitBackdropFilter: "blur(20px) saturate(180%)",
       }}
@@ -94,6 +97,18 @@ export function TopBar({ breadcrumb, title, action }: TopBarProps) {
         >
           <MessageCircle className="h-4.5 w-4.5" />
         </Link>
+        <button
+          onClick={toggleTheme}
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-line-1 bg-bg-2 text-fg-2 hover:text-fg-1 transition-colors"
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+        >
+          {theme === "dark" ? (
+            <Sun className="h-4.5 w-4.5" />
+          ) : (
+            <Moon className="h-4.5 w-4.5" />
+          )}
+        </button>
         <div className="hidden h-6 w-px bg-line-2 md:block" />
         {/* User menu */}
         <div className="relative" ref={menuRef}>
