@@ -56,6 +56,7 @@ def sample_user(sample_user_id):
     user.academic_year = "3"
     user.bio = "I love python and machine learning"
     user.profile_image_url = None
+    user.cover_image_url = None
     user.is_active = True
     user.email_verified = True
     user.is_verified_student = True

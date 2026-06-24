@@ -155,6 +155,7 @@ class TestRegister:
         created_user.academic_year = None
         created_user.bio = None
         created_user.profile_image_url = None
+        created_user.cover_image_url = None
         created_user.is_active = True
         created_user.email_verified = False
         created_user.is_verified_student = False
@@ -194,6 +195,7 @@ class TestRegister:
         created_user.academic_year = None
         created_user.bio = None
         created_user.profile_image_url = None
+        created_user.cover_image_url = None
         created_user.is_active = True
         created_user.email_verified = False
         created_user.is_verified_student = False
