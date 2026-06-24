@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { BarChart3, Check, ShieldCheck, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/Avatar";
@@ -53,11 +54,14 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
       >
         <X className="h-5 w-5" />
       </button>
-      <img
+      <Image
         src={src}
         alt=""
+        width={1200}
+        height={800}
         className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
         onClick={(e) => e.stopPropagation()}
+        unoptimized
       />
     </div>
   );
@@ -182,7 +186,7 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
                   <CategoryBadge category={post.category} />
                 </>
               )}
-              <PostMenu postId={post.id} />
+              <PostMenu postId={post.id} authorId={author.id} content={post.content} />
             </div>
 
             {/* Content */}
@@ -208,10 +212,13 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
                 className="mt-3 overflow-hidden rounded-md border border-line-1 bg-bg-3 cursor-pointer"
                 onClick={openLightbox}
               >
-                <img
+                <Image
                   src={post.image_url}
                   alt=""
-                  className="mx-auto block max-h-[480px] object-contain"
+                  width={800}
+                  height={480}
+                  className="mx-auto block max-h-[480px] w-full object-contain"
+                  unoptimized
                 />
               </div>
             )}

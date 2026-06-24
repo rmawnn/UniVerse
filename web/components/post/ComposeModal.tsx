@@ -16,6 +16,7 @@ import {
   Sticker,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -451,10 +452,13 @@ export function ComposeModal({
           {/* Image / GIF preview */}
           {(imagePreview || gifPreview) && (
             <div className="relative mt-3.5">
-              <img
+              <Image
                 src={imagePreview || gifPreview || ""}
                 alt="Attachment preview"
+                width={600}
+                height={240}
                 className="max-h-[240px] w-full rounded-lg border border-line-1 object-cover"
+                unoptimized
               />
               {uploading && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">

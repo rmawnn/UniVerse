@@ -30,3 +30,4 @@ from app.models.password_reset import PasswordResetToken  # noqa: F401
 from app.models.repost import Repost  # noqa: F401
 from app.models.ai_usage_log import AIUsageLog  # noqa: F401
 from app.models.poll import PollOption, PollVote  # noqa: F401
+from app.models.user_block import UserBlock  # noqa: F401

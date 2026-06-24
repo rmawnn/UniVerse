@@ -19,6 +19,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.post import (
     PostAuthorSummary,
     PostCreateRequest,
+    PostUpdateRequest,
     PostResponse,
     PollOptionResponse,
     PollResponse,
@@ -90,6 +91,41 @@ async def create_post(
         like_count=0, liked_by_me=False, saved_by_me=False,
         poll=poll_data,
     )
+
+
+async def update_post(
+    db: AsyncSession,
+    post_id: UUID,
+    current_user: User,
+    data: PostUpdateRequest,
+) -> PostResponse:
+    post_repo = PostRepository(db)
+    post = await post_repo.get_by_id(post_id)
+    if not post:
+        raise NotFound("Post")
+    if post.author_id != current_user.id:
+        raise Forbidden("You can only edit your own posts")
+
+    post.content = data.content
+    await db.flush()
+    await db.refresh(post)
+
+    return await get_post(db, post_id, current_user)
+
+
+async def delete_post(
+    db: AsyncSession,
+    post_id: UUID,
+    current_user: User,
+) -> None:
+    post_repo = PostRepository(db)
+    post = await post_repo.get_by_id(post_id)
+    if not post:
+        raise NotFound("Post")
+    if post.author_id != current_user.id:
+        raise Forbidden("You can only delete your own posts")
+
+    await post_repo.set_deleted(post, True)
 
 
 async def get_post(

@@ -38,6 +38,8 @@ import {
   getUserPosts,
   followUser,
   unfollowUser,
+  blockUser,
+  unblockUser,
 } from "@/lib/api/users";
 import { updateProfile, uploadAvatar, uploadCover } from "@/lib/api/settings";
 import { createConversation } from "@/lib/api/conversations";
@@ -470,11 +472,21 @@ export default function ProfilePage({ params }: PageProps) {
                       <Flag className="h-3.5 w-3.5" /> Report user
                     </button>
                     <button
-                      disabled
-                      className="flex w-full cursor-not-allowed items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-fg-4"
+                      onClick={async () => {
+                        if (!profile) return;
+                        setMenuOpen(false);
+                        if (confirm(`Block @${profile.username}? They won't be able to see your posts or message you.`)) {
+                          try {
+                            await blockUser(profile.id);
+                            qc.invalidateQueries({ queryKey: ["profile", username] });
+                            qc.invalidateQueries({ queryKey: ["feed"] });
+                          } catch {}
+                        }
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-danger hover:bg-bg-3"
                       type="button"
                     >
-                      <ShieldOff className="h-3.5 w-3.5" /> Block user — coming soon
+                      <ShieldOff className="h-3.5 w-3.5" /> Block user
                     </button>
                   </div>
                 )}

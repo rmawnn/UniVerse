@@ -1,11 +1,19 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 
 v1_router = APIRouter()
 
-# Health check — useful for deployment probes
+
 @v1_router.get("/health", tags=["Health"])
-async def health_check():
-    return {"status": "ok"}
+async def health_check(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "connected"}
+    except Exception:
+        return {"status": "degraded", "database": "unreachable"}
 
 
 # ── Active routers ────────────────────────────────────────────
@@ -33,6 +41,7 @@ from app.api.v1.routes.trending import router as trending_router
 from app.api.v1.routes.ai import router as ai_router
 from app.api.v1.routes.reposts import router as reposts_router
 from app.api.v1.routes.polls import router as polls_router
+from app.api.v1.routes.blocks import router as blocks_router
 
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 v1_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -58,3 +67,4 @@ v1_router.include_router(trending_router, tags=["Trending"])
 v1_router.include_router(ai_router, tags=["AI"])
 v1_router.include_router(reposts_router, tags=["Reposts"])
 v1_router.include_router(polls_router, tags=["Polls"])
+v1_router.include_router(blocks_router, tags=["Blocks"])

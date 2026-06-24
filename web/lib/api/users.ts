@@ -23,6 +23,7 @@ export interface PublicUserProfile {
   following_count: number;
   communities_count: number;
   is_following: boolean;
+  is_blocked: boolean;
   created_at: string;
 }
 
@@ -135,6 +136,16 @@ export async function unfollowUser(userId: string): Promise<FollowResponse> {
 /**
  * Unified search across users, communities, posts, and jobs.
  */
+export async function blockUser(userId: string): Promise<{ blocked: boolean }> {
+  const res = await api.post<{ blocked: boolean }>(`/users/${userId}/block`);
+  return res.data;
+}
+
+export async function unblockUser(userId: string): Promise<{ blocked: boolean }> {
+  const res = await api.delete<{ blocked: boolean }>(`/users/${userId}/block`);
+  return res.data;
+}
+
 export async function unifiedSearch(
   q: string,
 ): Promise<UnifiedSearchResponse> {

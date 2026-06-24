@@ -8,7 +8,7 @@ from app.core.dependencies import get_current_user_optional, require_verified_us
 from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
-from app.schemas.post import PostCreateRequest, PostResponse
+from app.schemas.post import PostCreateRequest, PostUpdateRequest, PostResponse
 from app.services import post_service
 
 router = APIRouter()
@@ -71,3 +71,24 @@ async def get_post(
 ):
     """Get a single post by ID (public). Shows liked_by_me if authenticated."""
     return await post_service.get_post(db, post_id, current_user)
+
+
+@router.patch("/posts/{post_id}", response_model=PostResponse)
+async def update_post(
+    post_id: UUID,
+    data: PostUpdateRequest,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Edit a post's content. Only the author may edit."""
+    return await post_service.update_post(db, post_id, current_user, data)
+
+
+@router.delete("/posts/{post_id}", status_code=204)
+async def delete_post(
+    post_id: UUID,
+    current_user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a post. Only the author may delete."""
+    await post_service.delete_post(db, post_id, current_user)

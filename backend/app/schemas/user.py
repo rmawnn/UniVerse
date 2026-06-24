@@ -121,6 +121,7 @@ class PublicUserProfileResponse(BaseModel):
     following_count: int = 0
     communities_count: int = 0
     is_following: bool = False
+    is_blocked: bool = False
     created_at: datetime
 
 

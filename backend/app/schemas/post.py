@@ -39,6 +39,15 @@ class PostCreateRequest(BaseModel):
         return cleaned
 
 
+class PostUpdateRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+    @field_validator("content")
+    @classmethod
+    def sanitize_content(cls, v: str) -> str:
+        return sanitize_text(v)
+
+
 class PostAuthorSummary(BaseModel):
     """Lightweight author info embedded in post responses."""
     id: uuid.UUID

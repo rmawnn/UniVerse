@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { Loader2, Search, X } from "lucide-react";
 
 const API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY;
@@ -74,7 +75,7 @@ export function GiphySearch({ onSelect, onClose }: GiphySearchProps) {
     <div className="mt-3 rounded-lg border border-line-2 bg-bg-3 p-3.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[13px] font-semibold text-fg-1">
-          <img src="https://media.giphy.com/static/img/giphy_logo_square.png" alt="GIPHY" className="h-5 w-5 rounded" />
+          <Image src="https://media.giphy.com/static/img/giphy_logo_square.png" alt="GIPHY" width={20} height={20} className="h-5 w-5 rounded" />
           Search GIFs
         </div>
         <button

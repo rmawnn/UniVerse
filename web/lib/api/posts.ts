@@ -122,6 +122,18 @@ export async function unvotePoll(postId: string): Promise<void> {
   await api.delete(`/posts/${postId}/vote`);
 }
 
+export async function updatePost(
+  postId: string,
+  content: string,
+): Promise<FeedPost> {
+  const res = await api.patch<FeedPost>(`/posts/${postId}`, { content });
+  return res.data;
+}
+
+export async function deletePost(postId: string): Promise<void> {
+  await api.delete(`/posts/${postId}`);
+}
+
 export async function createComment(
   postId: string,
   content: string,

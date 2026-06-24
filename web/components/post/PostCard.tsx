@@ -61,7 +61,7 @@ export function PostCard({ post, expanded }: PostCardProps) {
             <UniBadge university={post.author.university} compact />
             <span className="text-fg-4">·</span>
             <span className="text-[12.5px] text-fg-3">{post.relativeTime}</span>
-            <PostMenu postId={post.id} />
+            <PostMenu postId={post.id} authorId="" content={post.text} />
           </div>
           <div className="mt-0.5 text-[12px] text-fg-3">
             Posted in{" "}
