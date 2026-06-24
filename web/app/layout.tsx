@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { AuthHydrator } from "@/lib/providers/AuthHydrator";
 import { ThemeProvider } from "@/lib/providers/ThemeProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default function RootLayout({
             <AuthHydrator>{children}</AuthHydrator>
           </ThemeProvider>
         </QueryProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
