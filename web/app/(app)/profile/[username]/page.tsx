@@ -39,7 +39,7 @@ import {
   followUser,
   unfollowUser,
 } from "@/lib/api/users";
-import { updateProfile, uploadAvatar } from "@/lib/api/settings";
+import { updateProfile, uploadAvatar, uploadCover } from "@/lib/api/settings";
 import { createConversation } from "@/lib/api/conversations";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { compactNumber } from "@/lib/utils";
@@ -154,6 +154,28 @@ export default function ProfilePage({ params }: PageProps) {
       }
     },
     [qc, username, setUser],
+  );
+
+  /* ── Cover upload ────────────────────────────────────── */
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+
+  const handleCoverChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setCoverUploading(true);
+      try {
+        const url = await uploadCover(file);
+        await updateProfile({ cover_image_url: url });
+        qc.invalidateQueries({ queryKey: ["profile", username] });
+      } catch {
+      } finally {
+        setCoverUploading(false);
+        if (coverInputRef.current) coverInputRef.current.value = "";
+      }
+    },
+    [qc, username],
   );
 
   /* ── Skills editing ──────────────────────────────────── */
@@ -298,22 +320,57 @@ export default function ProfilePage({ params }: PageProps) {
       }
     >
       {/* Banner */}
-      <div className="relative h-[240px]">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#3D1B6A_0%,#1F2D70_60%,#0E1A38_100%)]" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at 75% 30%, rgba(155,108,255,0.5), transparent 50%), radial-gradient(circle at 15% 85%, rgba(255,141,161,0.3), transparent 55%)",
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(-30deg, transparent 0 28px, rgba(255,255,255,0.018) 28px 29px)",
-          }}
-        />
+      <div className="group relative h-[240px] overflow-hidden">
+        {profile.cover_image_url ? (
+          <img
+            src={profile.cover_image_url}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,#3D1B6A_0%,#1F2D70_60%,#0E1A38_100%)]" />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 75% 30%, rgba(155,108,255,0.5), transparent 50%), radial-gradient(circle at 15% 85%, rgba(255,141,161,0.3), transparent 55%)",
+              }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(-30deg, transparent 0 28px, rgba(255,255,255,0.018) 28px 29px)",
+              }}
+            />
+          </>
+        )}
+        {isOwnProfile && (
+          <>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleCoverChange}
+            />
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              disabled={coverUploading}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-3 py-2 text-[13px] font-medium text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 group-hover:opacity-100"
+              aria-label="Change cover photo"
+            >
+              {coverUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="h-4 w-4" />
+              )}
+              {coverUploading ? "Uploading..." : "Edit cover"}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Profile head */}

@@ -9,6 +9,7 @@ export interface PublicUserProfile {
   username: string;
   full_name: string;
   profile_image_url: string | null;
+  cover_image_url: string | null;
   bio: string | null;
   department: string | null;
   academic_year: number | null;

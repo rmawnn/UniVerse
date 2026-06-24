@@ -62,6 +62,7 @@ class User(BaseModel):
     # ── Profile ──────────────────────────────────────────────────
     bio: Mapped[str | None] = mapped_column(Text)
     profile_image_url: Mapped[str | None] = mapped_column(String(500))
+    cover_image_url: Mapped[str | None] = mapped_column(String(500))
     skills: Mapped[list[str] | None] = mapped_column(ARRAY(String(100)))
 
     # ── Status & permissions ─────────────────────────────────────

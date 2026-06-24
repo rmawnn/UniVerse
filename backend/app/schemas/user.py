@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     academic_year: int | None = None
     bio: str | None = None
     profile_image_url: str | None = None
+    cover_image_url: str | None = None
     is_active: bool
     email_verified: bool = False
     is_verified_student: bool
@@ -39,6 +40,7 @@ class MyProfileResponse(BaseModel):
     academic_year: int | None = None
     bio: str | None = None
     profile_image_url: str | None = None
+    cover_image_url: str | None = None
     skills: list[str] = []
     is_active: bool
     email_verified: bool = False
@@ -58,6 +60,7 @@ class UserUpdateRequest(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=100)
     bio: str | None = Field(None, max_length=500)
     profile_image_url: str | None = Field(None, max_length=500)
+    cover_image_url: str | None = Field(None, max_length=500)
     department: str | None = Field(None, max_length=150)
     academic_year: int | None = Field(None, ge=1, le=8)
     skills: list[str] | None = Field(None, max_length=20)
@@ -90,6 +93,7 @@ class PublicUserProfileResponse(BaseModel):
     username: str
     full_name: str
     profile_image_url: str | None = None
+    cover_image_url: str | None = None
     bio: str | None = None
     department: str | None = None
     academic_year: int | None = None

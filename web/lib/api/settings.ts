@@ -7,6 +7,7 @@ export interface UpdateProfileRequest {
   full_name?: string;
   bio?: string;
   profile_image_url?: string;
+  cover_image_url?: string;
   department?: string;
   academic_year?: number;
   skills?: string[];
@@ -39,6 +40,16 @@ export async function uploadAvatar(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   const res = await api.post<{ url: string }>("/uploads/avatar", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 30_000,
+  });
+  return res.data.url;
+}
+
+export async function uploadCover(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post<{ url: string }>("/uploads/image", formData, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 30_000,
   });

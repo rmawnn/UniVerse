@@ -32,6 +32,7 @@ export interface UserResponse {
   academic_year: number | null;
   bio: string | null;
   profile_image_url: string | null;
+  cover_image_url: string | null;
   skills: string[];
   is_active: boolean;
   email_verified: boolean;
