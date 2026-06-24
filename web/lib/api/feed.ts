@@ -40,7 +40,7 @@ export interface FeedPost {
   reposted_by_me: boolean;
   feed_label: string | null;
   recommendation_score: number | null;
-  poll: PollData | null;
+  poll?: PollData | null;
   created_at: string;
   updated_at: string;
 }
