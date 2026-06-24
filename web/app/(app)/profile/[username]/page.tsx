@@ -359,7 +359,7 @@ export default function ProfilePage({ params }: PageProps) {
               type="button"
               onClick={() => coverInputRef.current?.click()}
               disabled={coverUploading}
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-3 py-2 text-[13px] font-medium text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 group-hover:opacity-100"
+              className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg bg-black/40 px-3 py-2 text-[13px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
               aria-label="Change cover photo"
             >
               {coverUploading ? (
