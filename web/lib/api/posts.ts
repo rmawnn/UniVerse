@@ -25,6 +25,38 @@ export interface RepostToggleResponse {
   repost_count: number;
 }
 
+/* ── Create post ────────────────────────────────────────── */
+
+export interface CreatePostRequest {
+  content: string;
+  image_url?: string | null;
+  video_url?: string | null;
+  post_type?: string;
+}
+
+export async function createPost(
+  communityId: string,
+  data: CreatePostRequest,
+): Promise<FeedPost> {
+  const res = await api.post<FeedPost>(
+    `/communities/${communityId}/posts`,
+    data,
+  );
+  return res.data;
+}
+
+/* ── Upload image ───────────────────────────────────────── */
+
+export async function uploadPostImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post<{ url: string }>("/uploads/image", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 30_000,
+  });
+  return res.data.url;
+}
+
 /* ── API calls ───────────────────────────────────────────── */
 
 export async function getPost(id: string): Promise<FeedPost> {

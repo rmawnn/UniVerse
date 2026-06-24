@@ -77,6 +77,7 @@ export function ComposerInline({
             <button
               key={t.key}
               type="button"
+              onClick={() => open(communitySlug)}
               className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium text-fg-2 hover:bg-bg-3 hover:text-fg-1"
             >
               <Icon className="h-4 w-4 text-brand-purple" />
@@ -98,7 +99,7 @@ export function ComposerInline({
         <Button
           size="sm"
           variant="primary"
-          disabled={!value.trim() || overBudget}
+          onClick={() => open(communitySlug)}
           aria-label={communitySlug ? `Post to #${communitySlug}` : "Post"}
         >
           Post

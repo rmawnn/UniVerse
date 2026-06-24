@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   Calendar,
   ChevronDown,
@@ -14,16 +14,16 @@ import {
   Sticker,
   X,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CommunityIcon } from "@/components/community/CommunityIcon";
-import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
 import { getJoinedCommunities } from "@/lib/api/communities";
+import { createPost, uploadPostImage } from "@/lib/api/posts";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 
-const MAX_LEN = 300;
+const MAX_LEN = 5000;
 
 const TOOLBAR = [
   { key: "photo", icon: ImageIcon, label: "Photo" },
@@ -36,20 +36,17 @@ const TOOLBAR = [
 interface ComposeModalProps {
   open: boolean;
   onClose: () => void;
-  /** Pre-select a community (e.g. when opened from a community page). */
   defaultCommunitySlug?: string;
 }
 
-/**
- * Full-screen-on-mobile, centered-on-desktop compose dialog. Pure UI --
- * the submit handler is a mock that resolves after a beat.
- */
 export function ComposeModal({
   open,
   onClose,
   defaultCommunitySlug,
 }: ComposeModalProps) {
   const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: communities, isLoading: communitiesLoading } = useQuery({
     queryKey: ["communities", "joined"],
@@ -61,12 +58,38 @@ export function ComposeModal({
   const [text, setText] = useState("");
   const [communityId, setCommunityId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [hasAttachment, setHasAttachment] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const postMutation = useMutation({
+    mutationFn: async () => {
+      if (!resolvedCommunityId) throw new Error("Select a community first");
+      return createPost(resolvedCommunityId, {
+        content: text.trim(),
+        image_url: imageUrl,
+        post_type: imageUrl ? "image" : "text",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feed"] });
+      queryClient.invalidateQueries({ queryKey: ["explore"] });
+      queryClient.invalidateQueries({ queryKey: ["trending"] });
+      setText("");
+      setImageUrl(null);
+      setImagePreview(null);
+      setCommunityId(null);
+      setError(null);
+      onClose();
+    },
+    onError: (err: Error) => {
+      setError(err.message || "Failed to create post");
+    },
+  });
 
   if (!open) return null;
 
-  // Resolve selected community: use explicit selection, or match by default slug, or first joined
   const resolvedCommunityId =
     communityId ??
     (defaultCommunitySlug
@@ -83,18 +106,40 @@ export function ComposeModal({
   const overBudget = remaining < 0;
   const displayName = user?.full_name ?? "User";
   const universityName = user?.university_name ?? "your university";
+  const submitting = postMutation.isPending;
 
-  async function handleSubmit(e: FormEvent) {
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    setUploading(true);
+    setError(null);
+
+    try {
+      const url = await uploadPostImage(file);
+      setImageUrl(url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to upload image");
+      setImagePreview(null);
+      setImageUrl(null);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeAttachment() {
+    setImageUrl(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!text.trim() || overBudget) return;
-    setSubmitting(true);
-    // TODO: Replace with React Query mutation for POST /posts
-    await new Promise((r) => setTimeout(r, 600));
-    setSubmitting(false);
-    setText("");
-    setHasAttachment(false);
-    setCommunityId(null);
-    onClose();
+    if (!text.trim() || overBudget || submitting) return;
+    setError(null);
+    postMutation.mutate();
   }
 
   return (
@@ -120,13 +165,6 @@ export function ComposeModal({
           </h2>
           <button
             type="button"
-            className="text-[13px] text-fg-2 hover:text-fg-1"
-            disabled={submitting}
-          >
-            Save draft
-          </button>
-          <button
-            type="button"
             onClick={onClose}
             aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-md bg-bg-3 text-fg-2 hover:bg-bg-4 hover:text-fg-1"
@@ -141,7 +179,6 @@ export function ComposeModal({
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-semibold">{displayName}</div>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {/* Community chip -- opens dropdown */}
               <div className="relative">
                 <button
                   type="button"
@@ -221,16 +258,22 @@ export function ComposeModal({
             className="min-h-[120px] w-full resize-none bg-transparent text-[17px] leading-[1.5] text-fg-1 placeholder:text-fg-3 focus:outline-none"
           />
 
-          {hasAttachment && (
+          {/* Image preview */}
+          {imagePreview && (
             <div className="relative mt-3.5">
-              <PlaceholderImage
-                label="attached photo"
-                height={180}
-                accent="linear-gradient(135deg,#2A1F4A,#1A1530)"
+              <img
+                src={imagePreview}
+                alt="Attachment preview"
+                className="max-h-[240px] w-full rounded-lg border border-line-1 object-cover"
               />
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                </div>
+              )}
               <button
                 type="button"
-                onClick={() => setHasAttachment(false)}
+                onClick={removeAttachment}
                 aria-label="Remove attachment"
                 className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-line-2 bg-black/60 text-white hover:bg-black/80"
               >
@@ -239,7 +282,14 @@ export function ComposeModal({
             </div>
           )}
 
-          {/* Mention/hashtag helper */}
+          {/* Error message */}
+          {error && (
+            <div className="mt-3 rounded-md border border-danger/20 bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">
+              {error}
+            </div>
+          )}
+
+          {/* Tip */}
           <div className="mt-4 flex gap-2.5 rounded-md border border-line-1 bg-bg-3 p-3">
             <Info className="h-3.5 w-3.5 shrink-0 text-brand-blue" />
             <div className="text-[12px] leading-[1.5] text-fg-2">
@@ -248,6 +298,15 @@ export function ComposeModal({
             </div>
           </div>
         </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handlePhotoSelect}
+        />
 
         {/* Toolbar */}
         <footer className="flex items-center gap-1 border-t border-line-1 px-5 py-3">
@@ -258,9 +317,10 @@ export function ComposeModal({
                 key={t.key}
                 type="button"
                 onClick={() => {
-                  if (t.key === "photo") setHasAttachment(true);
+                  if (t.key === "photo") fileInputRef.current?.click();
                 }}
-                className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium text-brand-purple hover:bg-bg-3"
+                disabled={t.key === "photo" && uploading}
+                className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium text-brand-purple hover:bg-bg-3 disabled:opacity-50"
               >
                 <Icon className="h-4 w-4" />
                 <span className="hidden sm:inline">{t.label}</span>
@@ -280,7 +340,7 @@ export function ComposeModal({
           <Button
             size="sm"
             type="submit"
-            disabled={!text.trim() || overBudget || submitting}
+            disabled={!text.trim() || overBudget || submitting || uploading || !resolvedCommunityId}
           >
             {submitting ? "Posting..." : "Post"}
           </Button>
