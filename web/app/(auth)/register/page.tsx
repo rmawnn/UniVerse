@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useMemo, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Lock, Mail, User, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { registerApi } from "@/lib/api/auth";
@@ -54,12 +54,25 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const emailWarning = getEmailError(email);
+
+  const passwordRules = useMemo(() => [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "One uppercase letter (A–Z)", met: /[A-Z]/.test(password) },
+    { label: "One lowercase letter (a–z)", met: /[a-z]/.test(password) },
+    { label: "One number (0–9)", met: /[0-9]/.test(password) },
+    { label: "One special character (!@#$...)", met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/.test(password) },
+  ], [password]);
+
+  const allRulesMet = passwordRules.every((r) => r.met);
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -69,6 +82,14 @@ export default function RegisterPage() {
     }
     if (!isUniversityEmail(email)) {
       setError("Please use your university email address. Generic providers (Gmail, Hotmail, etc.) are not accepted.");
+      return;
+    }
+    if (!allRulesMet) {
+      setError("Password does not meet the requirements.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
     setError(null);
@@ -199,7 +220,7 @@ export default function RegisterPage() {
           label="Password"
           type={showPassword ? "text" : "password"}
           name="password"
-          placeholder="At least 8 characters"
+          placeholder="Create a strong password"
           icon={<Lock className="h-4 w-4" />}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -219,6 +240,73 @@ export default function RegisterPage() {
             </button>
           }
         />
+
+        {/* Password requirements */}
+        {password.length > 0 && (
+          <div className="rounded-lg border border-line-2 bg-bg-2 px-3.5 py-3">
+            <div className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-fg-3">
+              Password requirements
+            </div>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {passwordRules.map((rule) => (
+                <div
+                  key={rule.label}
+                  className="flex items-center gap-2 text-[12.5px]"
+                >
+                  {rule.met ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-success" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 shrink-0 text-fg-4" />
+                  )}
+                  <span className={rule.met ? "text-success" : "text-fg-3"}>
+                    {rule.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Confirm password */}
+        <Field
+          label="Confirm password"
+          type={showConfirmPassword ? "text" : "password"}
+          name="confirmPassword"
+          placeholder="Re-enter your password"
+          icon={<Lock className="h-4 w-4" />}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          trailing={
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              className="text-fg-3 hover:text-fg-1"
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          }
+        />
+        {confirmPassword.length > 0 && (
+          <div
+            className={cn(
+              "flex items-center gap-2 text-[12.5px]",
+              passwordsMatch ? "text-success" : "text-danger",
+            )}
+          >
+            {passwordsMatch ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <X className="h-3.5 w-3.5" />
+            )}
+            {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+          </div>
+        )}
 
         <label className="mt-1 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-[1.6] text-fg-2">
           <input
@@ -247,7 +335,7 @@ export default function RegisterPage() {
           type="submit"
           iconRight={<ArrowRight className="h-4 w-4" />}
           className="mt-3"
-          disabled={loading || !firstName || !email || !password}
+          disabled={loading || !firstName || !email || !allRulesMet || !passwordsMatch}
         >
           {loading ? "Creating account..." : "Continue"}
         </Button>
