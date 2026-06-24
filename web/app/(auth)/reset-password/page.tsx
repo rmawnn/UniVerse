@@ -6,25 +6,27 @@ import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle,
   Eye,
   EyeOff,
   Loader2,
   Lock,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { resetPasswordApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 
-function getPasswordErrors(password: string): string[] {
-  const errors: string[] = [];
-  if (password.length < 8) errors.push("At least 8 characters");
-  if (!/[A-Z]/.test(password)) errors.push("One uppercase letter");
-  if (!/[a-z]/.test(password)) errors.push("One lowercase letter");
-  if (!/[0-9]/.test(password)) errors.push("One digit");
-  return errors;
-}
+const PASSWORD_RULES = [
+  { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { label: "One uppercase letter (A–Z)", test: (p: string) => /[A-Z]/.test(p) },
+  { label: "One lowercase letter (a–z)", test: (p: string) => /[a-z]/.test(p) },
+  { label: "One number (0–9)", test: (p: string) => /[0-9]/.test(p) },
+  { label: "One special character (!@#$...)", test: (p: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/.test(p) },
+];
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -38,14 +40,13 @@ function ResetPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const passwordErrors = password ? getPasswordErrors(password) : [];
-  const passwordsMatch = password === confirmPassword;
-  const canSubmit =
-    !!token &&
-    password.length >= 8 &&
-    passwordErrors.length === 0 &&
-    passwordsMatch &&
-    confirmPassword.length > 0;
+  const passwordChecks = PASSWORD_RULES.map((r) => ({
+    label: r.label,
+    met: r.test(password),
+  }));
+  const allRulesMet = passwordChecks.every((r) => r.met);
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+  const canSubmit = !!token && allRulesMet && passwordsMatch;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -175,16 +176,28 @@ function ResetPasswordForm() {
               </button>
             }
           />
-          {password && passwordErrors.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {passwordErrors.map((err) => (
-                <span
-                  key={err}
-                  className="rounded-full bg-danger/10 px-2.5 py-0.5 text-[11px] font-medium text-danger"
-                >
-                  {err}
-                </span>
-              ))}
+          {password && (
+            <div className="mt-2 rounded-lg border border-line-2 bg-bg-2 px-3.5 py-3">
+              <div className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-fg-3">
+                Password requirements
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {passwordChecks.map((rule) => (
+                  <div
+                    key={rule.label}
+                    className="flex items-center gap-2 text-[12.5px]"
+                  >
+                    {rule.met ? (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-success" />
+                    ) : (
+                      <X className="h-3.5 w-3.5 shrink-0 text-fg-4" />
+                    )}
+                    <span className={rule.met ? "text-success" : "text-fg-3"}>
+                      {rule.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -199,12 +212,6 @@ function ResetPasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
-          error={!!(confirmPassword && !passwordsMatch)}
-          hint={
-            confirmPassword && !passwordsMatch
-              ? "Passwords do not match"
-              : undefined
-          }
           trailing={
             <button
               type="button"
@@ -220,6 +227,21 @@ function ResetPasswordForm() {
             </button>
           }
         />
+        {confirmPassword.length > 0 && (
+          <div
+            className={cn(
+              "flex items-center gap-2 text-[12.5px]",
+              passwordsMatch ? "text-success" : "text-danger",
+            )}
+          >
+            {passwordsMatch ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <X className="h-3.5 w-3.5" />
+            )}
+            {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+          </div>
+        )}
 
         <Button
           size="lg"
