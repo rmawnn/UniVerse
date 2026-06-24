@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Analytics } from "@vercel/analytics/next";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { AuthHydrator } from "@/lib/providers/AuthHydrator";
 import { ThemeProvider } from "@/lib/providers/ThemeProvider";
@@ -35,6 +36,7 @@ export default function RootLayout({
             <AuthHydrator>{children}</AuthHydrator>
           </ThemeProvider>
         </QueryProvider>
+        <Analytics />
       </body>
     </html>
   );
