@@ -9,6 +9,20 @@ export interface PostAuthorSummary {
   profile_image_url: string | null;
 }
 
+export interface PollOptionData {
+  id: string;
+  label: string;
+  position: number;
+  vote_count: number;
+  pct: number;
+}
+
+export interface PollData {
+  options: PollOptionData[];
+  total_votes: number;
+  voted_option_id: string | null;
+}
+
 export interface FeedPost {
   id: string;
   community_id: string;
@@ -26,6 +40,7 @@ export interface FeedPost {
   reposted_by_me: boolean;
   feed_label: string | null;
   recommendation_score: number | null;
+  poll: PollData | null;
   created_at: string;
   updated_at: string;
 }

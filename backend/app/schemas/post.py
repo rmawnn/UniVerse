@@ -11,7 +11,8 @@ class PostCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
     image_url: str | None = Field(None, max_length=500)
     video_url: str | None = Field(None, max_length=500)
-    post_type: str = Field("text", pattern=r"^(text|image|short)$")
+    post_type: str = Field("text", pattern=r"^(text|image|short|poll)$")
+    poll_options: list[str] | None = Field(None, min_length=2, max_length=5)
 
     @field_validator("content")
     @classmethod
@@ -25,6 +26,18 @@ class PostCreateRequest(BaseModel):
             raise ValueError("URL contains an unsafe scheme")
         return v
 
+    @field_validator("poll_options")
+    @classmethod
+    def validate_poll_options(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        cleaned = [sanitize_text(o.strip()) for o in v if o.strip()]
+        if len(cleaned) < 2:
+            raise ValueError("Poll must have at least 2 options")
+        if len(cleaned) > 5:
+            raise ValueError("Poll can have at most 5 options")
+        return cleaned
+
 
 class PostAuthorSummary(BaseModel):
     """Lightweight author info embedded in post responses."""
@@ -34,6 +47,22 @@ class PostAuthorSummary(BaseModel):
     profile_image_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class PollOptionResponse(BaseModel):
+    id: uuid.UUID
+    label: str
+    position: int
+    vote_count: int = 0
+    pct: float = 0.0
+
+    model_config = {"from_attributes": True}
+
+
+class PollResponse(BaseModel):
+    options: list[PollOptionResponse] = []
+    total_votes: int = 0
+    voted_option_id: uuid.UUID | None = None
 
 
 class PostResponse(BaseModel):
@@ -54,5 +83,6 @@ class PostResponse(BaseModel):
     reposted_by_me: bool = False
     feed_label: str | None = None
     recommendation_score: float | None = None
+    poll: PollResponse | None = None
     created_at: datetime
     updated_at: datetime

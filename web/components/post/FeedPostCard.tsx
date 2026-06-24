@@ -2,13 +2,15 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { ShieldCheck, X } from "lucide-react";
+import { BarChart3, Check, ShieldCheck, X } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { CategoryBadge } from "./CategoryBadge";
 import { PostActions } from "./PostActions";
 import { PostMenu } from "./PostMenu";
-import type { FeedPost } from "@/lib/api/feed";
+import type { FeedPost, PollData } from "@/lib/api/feed";
+import { votePoll } from "@/lib/api/posts";
 import { cn } from "@/lib/utils";
 
 interface FeedPostCardProps {
@@ -65,6 +67,84 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
  * Post card for real API data (FeedPost shape).
  * Preserves the exact same visual design as the mock PostCard.
  */
+function InlinePoll({ postId, poll }: { postId: string; poll: PollData }) {
+  const queryClient = useQueryClient();
+  const [optimistic, setOptimistic] = useState<PollData>(poll);
+
+  useEffect(() => { setOptimistic(poll); }, [poll]);
+
+  const hasVoted = !!optimistic.voted_option_id;
+
+  const vote = useMutation({
+    mutationFn: (optionId: string) => votePoll(postId, optionId),
+    onMutate: (optionId) => {
+      const prev = { ...optimistic };
+      const newOpts = optimistic.options.map((o) => ({
+        ...o,
+        vote_count: o.id === optionId ? o.vote_count + 1 : o.vote_count,
+      }));
+      const total = newOpts.reduce((s, o) => s + o.vote_count, 0);
+      setOptimistic({
+        options: newOpts.map((o) => ({ ...o, pct: total ? Math.round((o.vote_count / total) * 100 * 10) / 10 : 0 })),
+        total_votes: total,
+        voted_option_id: optionId,
+      });
+      return prev;
+    },
+    onError: (_err, _vars, prev) => { if (prev) setOptimistic(prev as PollData); },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["feed"] });
+      queryClient.invalidateQueries({ queryKey: ["post", postId] });
+    },
+  });
+
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-line-2 bg-bg-3 p-3.5">
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-fg-3">
+        <BarChart3 className="h-3.5 w-3.5" />
+        Poll · {optimistic.total_votes} vote{optimistic.total_votes !== 1 ? "s" : ""}
+      </div>
+      {optimistic.options.map((opt) => {
+        const isMyVote = optimistic.voted_option_id === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            disabled={vote.isPending}
+            onClick={() => { if (!hasVoted) vote.mutate(opt.id); }}
+            className={cn(
+              "relative flex w-full items-center gap-2 overflow-hidden rounded-md border px-3 py-2.5 text-left text-[14px] transition-all",
+              hasVoted
+                ? "cursor-default border-line-2"
+                : "cursor-pointer border-line-2 hover:border-brand-purple/50 hover:bg-brand-purple/5",
+              isMyVote && "border-brand-purple/40 bg-brand-purple/[0.06]",
+            )}
+          >
+            {hasVoted && (
+              <div
+                className={cn(
+                  "absolute inset-y-0 left-0 transition-all duration-500",
+                  isMyVote ? "bg-brand-purple/15" : "bg-fg-4/8",
+                )}
+                style={{ width: `${opt.pct}%` }}
+              />
+            )}
+            <span className="relative z-10 flex-1 font-medium text-fg-1">
+              {opt.label}
+            </span>
+            {hasVoted && (
+              <span className={cn("relative z-10 text-[13px] font-semibold tabular-nums", isMyVote ? "text-brand-purple" : "text-fg-3")}>
+                {opt.pct}%
+              </span>
+            )}
+            {isMyVote && <Check className="relative z-10 h-4 w-4 text-brand-purple" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
   const author = post.author;
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -116,6 +196,11 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
                 {post.content}
               </p>
             </Link>
+
+            {/* Poll (if present) */}
+            {post.post_type === "poll" && post.poll && post.poll.options.length > 0 && (
+              <InlinePoll postId={post.id} poll={post.poll} />
+            )}
 
             {/* Image (if present) */}
             {post.image_url && (

@@ -32,7 +32,7 @@ from app.repositories.saved_post_repository import SavedPostRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostResponse
-from app.services.post_service import _build_response
+from app.services.post_service import _build_response, _load_poll
 
 
 async def get_home_feed(
@@ -142,6 +142,11 @@ async def get_home_feed(
 
     show_score = settings.is_development
 
+    poll_post_ids = [sp.post_id for sp in page_scored if post_map[sp.post_id].post_type == "poll"]
+    polls = {}
+    for pid in poll_post_ids:
+        polls[pid] = await _load_poll(db, pid, current_user.id)
+
     items: list[PostResponse] = []
     for sp in page_scored:
         post = post_map[sp.post_id]
@@ -156,6 +161,7 @@ async def get_home_feed(
             reposted_by_me=post.id in reposted_set,
             feed_label=sp.label,
             recommendation_score=sp.final_score if show_score else None,
+            poll=polls.get(post.id),
         ))
 
     return PaginatedResponse(

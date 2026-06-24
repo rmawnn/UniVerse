@@ -32,6 +32,12 @@ export interface CreatePostRequest {
   image_url?: string | null;
   video_url?: string | null;
   post_type?: string;
+  poll_options?: string[];
+}
+
+export interface VoteResponse {
+  voted_option_id: string;
+  total_votes: number;
 }
 
 export async function createPost(
@@ -100,6 +106,20 @@ export async function getComments(
     { params: { page, page_size: pageSize } },
   );
   return res.data;
+}
+
+export async function votePoll(
+  postId: string,
+  optionId: string,
+): Promise<VoteResponse> {
+  const res = await api.post<VoteResponse>(`/posts/${postId}/vote`, {
+    option_id: optionId,
+  });
+  return res.data;
+}
+
+export async function unvotePoll(postId: string): Promise<void> {
+  await api.delete(`/posts/${postId}/vote`);
 }
 
 export async function createComment(

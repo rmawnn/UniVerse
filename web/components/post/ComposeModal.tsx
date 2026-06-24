@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { CommunityIcon } from "@/components/community/CommunityIcon";
 import { getJoinedCommunities } from "@/lib/api/communities";
 import { createPost, uploadPostImage } from "@/lib/api/posts";
+import { GiphySearch } from "@/components/post/GiphySearch";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +75,7 @@ export function ComposeModal({
 
   // GIF state
   const [gifUrl, setGifUrl] = useState<string | null>(null);
+  const [gifPreview, setGifPreview] = useState<string | null>(null);
   const [gifInputOpen, setGifInputOpen] = useState(false);
   const [gifInputValue, setGifInputValue] = useState("");
 
@@ -92,11 +94,24 @@ export function ComposeModal({
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!resolvedCommunityId) throw new Error("Select a community first");
-      const content = buildPostContent();
-      if (!content) throw new Error("Write something first");
       const finalImageUrl = imageUrl || gifUrl;
+
+      if (pollActive) {
+        const question = (pollQuestion.trim() || text.trim());
+        if (!question) throw new Error("Write a question first");
+        const opts = pollOptions.map((o) => o.trim()).filter(Boolean);
+        if (opts.length < 2) throw new Error("Add at least 2 options");
+        return createPost(resolvedCommunityId, {
+          content: question,
+          post_type: "poll",
+          poll_options: opts,
+        });
+      }
+
+      const content = text.trim();
+      if (!content && !finalImageUrl) throw new Error("Write something first");
       return createPost(resolvedCommunityId, {
-        content,
+        content: content || " ",
         image_url: finalImageUrl,
         post_type: finalImageUrl ? "image" : "text",
       });
@@ -123,6 +138,7 @@ export function ComposeModal({
     setPollQuestion("");
     setPollOptions(["", ""]);
     setGifUrl(null);
+    setGifPreview(null);
     setGifInputOpen(false);
     setGifInputValue("");
   }
@@ -183,6 +199,7 @@ export function ComposeModal({
     setImageUrl(null);
     setImagePreview(null);
     setGifUrl(null);
+    setGifPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -231,10 +248,19 @@ export function ComposeModal({
     setPollOptions(pollOptions.map((o, i) => (i === idx ? val : o)));
   }
 
+  function handleGifSelect(originalUrl: string, previewUrl: string) {
+    setGifUrl(originalUrl);
+    setGifPreview(previewUrl);
+    setImagePreview(null);
+    setImageUrl(null);
+    setGifInputOpen(false);
+  }
+
   function handleGifAdd() {
     const url = gifInputValue.trim();
     if (!url) return;
     setGifUrl(url);
+    setGifPreview(url);
     setImagePreview(null);
     setImageUrl(null);
     setGifInputOpen(false);
@@ -414,47 +440,19 @@ export function ComposeModal({
             </div>
           )}
 
-          {/* GIF URL input */}
+          {/* GIPHY search */}
           {gifInputOpen && (
-            <div className="mt-3 rounded-lg border border-line-2 bg-bg-3 p-4">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-fg-1">
-                <Sticker className="h-4 w-4 text-brand-purple" />
-                Add GIF
-              </div>
-              <div className="mt-2.5 flex gap-2">
-                <input
-                  type="url"
-                  value={gifInputValue}
-                  onChange={(e) => setGifInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleGifAdd();
-                    }
-                  }}
-                  placeholder="Paste a GIF URL (e.g. from giphy.com)"
-                  className="flex-1 rounded-md border border-line-2 bg-bg-1 px-3 py-2 text-[14px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple/60 focus:outline-none"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleGifAdd}
-                  disabled={!gifInputValue.trim()}
-                >
-                  Add
-                </Button>
-              </div>
-              <p className="mt-2 text-[11px] text-fg-4">
-                Paste a direct image/GIF URL. The GIF will appear in your post.
-              </p>
-            </div>
+            <GiphySearch
+              onSelect={handleGifSelect}
+              onClose={() => setGifInputOpen(false)}
+            />
           )}
 
           {/* Image / GIF preview */}
-          {(imagePreview || gifUrl) && (
+          {(imagePreview || gifPreview) && (
             <div className="relative mt-3.5">
               <img
-                src={imagePreview || gifUrl || ""}
+                src={imagePreview || gifPreview || ""}
                 alt="Attachment preview"
                 className="max-h-[240px] w-full rounded-lg border border-line-1 object-cover"
               />
