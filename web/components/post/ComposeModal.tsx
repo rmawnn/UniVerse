@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import {
+  BarChart3,
   Calendar,
   ChevronDown,
   Globe,
@@ -10,7 +11,8 @@ import {
   Info,
   Loader2,
   MapPin,
-  Smile,
+  Minus,
+  Plus,
   Sticker,
   X,
 } from "lucide-react";
@@ -24,11 +26,13 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
 
 const MAX_LEN = 5000;
+const MIN_POLL_OPTIONS = 2;
+const MAX_POLL_OPTIONS = 5;
 
 const TOOLBAR = [
   { key: "photo", icon: ImageIcon, label: "Photo" },
   { key: "gif", icon: Sticker, label: "GIF" },
-  { key: "poll", icon: Smile, label: "Poll" },
+  { key: "poll", icon: BarChart3, label: "Poll" },
   { key: "event", icon: Calendar, label: "Schedule" },
   { key: "place", icon: MapPin, label: "Place" },
 ] as const;
@@ -63,30 +67,65 @@ export function ComposeModal({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Poll state
+  const [pollActive, setPollActive] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+
+  // GIF state
+  const [gifUrl, setGifUrl] = useState<string | null>(null);
+  const [gifInputOpen, setGifInputOpen] = useState(false);
+  const [gifInputValue, setGifInputValue] = useState("");
+
+  function buildPostContent(): string {
+    if (!pollActive) return text.trim();
+    const q = pollQuestion.trim() || text.trim();
+    const opts = pollOptions
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (opts.length < 2) return text.trim();
+    const pollBlock = opts.map((o, i) => `${i + 1}. ${o}`).join("\n");
+    const header = q ? `📊 ${q}\n\n` : "";
+    return `${header}${pollBlock}\n\nVote by commenting your choice!`;
+  }
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!resolvedCommunityId) throw new Error("Select a community first");
+      const content = buildPostContent();
+      if (!content) throw new Error("Write something first");
+      const finalImageUrl = imageUrl || gifUrl;
       return createPost(resolvedCommunityId, {
-        content: text.trim(),
-        image_url: imageUrl,
-        post_type: imageUrl ? "image" : "text",
+        content,
+        image_url: finalImageUrl,
+        post_type: finalImageUrl ? "image" : "text",
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feed"] });
       queryClient.invalidateQueries({ queryKey: ["explore"] });
       queryClient.invalidateQueries({ queryKey: ["trending"] });
-      setText("");
-      setImageUrl(null);
-      setImagePreview(null);
-      setCommunityId(null);
-      setError(null);
+      resetForm();
       onClose();
     },
     onError: (err: Error) => {
       setError(err.message || "Failed to create post");
     },
   });
+
+  function resetForm() {
+    setText("");
+    setImageUrl(null);
+    setImagePreview(null);
+    setCommunityId(null);
+    setError(null);
+    setPollActive(false);
+    setPollQuestion("");
+    setPollOptions(["", ""]);
+    setGifUrl(null);
+    setGifInputOpen(false);
+    setGifInputValue("");
+  }
 
   if (!open) return null;
 
@@ -108,15 +147,26 @@ export function ComposeModal({
   const universityName = user?.university_name ?? "your university";
   const submitting = postMutation.isPending;
 
+  const canSubmit = pollActive
+    ? (pollQuestion.trim() || text.trim()) &&
+      pollOptions.filter((o) => o.trim()).length >= 2 &&
+      !overBudget &&
+      !submitting &&
+      !uploading &&
+      !!resolvedCommunityId
+    : text.trim() &&
+      !overBudget &&
+      !submitting &&
+      !uploading &&
+      !!resolvedCommunityId;
+
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
     setUploading(true);
     setError(null);
-
     try {
       const url = await uploadPostImage(file);
       setImageUrl(url);
@@ -132,12 +182,68 @@ export function ComposeModal({
   function removeAttachment() {
     setImageUrl(null);
     setImagePreview(null);
+    setGifUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleToolbarClick(key: string) {
+    switch (key) {
+      case "photo":
+        fileInputRef.current?.click();
+        break;
+      case "poll":
+        if (pollActive) {
+          setPollActive(false);
+          setPollQuestion("");
+          setPollOptions(["", ""]);
+        } else {
+          setPollActive(true);
+          setGifInputOpen(false);
+        }
+        break;
+      case "gif":
+        if (gifInputOpen) {
+          setGifInputOpen(false);
+        } else {
+          setGifInputOpen(true);
+          setPollActive(false);
+        }
+        break;
+      case "event":
+      case "place":
+        setError(`${key === "event" ? "Schedule" : "Place"} — coming soon!`);
+        setTimeout(() => setError(null), 2000);
+        break;
+    }
+  }
+
+  function addPollOption() {
+    if (pollOptions.length >= MAX_POLL_OPTIONS) return;
+    setPollOptions([...pollOptions, ""]);
+  }
+
+  function removePollOption(idx: number) {
+    if (pollOptions.length <= MIN_POLL_OPTIONS) return;
+    setPollOptions(pollOptions.filter((_, i) => i !== idx));
+  }
+
+  function updatePollOption(idx: number, val: string) {
+    setPollOptions(pollOptions.map((o, i) => (i === idx ? val : o)));
+  }
+
+  function handleGifAdd() {
+    const url = gifInputValue.trim();
+    if (!url) return;
+    setGifUrl(url);
+    setImagePreview(null);
+    setImageUrl(null);
+    setGifInputOpen(false);
+    setGifInputValue("");
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!text.trim() || overBudget || submitting) return;
+    if (!canSubmit) return;
     setError(null);
     postMutation.mutate();
   }
@@ -161,7 +267,7 @@ export function ComposeModal({
             id="compose-title"
             className="flex-1 text-[16px] font-semibold tracking-tightish"
           >
-            New post
+            {pollActive ? "Create poll" : "New post"}
           </h2>
           <button
             type="button"
@@ -250,19 +356,105 @@ export function ComposeModal({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={
-              selectedCommunity
-                ? `Share something with ${selectedCommunity.name}...`
-                : "Share something with your campus..."
+              pollActive
+                ? "Ask a question..."
+                : selectedCommunity
+                  ? `Share something with ${selectedCommunity.name}...`
+                  : "Share something with your campus..."
             }
-            rows={5}
-            className="min-h-[120px] w-full resize-none bg-transparent text-[17px] leading-[1.5] text-fg-1 placeholder:text-fg-3 focus:outline-none"
+            rows={pollActive ? 2 : 5}
+            className="min-h-[60px] w-full resize-none bg-transparent text-[17px] leading-[1.5] text-fg-1 placeholder:text-fg-3 focus:outline-none"
           />
 
-          {/* Image preview */}
-          {imagePreview && (
+          {/* Poll builder */}
+          {pollActive && (
+            <div className="mt-3 space-y-2.5 rounded-lg border border-line-2 bg-bg-3 p-4">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-fg-1">
+                <BarChart3 className="h-4 w-4 text-brand-purple" />
+                Poll options
+                <span className="ml-auto text-[11px] font-normal text-fg-4">
+                  {pollOptions.length}/{MAX_POLL_OPTIONS}
+                </span>
+              </div>
+              {pollOptions.map((opt, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bg-4 text-[11px] font-bold text-fg-3">
+                    {idx + 1}
+                  </span>
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => updatePollOption(idx, e.target.value)}
+                    placeholder={`Option ${idx + 1}`}
+                    maxLength={100}
+                    className="flex-1 rounded-md border border-line-2 bg-bg-1 px-3 py-2 text-[14px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple/60 focus:outline-none"
+                  />
+                  {pollOptions.length > MIN_POLL_OPTIONS && (
+                    <button
+                      type="button"
+                      onClick={() => removePollOption(idx)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-4 hover:bg-bg-4 hover:text-danger"
+                      aria-label={`Remove option ${idx + 1}`}
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {pollOptions.length < MAX_POLL_OPTIONS && (
+                <button
+                  type="button"
+                  onClick={addPollOption}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line-2 bg-bg-1 py-2 text-[13px] font-medium text-fg-3 hover:border-brand-purple/40 hover:text-brand-purple"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add option
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* GIF URL input */}
+          {gifInputOpen && (
+            <div className="mt-3 rounded-lg border border-line-2 bg-bg-3 p-4">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-fg-1">
+                <Sticker className="h-4 w-4 text-brand-purple" />
+                Add GIF
+              </div>
+              <div className="mt-2.5 flex gap-2">
+                <input
+                  type="url"
+                  value={gifInputValue}
+                  onChange={(e) => setGifInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleGifAdd();
+                    }
+                  }}
+                  placeholder="Paste a GIF URL (e.g. from giphy.com)"
+                  className="flex-1 rounded-md border border-line-2 bg-bg-1 px-3 py-2 text-[14px] text-fg-1 placeholder:text-fg-4 focus:border-brand-purple/60 focus:outline-none"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleGifAdd}
+                  disabled={!gifInputValue.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-fg-4">
+                Paste a direct image/GIF URL. The GIF will appear in your post.
+              </p>
+            </div>
+          )}
+
+          {/* Image / GIF preview */}
+          {(imagePreview || gifUrl) && (
             <div className="relative mt-3.5">
               <img
-                src={imagePreview}
+                src={imagePreview || gifUrl || ""}
                 alt="Attachment preview"
                 className="max-h-[240px] w-full rounded-lg border border-line-1 object-cover"
               />
@@ -290,13 +482,15 @@ export function ComposeModal({
           )}
 
           {/* Tip */}
-          <div className="mt-4 flex gap-2.5 rounded-md border border-line-1 bg-bg-3 p-3">
-            <Info className="h-3.5 w-3.5 shrink-0 text-brand-blue" />
-            <div className="text-[12px] leading-[1.5] text-fg-2">
-              Tip: type <b className="text-fg-1">@</b> to mention classmates,{" "}
-              <b className="text-fg-1">#</b> to link a community.
+          {!pollActive && !gifInputOpen && (
+            <div className="mt-4 flex gap-2.5 rounded-md border border-line-1 bg-bg-3 p-3">
+              <Info className="h-3.5 w-3.5 shrink-0 text-brand-blue" />
+              <div className="text-[12px] leading-[1.5] text-fg-2">
+                Tip: type <b className="text-fg-1">@</b> to mention classmates,{" "}
+                <b className="text-fg-1">#</b> to link a community.
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Hidden file input */}
@@ -312,15 +506,21 @@ export function ComposeModal({
         <footer className="flex items-center gap-1 border-t border-line-1 px-5 py-3">
           {TOOLBAR.map((t) => {
             const Icon = t.icon;
+            const isActive =
+              (t.key === "poll" && pollActive) ||
+              (t.key === "gif" && gifInputOpen);
             return (
               <button
                 key={t.key}
                 type="button"
-                onClick={() => {
-                  if (t.key === "photo") fileInputRef.current?.click();
-                }}
+                onClick={() => handleToolbarClick(t.key)}
                 disabled={t.key === "photo" && uploading}
-                className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium text-brand-purple hover:bg-bg-3 disabled:opacity-50"
+                className={cn(
+                  "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-medium transition-colors disabled:opacity-50",
+                  isActive
+                    ? "bg-brand-purple/15 text-brand-purple"
+                    : "text-brand-purple hover:bg-bg-3",
+                )}
               >
                 <Icon className="h-4 w-4" />
                 <span className="hidden sm:inline">{t.label}</span>
@@ -340,7 +540,7 @@ export function ComposeModal({
           <Button
             size="sm"
             type="submit"
-            disabled={!text.trim() || overBudget || submitting || uploading || !resolvedCommunityId}
+            disabled={!canSubmit}
           >
             {submitting ? "Posting..." : "Post"}
           </Button>
