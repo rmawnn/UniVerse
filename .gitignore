@@ -17,6 +17,12 @@ build/
 .venv/
 venv/
 
+# Node.js
+node_modules/
+.next/
+.expo/
+*.tsbuildinfo
+
 # Database
 *.db
 *.sqlite3
@@ -31,8 +37,22 @@ db_backups/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Test/lint caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+backend/server_stderr.log
+
+# LoRA model outputs (large binary files)
+lora-demo/output/
+lora-demo/_dry_run_results.txt
+lora-demo/training_log.txt
+
+# Backup folders
+web_backup_before_claude_design/

@@ -232,6 +232,17 @@ class LoRAAnalytics(BaseModel):
     dataset_ready: bool
     training_status: str
     evaluation_status: str
+    base_accuracy: float | None = None
+    finetuned_accuracy: float | None = None
+    base_macro_f1: float | None = None
+    finetuned_macro_f1: float | None = None
+    base_weighted_f1: float | None = None
+    finetuned_weighted_f1: float | None = None
+    epochs: float | None = None
+    total_steps: int | None = None
+    train_loss: float | None = None
+    adapter_size_mb: float | None = None
+    method: str | None = None
 
 
 class AIAnalyticsResponse(BaseModel):

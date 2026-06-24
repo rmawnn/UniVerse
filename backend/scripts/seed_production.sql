@@ -197,7 +197,7 @@ BEGIN
   INSERT INTO comments (id, post_id, author_id, content, is_deleted, created_at, updated_at)
   SELECT gen_random_uuid(), ps.id, u.id, cm.content, false, ps.created_at + interval '1 hour', now()
   FROM (
-    SELECT p.id, p.content AS post_content, ROW_NUMBER() OVER (ORDER BY p.created_at) AS rn
+    SELECT p.id, p.created_at, p.content AS post_content, ROW_NUMBER() OVER (ORDER BY p.created_at) AS rn
     FROM posts p WHERE p.is_deleted = false
     ORDER BY p.created_at DESC LIMIT 30
   ) ps
@@ -232,6 +232,53 @@ BEGIN
     AND u1.id != u2.id
     AND random() < 0.4
   ON CONFLICT (follower_id, following_id) DO NOTHING;
+
+  -- ── AI Usage Logs (demo activity) ────────────────────────────
+  INSERT INTO ai_usage_logs (id, user_id, feature, provider, latency_ms, success, created_at)
+  SELECT gen_random_uuid(), u.id, f.feature, f.provider, f.latency_ms, f.success,
+         now() - (f.hours_ago * interval '1 hour')
+  FROM (VALUES
+    ('categorization', 'Gemini', 142, true, 1, 'ai_elif'),
+    ('categorization', 'Gemini', 156, true, 2, 'ai_mert'),
+    ('categorization', 'Gemini', 138, true, 3, 'ai_zeynep'),
+    ('categorization', 'Gemini', 201, true, 5, 'ai_naz'),
+    ('categorization', 'Gemini', 167, true, 7, 'ai_deniz'),
+    ('categorization', 'Gemini', 189, true, 10, 'ai_baris'),
+    ('categorization', 'Gemini', 145, true, 12, 'ai_ayse'),
+    ('categorization', 'RuleBased (fallback)', 3, false, 15, 'ai_selin'),
+    ('categorization', 'Gemini', 178, true, 18, 'ai_ipek'),
+    ('categorization', 'Gemini', 163, true, 24, 'ai_emre'),
+    ('categorization', 'Gemini', 151, true, 30, 'ai_hakan'),
+    ('categorization', 'Gemini', 195, true, 36, 'ai_derya'),
+    ('categorization', 'Gemini', 172, true, 48, 'ai_tolga'),
+    ('categorization', 'Gemini', 184, true, 60, 'ai_kerem'),
+    ('categorization', 'Gemini', 159, true, 72, 'ai_omer'),
+    ('recommendation', 'weighted_multi_signal', 45, true, 2, 'ai_elif'),
+    ('recommendation', 'weighted_multi_signal', 52, true, 4, 'ai_mert'),
+    ('recommendation', 'weighted_multi_signal', 38, true, 8, 'ai_zeynep'),
+    ('recommendation', 'weighted_multi_signal', 61, true, 14, 'ai_baris'),
+    ('recommendation', 'weighted_multi_signal', 43, true, 20, 'ai_selin'),
+    ('recommendation', 'weighted_multi_signal', 56, true, 28, 'ai_naz'),
+    ('recommendation', 'weighted_multi_signal', 49, true, 40, 'ai_ayse'),
+    ('recommendation', 'weighted_multi_signal', 41, true, 55, 'ai_deniz'),
+    ('recommendation', 'weighted_multi_signal', 58, true, 68, 'ai_emre'),
+    ('recommendation', 'weighted_multi_signal', 47, true, 80, 'ai_hakan'),
+    ('job_matching', 'skill_factor_scoring', 28, true, 3, 'ai_elif'),
+    ('job_matching', 'skill_factor_scoring', 31, true, 6, 'ai_mert'),
+    ('job_matching', 'skill_factor_scoring', 25, true, 11, 'ai_zeynep'),
+    ('job_matching', 'skill_factor_scoring', 34, true, 16, 'ai_baris'),
+    ('job_matching', 'skill_factor_scoring', 29, true, 22, 'ai_burak'),
+    ('job_matching', 'skill_factor_scoring', 26, true, 35, 'ai_naz'),
+    ('job_matching', 'skill_factor_scoring', 33, true, 44, 'ai_kerem'),
+    ('job_matching', 'skill_factor_scoring', 27, true, 56, 'ai_ipek'),
+    ('job_matching', 'skill_factor_scoring', 30, true, 70, 'ai_derya'),
+    ('job_matching', 'skill_factor_scoring', 32, true, 84, 'ai_tolga')
+  ) AS f(feature, provider, latency_ms, success, hours_ago, username)
+  JOIN users u ON u.username = f.username
+  WHERE NOT EXISTS (
+    SELECT 1 FROM ai_usage_logs a WHERE a.user_id = u.id AND a.feature = f.feature
+    AND a.created_at > now() - interval '7 days'
+  );
 
 END $$;
 

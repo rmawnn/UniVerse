@@ -171,6 +171,17 @@ export interface LoRAAnalytics {
   dataset_ready: boolean;
   training_status: string;
   evaluation_status: string;
+  base_accuracy: number | null;
+  finetuned_accuracy: number | null;
+  base_macro_f1: number | null;
+  finetuned_macro_f1: number | null;
+  base_weighted_f1: number | null;
+  finetuned_weighted_f1: number | null;
+  epochs: number | null;
+  total_steps: number | null;
+  train_loss: number | null;
+  adapter_size_mb: number | null;
+  method: string | null;
 }
 
 export interface AIAnalyticsResponse {

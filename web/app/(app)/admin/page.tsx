@@ -1839,36 +1839,103 @@ function AIAnalyticsTab() {
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-[16px] font-bold tracking-tighter">
-              Fine-Tuning Demo (LoRA)
+              Fine-Tuning Results — QLoRA
             </h3>
             <p className="mt-0.5 text-[12.5px] text-fg-3">
-              {lora.model_name}
+              Base model: {lora.model_name} &middot; Method: {lora.method ?? "QLoRA"}
             </p>
           </div>
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-              lora.dataset_ready
+              lora.training_status === "completed"
                 ? "border-success/28 bg-success/12 text-success"
                 : "border-warn/28 bg-warn/12 text-warn",
             )}
           >
-            {lora.dataset_ready ? "Dataset Ready" : "No Dataset"}
+            {lora.training_status === "completed" ? "Training Complete" : lora.training_status}
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
-            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
-              {lora.train_examples}
+        {/* Accuracy before/after comparison */}
+        {lora.base_accuracy != null && lora.finetuned_accuracy != null && (
+          <div className="mt-5 rounded-lg border border-brand-purple/20 bg-brand-purple/[0.04] p-4">
+            <div className="mb-3 text-[12.5px] font-semibold text-fg-2">
+              Accuracy Improvement
             </div>
-            <div className="text-[12px] text-fg-3">Train examples</div>
+            <div className="flex items-end gap-6">
+              <div className="flex-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[12px] text-fg-3">Base model</span>
+                  <span className="text-[18px] font-bold tabular-nums text-fg-3">
+                    {(lora.base_accuracy * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-bg-3">
+                  <div
+                    className="h-full rounded-full bg-fg-4"
+                    style={{ width: `${lora.base_accuracy * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-[12px] font-bold text-success">
+                &rarr;
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[12px] text-fg-3">Fine-tuned</span>
+                  <span className="text-[18px] font-bold tabular-nums text-success">
+                    {(lora.finetuned_accuracy * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-bg-3">
+                  <div
+                    className="h-full rounded-full bg-success"
+                    style={{ width: `${lora.finetuned_accuracy * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 text-center text-[12px] font-semibold text-success">
+              +{((lora.finetuned_accuracy - lora.base_accuracy) * 100).toFixed(1)} percentage points improvement
+            </div>
+          </div>
+        )}
+
+        {/* Key metrics grid */}
+        <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[20px] font-bold tabular-nums tracking-tighter">
+              {lora.train_examples + lora.eval_examples}
+            </div>
+            <div className="text-[11px] text-fg-3">Dataset size</div>
+            <div className="mt-0.5 text-[10px] text-fg-4">
+              {lora.train_examples} train / {lora.eval_examples} eval
+            </div>
           </div>
           <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
-            <div className="text-[22px] font-bold tabular-nums tracking-tighter">
-              {lora.eval_examples}
+            <div className="text-[20px] font-bold tabular-nums tracking-tighter">
+              {lora.epochs ?? "—"}
             </div>
-            <div className="text-[12px] text-fg-3">Eval examples</div>
+            <div className="text-[11px] text-fg-3">Epochs</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[20px] font-bold tabular-nums tracking-tighter">
+              {lora.total_steps ?? "—"}
+            </div>
+            <div className="text-[11px] text-fg-3">Steps</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[20px] font-bold tabular-nums tracking-tighter">
+              {lora.adapter_size_mb ? `${lora.adapter_size_mb} MB` : "—"}
+            </div>
+            <div className="text-[11px] text-fg-3">Adapter size</div>
+          </div>
+          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
+            <div className="text-[20px] font-bold tabular-nums tracking-tighter">
+              {lora.train_loss != null ? lora.train_loss.toFixed(3) : "—"}
+            </div>
+            <div className="text-[11px] text-fg-3">Train loss</div>
           </div>
           <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
             <div className="flex items-center gap-1.5">
@@ -1877,26 +1944,46 @@ function AIAnalyticsTab() {
               ) : (
                 <Clock className="h-4 w-4 text-warn" />
               )}
-              <span className="text-[13px] font-semibold capitalize">
+              <span className="text-[12px] font-semibold capitalize">
                 {lora.training_status}
               </span>
             </div>
-            <div className="mt-1 text-[12px] text-fg-3">Training</div>
-          </div>
-          <div className="rounded-lg border border-line-1 bg-bg-2/50 p-3.5">
-            <div className="flex items-center gap-1.5">
-              {lora.evaluation_status === "ready" ? (
-                <CheckCircle className="h-4 w-4 text-success" />
-              ) : (
-                <Clock className="h-4 w-4 text-warn" />
-              )}
-              <span className="text-[13px] font-semibold capitalize">
-                {lora.evaluation_status}
-              </span>
-            </div>
-            <div className="mt-1 text-[12px] text-fg-3">Evaluation</div>
+            <div className="mt-1 text-[11px] text-fg-3">Status</div>
           </div>
         </div>
+
+        {/* F1 Score comparison */}
+        {lora.base_macro_f1 != null && lora.finetuned_macro_f1 != null && (
+          <div className="mt-4">
+            <div className="mb-2 text-[12.5px] font-semibold text-fg-2">
+              F1 Score Comparison
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex items-center justify-between rounded-lg border border-line-1 bg-bg-2/50 px-4 py-3">
+                <div>
+                  <div className="text-[12px] font-medium text-fg-2">Macro F1</div>
+                  <div className="mt-0.5 text-[11px] text-fg-4">Average across categories</div>
+                </div>
+                <div className="flex items-center gap-2 text-[14px] font-bold tabular-nums">
+                  <span className="text-fg-3">{lora.base_macro_f1.toFixed(2)}</span>
+                  <span className="text-fg-4">&rarr;</span>
+                  <span className="text-success">{lora.finetuned_macro_f1.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-line-1 bg-bg-2/50 px-4 py-3">
+                <div>
+                  <div className="text-[12px] font-medium text-fg-2">Weighted F1</div>
+                  <div className="mt-0.5 text-[11px] text-fg-4">Weighted by category support</div>
+                </div>
+                <div className="flex items-center gap-2 text-[14px] font-bold tabular-nums">
+                  <span className="text-fg-3">{(lora.base_weighted_f1 ?? 0).toFixed(2)}</span>
+                  <span className="text-fg-4">&rarr;</span>
+                  <span className="text-success">{(lora.finetuned_weighted_f1 ?? 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pipeline steps */}
         <div className="mt-5">
