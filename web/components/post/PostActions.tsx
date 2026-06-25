@@ -16,6 +16,7 @@ import { cn, compactNumber } from "@/lib/utils";
 import { toggleLike, toggleRepost } from "@/lib/api/posts";
 
 const ReportModal = dynamic(() => import("./ReportModal").then(m => m.ReportModal), { ssr: false });
+const SaveToCollectionModal = dynamic(() => import("@/components/bookmarks/SaveToCollectionModal").then(m => m.SaveToCollectionModal), { ssr: false });
 
 type ActionKind = "like" | "comment" | "repost" | "bookmark" | "share";
 
@@ -72,6 +73,7 @@ export function PostActions({
   const [repostPending, setRepostPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(false);
 
   const handleLike = useCallback(async () => {
     if (likePending) return;
@@ -148,13 +150,12 @@ export function PostActions({
         const { default: api } = await import("@/lib/api/client");
         if (newState) {
           await api.post(`/posts/${postId}/save`);
+          setCollectionOpen(true);
         } else {
           await api.delete(`/posts/${postId}/save`);
         }
-        // Invalidate saved-posts cache so /bookmarks stays in sync
         queryClient.invalidateQueries({ queryKey: ["saved-posts"] });
       } catch {
-        // Revert on error
         setBookmarked(!newState);
       }
     }
@@ -201,11 +202,18 @@ export function PostActions({
       </div>
 
       {postId && (
-        <ReportModal
-          open={reportOpen}
-          onClose={() => setReportOpen(false)}
-          contentId={postId}
-        />
+        <>
+          <ReportModal
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            contentId={postId}
+          />
+          <SaveToCollectionModal
+            open={collectionOpen}
+            onClose={() => setCollectionOpen(false)}
+            postId={postId}
+          />
+        </>
       )}
     </>
   );

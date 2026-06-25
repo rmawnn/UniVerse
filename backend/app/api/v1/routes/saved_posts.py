@@ -10,6 +10,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.post import PostResponse
 from app.schemas.saved_collection import (
     CreateCollectionRequest,
+    RenameCollectionRequest,
     SavedCollectionResponse,
 )
 from app.services import saved_post_service
@@ -80,6 +81,34 @@ async def create_collection(
     """Create a new saved-post collection."""
     return await saved_collection_service.create_collection(
         db, current_user, body.name,
+    )
+
+
+@router.delete("/users/me/saved-collections/{collection_id}")
+async def delete_collection(
+    collection_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a collection and all its items."""
+    return await saved_collection_service.delete_collection(
+        db, collection_id, current_user,
+    )
+
+
+@router.patch(
+    "/users/me/saved-collections/{collection_id}",
+    response_model=SavedCollectionResponse,
+)
+async def rename_collection(
+    collection_id: UUID,
+    body: RenameCollectionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a collection."""
+    return await saved_collection_service.rename_collection(
+        db, collection_id, current_user, body.name,
     )
 
 

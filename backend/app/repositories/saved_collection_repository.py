@@ -69,6 +69,30 @@ class SavedCollectionRepository:
         result = await self.db.execute(stmt)
         return {row[0]: row[1] for row in result.all()}
 
+    async def delete_collection(self, collection_id: UUID) -> bool:
+        coll = await self.get_by_id(collection_id)
+        if not coll:
+            return False
+        await self.db.execute(
+            delete(SavedCollectionItem).where(
+                SavedCollectionItem.collection_id == collection_id,
+            )
+        )
+        await self.db.delete(coll)
+        await self.db.flush()
+        return True
+
+    async def rename_collection(
+        self, collection_id: UUID, new_name: str,
+    ) -> SavedCollection | None:
+        coll = await self.get_by_id(collection_id)
+        if not coll:
+            return None
+        coll.name = new_name
+        await self.db.flush()
+        await self.db.refresh(coll)
+        return coll
+
     # ── Collection items ─────────────────────────────────────
 
     async def add_post(self, collection_id: UUID, post_id: UUID) -> SavedCollectionItem:

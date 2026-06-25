@@ -76,6 +76,45 @@ async def create_collection(
     )
 
 
+async def delete_collection(
+    db: AsyncSession,
+    collection_id: UUID,
+    current_user: User,
+) -> dict:
+    """Delete a collection and all its items."""
+    repo = SavedCollectionRepository(db)
+    collection = await repo.get_by_id(collection_id)
+    if not collection:
+        raise NotFound("Collection")
+    if collection.user_id != current_user.id:
+        raise Forbidden("This collection does not belong to you")
+    await repo.delete_collection(collection_id)
+    return {"deleted": True}
+
+
+async def rename_collection(
+    db: AsyncSession,
+    collection_id: UUID,
+    current_user: User,
+    new_name: str,
+) -> SavedCollectionResponse:
+    """Rename a collection."""
+    repo = SavedCollectionRepository(db)
+    collection = await repo.get_by_id(collection_id)
+    if not collection:
+        raise NotFound("Collection")
+    if collection.user_id != current_user.id:
+        raise Forbidden("This collection does not belong to you")
+    updated = await repo.rename_collection(collection_id, new_name.strip())
+    counts = await repo.count_items_batch([collection_id])
+    return SavedCollectionResponse(
+        id=updated.id,
+        name=updated.name,
+        post_count=counts.get(updated.id, 0),
+        created_at=updated.created_at,
+    )
+
+
 async def get_collection_posts(
     db: AsyncSession,
     collection_id: UUID,

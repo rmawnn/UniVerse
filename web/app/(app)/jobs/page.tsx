@@ -5,10 +5,12 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  Plus,
   RefreshCw,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
@@ -17,6 +19,8 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { JobCard, JobLogo } from "@/components/jobs/JobCard";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
+
+const CreateJobModal = dynamic(() => import("@/components/jobs/CreateJobModal").then(m => m.CreateJobModal), { ssr: false });
 import {
   listJobs,
   listRecommendedJobs,
@@ -66,6 +70,7 @@ export default function JobsPage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
+  const [jobModalOpen, setJobModalOpen] = useState(false);
 
   // Reset page when filter changes
   const handleFilterChange = (f: Filter) => {
@@ -168,6 +173,18 @@ export default function JobsPage() {
       }
     >
       <div className="mx-auto max-w-[760px] px-4 py-5 sm:px-8 sm:py-6">
+        {/* Header with Post a Job button */}
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[20px] font-bold tracking-tighter">Browse opportunities</h2>
+          <Button
+            size="sm"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => setJobModalOpen(true)}
+          >
+            Post a job
+          </Button>
+        </div>
+
         {/* Search + filter bar */}
         <div className="mb-4 flex items-center gap-2.5">
           <div className="flex h-10 flex-1 items-center gap-2.5 rounded-md border border-line-2 bg-bg-2 px-3.5">
@@ -332,6 +349,8 @@ export default function JobsPage() {
           </>
         )}
       </div>
+
+      <CreateJobModal open={jobModalOpen} onClose={() => setJobModalOpen(false)} />
     </AppShell>
   );
 }

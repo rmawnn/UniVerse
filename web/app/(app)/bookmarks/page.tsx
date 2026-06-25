@@ -5,15 +5,23 @@ import Link from "next/link";
 import {
   Bookmark,
   Briefcase,
+  ChevronLeft,
   FolderOpen,
   Loader2,
   MapPin,
+  MoreHorizontal,
+  Pencil,
+  Plus,
   Search,
+  Trash2,
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { Field } from "@/components/ui/Field";
 import { FeedPostCard } from "@/components/post/FeedPostCard";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import type { FeedPost, PaginatedResponse } from "@/lib/api/feed";
@@ -22,7 +30,14 @@ import api from "@/lib/api/client";
 const FILTERS = ["All", "Posts", "Jobs"] as const;
 type Filter = (typeof FILTERS)[number];
 
-/* ── Backend job shape from GET /jobs/saved ────────────────── */
+const GRADIENT_HUES = [
+  ["#9B6CFF", "#5C8FFF"],
+  ["#5AE0B6", "#34A8FF"],
+  ["#FFB547", "#FF6A6A"],
+  ["#FF6ECB", "#9B6CFF"],
+  ["#34A8FF", "#5AE0B6"],
+  ["#FF8A65", "#FFB547"],
+];
 
 interface SavedJobAuthor {
   id: string;
@@ -47,15 +62,30 @@ interface SavedJob {
   updated_at: string;
 }
 
-const COLLECTIONS = [
-  { name: "Read later", count: 8, hue: ["#9B6CFF", "#5C8FFF"] },
-  { name: "PS3 references", count: 5, hue: ["#5AE0B6", "#34A8FF"] },
-  { name: "Internships", count: 3, hue: ["#FFB547", "#FF6A6A"] },
-];
+interface Collection {
+  id: string;
+  name: string;
+  post_count: number;
+  created_at: string;
+}
 
 export default function BookmarksPage() {
   const [filter, setFilter] = useState<Filter>("All");
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [renameModal, setRenameModal] = useState<Collection | null>(null);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
+
+  /* ── Collections query ──────────────────────────── */
+  const { data: collections = [] } = useQuery({
+    queryKey: ["saved-collections"],
+    queryFn: async (): Promise<Collection[]> => {
+      const res = await api.get<Collection[]>("/users/me/saved-collections");
+      return res.data;
+    },
+  });
 
   /* ── Saved posts query ──────────────────────────── */
   const {
@@ -71,6 +101,23 @@ export default function BookmarksPage() {
       );
       return res.data;
     },
+    enabled: !activeCollectionId,
+  });
+
+  /* ── Collection posts query ─────────────────────── */
+  const {
+    data: collectionPostsData,
+    isLoading: collectionPostsLoading,
+  } = useQuery({
+    queryKey: ["collection-posts", activeCollectionId],
+    queryFn: async (): Promise<PaginatedResponse<FeedPost>> => {
+      const res = await api.get<PaginatedResponse<FeedPost>>(
+        `/users/me/saved-collections/${activeCollectionId}`,
+        { params: { page: 1, page_size: 50 } },
+      );
+      return res.data;
+    },
+    enabled: !!activeCollectionId,
   });
 
   /* ── Saved jobs query ───────────────────────────── */
@@ -87,22 +134,38 @@ export default function BookmarksPage() {
       );
       return res.data;
     },
+    enabled: !activeCollectionId,
+  });
+
+  /* ── Delete collection ──────────────────────────── */
+  const deleteCollectionMut = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/users/me/saved-collections/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-collections"] });
+      if (activeCollectionId) setActiveCollectionId(null);
+    },
   });
 
   const savedPosts = savedPostsData?.items ?? [];
   const savedJobs = savedJobsData?.items ?? [];
+  const collectionPosts = collectionPostsData?.items ?? [];
+  const activeCollection = collections.find((c) => c.id === activeCollectionId);
 
   const showPosts = filter === "All" || filter === "Posts";
   const showJobs = filter === "All" || filter === "Jobs";
 
-  const isLoading = (showPosts && postsLoading) || (showJobs && jobsLoading);
+  const isLoading = activeCollectionId
+    ? collectionPostsLoading
+    : (showPosts && postsLoading) || (showJobs && jobsLoading);
+
   const allEmpty =
-    !isLoading && savedPosts.length === 0 && savedJobs.length === 0;
+    !isLoading && !activeCollectionId && savedPosts.length === 0 && savedJobs.length === 0;
 
   /* ── Unsave job handler ─────────────────────────── */
   const handleUnsaveJob = useCallback(
     async (jobId: string) => {
-      // Optimistic remove
       queryClient.setQueryData<PaginatedResponse<SavedJob>>(
         ["saved-jobs"],
         (old) => {
@@ -117,86 +180,166 @@ export default function BookmarksPage() {
       try {
         await api.delete(`/jobs/${jobId}/save`);
       } catch {
-        // Refetch on error to revert
         queryClient.invalidateQueries({ queryKey: ["saved-jobs"] });
       }
     },
     [queryClient],
   );
 
+  /* ── Filter posts by search ─────────────────────── */
+  const filterBySearch = <T extends { title?: string; description?: string; content?: string }>(
+    items: T[],
+  ): T[] => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase();
+    return items.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q) ||
+        item.content?.toLowerCase().includes(q),
+    );
+  };
+
+  const filteredPosts = filterBySearch(activeCollectionId ? collectionPosts : savedPosts);
+  const filteredJobs = filterBySearch(savedJobs);
+
   return (
     <AppShell
-      topBar={{ breadcrumb: "Saved", title: "Bookmarks" }}
+      topBar={{ breadcrumb: "Saved", title: activeCollection ? activeCollection.name : "Bookmarks" }}
       rightRail={
         <>
           <WidgetCard
             title="Collections"
             action={
-              <button className="text-[12px] font-medium text-brand-blue hover:underline">
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="flex items-center gap-1 text-[12px] font-medium text-brand-blue hover:underline"
+              >
+                <Plus className="h-3 w-3" />
                 New
               </button>
             }
           >
-            {COLLECTIONS.map((c, i) => (
-              <div
-                key={c.name}
-                className="flex items-center gap-2.5 px-3 py-2.5"
-                style={{
-                  borderTop: i ? "1px solid var(--line-1)" : "none",
-                }}
-              >
-                <span
-                  className="flex h-8 w-8 items-center justify-center rounded-[9px] text-white"
-                  style={{
-                    background: `linear-gradient(135deg, ${c.hue[0]}, ${c.hue[1]})`,
-                  }}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-semibold">
-                    {c.name}
-                  </div>
-                  <div className="text-[11px] text-fg-3">{c.count} saved</div>
-                </div>
+            {collections.length === 0 ? (
+              <div className="px-3 py-4 text-center text-[12.5px] text-fg-3">
+                No collections yet
               </div>
-            ))}
-          </WidgetCard>
-          <WidgetCard title="Quick filters">
-            <div className="flex flex-col gap-1 p-2">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`flex items-center justify-between rounded-md px-3 py-2 text-[13px] ${
-                    filter === f
-                      ? "bg-bg-3 font-semibold text-fg-1"
-                      : "font-medium text-fg-2 hover:bg-bg-3 hover:text-fg-1"
+            ) : (
+              collections.map((c, i) => (
+                <div
+                  key={c.id}
+                  className={`group relative flex cursor-pointer items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-bg-3 ${
+                    activeCollectionId === c.id ? "bg-bg-3" : ""
                   }`}
+                  style={{
+                    borderTop: i ? "1px solid var(--line-1)" : "none",
+                  }}
+                  onClick={() =>
+                    setActiveCollectionId(
+                      activeCollectionId === c.id ? null : c.id,
+                    )
+                  }
                 >
-                  {f}
-                </button>
-              ))}
-            </div>
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-white"
+                    style={{
+                      background: `linear-gradient(135deg, ${GRADIENT_HUES[i % GRADIENT_HUES.length][0]}, ${GRADIENT_HUES[i % GRADIENT_HUES.length][1]})`,
+                    }}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] font-semibold">
+                      {c.name}
+                    </div>
+                    <div className="text-[11px] text-fg-3">
+                      {c.post_count} saved
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(menuOpen === c.id ? null : c.id);
+                      }}
+                      className="flex h-6 w-6 items-center justify-center rounded-md text-fg-4 opacity-0 transition-opacity hover:bg-bg-2 hover:text-fg-2 group-hover:opacity-100"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                    {menuOpen === c.id && (
+                      <CollectionMenu
+                        onRename={() => {
+                          setMenuOpen(null);
+                          setRenameModal(c);
+                        }}
+                        onDelete={() => {
+                          setMenuOpen(null);
+                          deleteCollectionMut.mutate(c.id);
+                        }}
+                        onClose={() => setMenuOpen(null)}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </WidgetCard>
+          {!activeCollectionId && (
+            <WidgetCard title="Quick filters">
+              <div className="flex flex-col gap-1 p-2">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`flex items-center justify-between rounded-md px-3 py-2 text-[13px] ${
+                      filter === f
+                        ? "bg-bg-3 font-semibold text-fg-1"
+                        : "font-medium text-fg-2 hover:bg-bg-3 hover:text-fg-1"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </WidgetCard>
+          )}
         </>
       }
     >
       <div className="mx-auto max-w-[720px] px-4 py-5 sm:px-8 sm:py-6">
+        {/* Back button when viewing a collection */}
+        {activeCollectionId && (
+          <button
+            onClick={() => setActiveCollectionId(null)}
+            className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-fg-3 hover:text-fg-1"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to all bookmarks
+          </button>
+        )}
+
         {/* Search */}
-        <div className="mb-4 flex h-10 items-center gap-2.5 rounded-md border border-line-2 bg-bg-2 px-3.5 text-[13.5px] text-fg-3">
-          <Search className="h-4 w-4" />
-          <span>Search your bookmarks…</span>
+        <div className="mb-4 flex h-10 items-center gap-2.5 rounded-md border border-line-2 bg-bg-2 px-3.5 text-[13.5px]">
+          <Search className="h-4 w-4 text-fg-3" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search your bookmarks…"
+            className="h-full flex-1 bg-transparent text-fg-1 placeholder:text-fg-4 focus:outline-none"
+          />
         </div>
 
-        {/* Filters */}
-        <div className="mb-5 flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
-              {f}
-            </Chip>
-          ))}
-        </div>
+        {/* Filters (only when not viewing a collection) */}
+        {!activeCollectionId && (
+          <div className="mb-5 flex flex-wrap gap-2">
+            {FILTERS.map((f) => (
+              <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
+                {f}
+              </Chip>
+            ))}
+          </div>
+        )}
 
         {/* Loading state */}
         {isLoading && (
@@ -206,62 +349,229 @@ export default function BookmarksPage() {
         )}
 
         {/* Error state */}
-        {(postsError || jobsError) && !isLoading && (
+        {(postsError || jobsError) && !isLoading && !activeCollectionId && (
           <div className="rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-[13px] text-danger">
             Failed to load bookmarks. Please try again.
           </div>
         )}
 
-        {/* Global empty state (nothing saved at all) */}
-        {!isLoading && !postsError && !jobsError && allEmpty && (
-          <BookmarksEmpty type="all" />
-        )}
-
-        {!isLoading && !postsError && !jobsError && !allEmpty && (
+        {/* Collection view */}
+        {activeCollectionId && !collectionPostsLoading && (
           <>
-            {/* Saved posts */}
-            {showPosts && savedPosts.length > 0 && (
-              <div className="mb-6">
-                <SectionLabel icon={<Bookmark className="h-3.5 w-3.5" />}>
-                  Saved posts · {savedPosts.length}
+            {filteredPosts.length === 0 ? (
+              <CollectionEmpty name={activeCollection?.name ?? "Collection"} />
+            ) : (
+              <div>
+                <SectionLabel icon={<FolderOpen className="h-3.5 w-3.5" />}>
+                  {activeCollection?.name} · {filteredPosts.length}
                 </SectionLabel>
-                {savedPosts.map((p) => (
+                {filteredPosts.map((p) => (
                   <FeedPostCard key={p.id} post={p} />
                 ))}
               </div>
             )}
+          </>
+        )}
 
-            {/* Saved posts empty (only when filtered to Posts) */}
-            {filter === "Posts" && savedPosts.length === 0 && (
-              <BookmarksEmpty type="posts" />
-            )}
+        {/* All bookmarks view */}
+        {!activeCollectionId && !isLoading && !postsError && !jobsError && (
+          <>
+            {allEmpty && <BookmarksEmpty type="all" />}
 
-            {/* Saved jobs */}
-            {showJobs && savedJobs.length > 0 && (
-              <div>
-                <SectionLabel icon={<Briefcase className="h-3.5 w-3.5" />}>
-                  Saved jobs · {savedJobs.length}
-                </SectionLabel>
-                <div className="flex flex-col gap-3">
-                  {savedJobs.map((j) => (
-                    <SavedJobCard
-                      key={j.id}
-                      job={j}
-                      onUnsave={() => handleUnsaveJob(j.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {!allEmpty && (
+              <>
+                {/* Saved posts */}
+                {showPosts && filteredPosts.length > 0 && (
+                  <div className="mb-6">
+                    <SectionLabel icon={<Bookmark className="h-3.5 w-3.5" />}>
+                      Saved posts · {filteredPosts.length}
+                    </SectionLabel>
+                    {filteredPosts.map((p) => (
+                      <FeedPostCard key={p.id} post={p} />
+                    ))}
+                  </div>
+                )}
 
-            {/* Saved jobs empty (only when filtered to Jobs) */}
-            {filter === "Jobs" && savedJobs.length === 0 && (
-              <BookmarksEmpty type="jobs" />
+                {filter === "Posts" && filteredPosts.length === 0 && (
+                  <BookmarksEmpty type="posts" />
+                )}
+
+                {/* Saved jobs */}
+                {showJobs && filteredJobs.length > 0 && (
+                  <div>
+                    <SectionLabel icon={<Briefcase className="h-3.5 w-3.5" />}>
+                      Saved jobs · {filteredJobs.length}
+                    </SectionLabel>
+                    <div className="flex flex-col gap-3">
+                      {filteredJobs.map((j) => (
+                        <SavedJobCard
+                          key={j.id}
+                          job={j}
+                          onUnsave={() => handleUnsaveJob(j.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {filter === "Jobs" && filteredJobs.length === 0 && (
+                  <BookmarksEmpty type="jobs" />
+                )}
+              </>
             )}
           </>
         )}
       </div>
+
+      {/* Create collection modal */}
+      <CreateCollectionModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
+
+      {/* Rename collection modal */}
+      {renameModal && (
+        <RenameCollectionModal
+          collection={renameModal}
+          onClose={() => setRenameModal(null)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+/* ── Create collection modal ──────────────────────────────── */
+
+function CreateCollectionModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (collectionName: string) => {
+      await api.post("/users/me/saved-collections", { name: collectionName });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-collections"] });
+      setName("");
+      onClose();
+    },
+  });
+
+  return (
+    <Modal open={open} onClose={onClose} title="New collection">
+      <Field
+        label="Collection name"
+        type="text"
+        placeholder="e.g. Study resources, Internships..."
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={100}
+        icon={<FolderOpen className="h-4 w-4" />}
+      />
+      <div className="mt-4 flex justify-end gap-2.5">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => mutation.mutate(name.trim())}
+          disabled={!name.trim() || mutation.isPending}
+        >
+          {mutation.isPending ? "Creating..." : "Create"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Rename collection modal ──────────────────────────────── */
+
+function RenameCollectionModal({
+  collection,
+  onClose,
+}: {
+  collection: Collection;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(collection.name);
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (newName: string) => {
+      await api.patch(`/users/me/saved-collections/${collection.id}`, {
+        name: newName,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-collections"] });
+      onClose();
+    },
+  });
+
+  return (
+    <Modal open={true} onClose={onClose} title="Rename collection">
+      <Field
+        label="Collection name"
+        type="text"
+        placeholder="Collection name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={100}
+        icon={<Pencil className="h-4 w-4" />}
+      />
+      <div className="mt-4 flex justify-end gap-2.5">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => mutation.mutate(name.trim())}
+          disabled={!name.trim() || name.trim() === collection.name || mutation.isPending}
+        >
+          {mutation.isPending ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Collection context menu ──────────────────────────────── */
+
+function CollectionMenu({
+  onRename,
+  onDelete,
+  onClose,
+}: {
+  onRename: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute right-0 top-7 z-50 w-36 overflow-hidden rounded-md border border-line-1 bg-bg-2 shadow-lg">
+        <button
+          onClick={onRename}
+          className="flex w-full items-center gap-2 px-3 py-2 text-[12.5px] text-fg-2 hover:bg-bg-3"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Rename
+        </button>
+        <button
+          onClick={onDelete}
+          className="flex w-full items-center gap-2 px-3 py-2 text-[12.5px] text-danger hover:bg-bg-3"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -379,6 +689,23 @@ function BookmarksEmpty({ type }: { type: "posts" | "jobs" | "all" }) {
       >
         {type === "jobs" ? "Browse jobs" : "Browse feed"}
       </Link>
+    </div>
+  );
+}
+
+function CollectionEmpty({ name }: { name: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line-2 bg-bg-2/50 px-8 py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-brand-purple/30 bg-brand-purple/10 text-brand-purple">
+        <FolderOpen className="h-7 w-7" strokeWidth={1.5} />
+      </div>
+      <h3 className="mt-5 text-[18px] font-bold tracking-tighter">
+        {name} is empty
+      </h3>
+      <p className="mt-2 max-w-[340px] text-[13.5px] leading-[1.55] text-fg-2">
+        Save posts to this collection by clicking the bookmark icon on any post,
+        then choosing this collection.
+      </p>
     </div>
   );
 }

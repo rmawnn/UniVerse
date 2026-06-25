@@ -9,6 +9,11 @@ class CreateCollectionRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 
 
+class RenameCollectionRequest(BaseModel):
+    """Payload for renaming a saved collection."""
+    name: str = Field(..., min_length=1, max_length=100)
+
+
 class SavedCollectionResponse(BaseModel):
     """Public-facing collection representation."""
     id: uuid.UUID
