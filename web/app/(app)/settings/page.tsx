@@ -40,6 +40,7 @@ import {
   type UpdateProfileRequest,
 } from "@/lib/api/settings";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { usePushNotifications } from "@/lib/hooks/usePushNotifications";
 import { cn } from "@/lib/utils";
 
 /* ── Sidebar nav config ─────────────────────────────────────── */
@@ -764,7 +765,7 @@ function NotificationsSection() {
 }
 
 function PushNotificationToggle() {
-  const { isSupported, isSubscribed, subscribe, unsubscribe } = usePushHook();
+  const { isSupported, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
   if (!isSupported) return null;
   return (
     <Card padded={false} className="mt-4">
@@ -777,58 +778,6 @@ function PushNotificationToggle() {
       />
     </Card>
   );
-}
-
-function usePushHook() {
-  const [state, setState] = useState({ isSupported: false, isSubscribed: false });
-  useEffect(() => {
-    if (!("serviceWorker" in navigator && "PushManager" in window)) return;
-    setState((s) => ({ ...s, isSupported: true }));
-    navigator.serviceWorker.ready.then(async (reg) => {
-      const sub = await reg.pushManager.getSubscription();
-      setState({ isSupported: true, isSubscribed: !!sub });
-    });
-  }, []);
-
-  const subscribe = useCallback(async () => {
-    const { usePushNotifications } = await import("@/lib/hooks/usePushNotifications");
-    const hook = { subscribe: async () => {} };
-    const reg = await navigator.serviceWorker.register("/sw.js");
-    await navigator.serviceWorker.ready;
-    const api = (await import("@/lib/api/client")).default;
-    const res = await api.get<{ vapid_public_key: string }>("/push/vapid-key");
-    const vapidKey = res.data.vapid_public_key;
-    if (!vapidKey) return;
-    const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4);
-    const base64 = (vapidKey + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const rawData = window.atob(base64);
-    const appServerKey = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) appServerKey[i] = rawData.charCodeAt(i);
-    const subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: appServerKey,
-    });
-    const json = subscription.toJSON();
-    await api.post("/push/subscribe", {
-      endpoint: json.endpoint,
-      p256dh: json.keys?.p256dh,
-      auth: json.keys?.auth,
-    });
-    setState({ isSupported: true, isSubscribed: true });
-  }, []);
-
-  const unsubscribe = useCallback(async () => {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      const api = (await import("@/lib/api/client")).default;
-      await api.post("/push/unsubscribe", { endpoint: sub.endpoint });
-      await sub.unsubscribe();
-    }
-    setState({ isSupported: true, isSubscribed: false });
-  }, []);
-
-  return { ...state, subscribe, unsubscribe };
 }
 
 /* ── Appearance section (placeholder) ───────────────────────── */

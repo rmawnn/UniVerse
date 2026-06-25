@@ -39,6 +39,18 @@ export function TopBar({ breadcrumb, title, action }: TopBarProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  // Cmd+K / Ctrl+K shortcut to open search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        router.push("/search");
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [router]);
+
   const displayName = user?.full_name ?? "User";
   const profileHref = user ? `/profile/${user.username}` : "/settings";
 

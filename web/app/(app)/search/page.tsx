@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
+  Briefcase,
   Heart,
+  MapPin,
   MessageCircle,
   RefreshCw,
   Search,
@@ -22,13 +24,14 @@ import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { unifiedSearch, type UnifiedSearchResponse } from "@/lib/api/users";
 import { cn, compactNumber } from "@/lib/utils";
 
-type TabKey = "all" | "people" | "communities" | "posts";
+type TabKey = "all" | "people" | "communities" | "posts" | "jobs";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "all", label: "All" },
   { key: "people", label: "People" },
   { key: "communities", label: "Communities" },
   { key: "posts", label: "Posts" },
+  { key: "jobs", label: "Jobs" },
 ];
 
 function relativeTime(iso: string): string {
@@ -96,16 +99,19 @@ export default function SearchPage() {
   const hasResults = results && (
     results.users.length > 0 ||
     results.communities.length > 0 ||
-    results.posts.length > 0
+    results.posts.length > 0 ||
+    results.jobs.length > 0
   );
 
   const tabCounts: Record<TabKey, number> = {
     all: (results?.users_total ?? 0) +
       (results?.communities_total ?? 0) +
-      (results?.posts_total ?? 0),
+      (results?.posts_total ?? 0) +
+      (results?.jobs_total ?? 0),
     people: results?.users_total ?? 0,
     communities: results?.communities_total ?? 0,
     posts: results?.posts_total ?? 0,
+    jobs: results?.jobs_total ?? 0,
   };
 
   const showUsers =
@@ -122,6 +128,11 @@ export default function SearchPage() {
     (activeTab === "all" || activeTab === "posts") &&
     results &&
     results.posts.length > 0;
+
+  const showJobs =
+    (activeTab === "all" || activeTab === "jobs") &&
+    results &&
+    results.jobs.length > 0;
 
   return (
     <AppShell
@@ -380,6 +391,52 @@ export default function SearchPage() {
                             <MessageCircle className="h-3.5 w-3.5" />
                             {compactNumber(p.comment_count)}
                           </span>
+                        </div>
+                      </Link>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Jobs */}
+            {showJobs && (
+              <div className="mt-8">
+                <SectionHead
+                  title="Jobs"
+                  sub={`${results.jobs.length} of ${results.jobs_total} results`}
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  {results.jobs.map((j) => (
+                    <Card key={j.id}>
+                      <Link
+                        href={`/jobs/${j.id}`}
+                        className="flex items-start gap-3"
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-brand-purple/15 text-brand-purple">
+                          <Briefcase className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[14.5px] font-semibold hover:underline">
+                            {j.title}
+                          </div>
+                          {j.company_name && (
+                            <div className="mt-0.5 truncate text-[12.5px] text-fg-2">
+                              {j.company_name}
+                            </div>
+                          )}
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-3">
+                            <span className="rounded-full border border-line-1 bg-bg-3 px-2 py-0.5 text-[11px] font-medium text-fg-2">
+                              {j.job_type === "part-time" ? "Part-time" : j.job_type === "full-time" ? "Full-time" : j.job_type === "freelance" ? "Freelance" : "Internship"}
+                            </span>
+                            {j.location && (
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {j.location}
+                              </span>
+                            )}
+                            <span>{relativeTime(j.created_at)}</span>
+                          </div>
                         </div>
                       </Link>
                     </Card>
