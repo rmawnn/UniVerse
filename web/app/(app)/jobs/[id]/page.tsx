@@ -19,7 +19,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { JobLogo } from "@/components/jobs/JobCard";
-import { JobApplyModal } from "@/components/jobs/JobApplyModal";
+import dynamic from "next/dynamic";
+
+const JobApplyModal = dynamic(() => import("@/components/jobs/JobApplyModal").then(m => m.JobApplyModal), { ssr: false });
 import { JobMatchBadge } from "@/components/jobs/JobMatchBadge";
 import {
   getJob,

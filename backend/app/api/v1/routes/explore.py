@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user_optional
+from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.community import ExploreCommunityResponse
@@ -19,8 +20,9 @@ router = APIRouter()
 async def explore(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=30, window_seconds=60, prefix="explore")),
 ):
-    """Combined explore page: trending posts, suggested communities & users."""
+    """Combined explore page: trending posts, suggested communities & users. Rate limited: 30/min."""
     return await explore_service.get_explore(db, current_user=current_user)
 
 
@@ -33,8 +35,9 @@ async def explore_communities(
     page_size: int = Query(20, ge=1, le=100),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=30, window_seconds=60, prefix="explore:comm")),
 ):
-    """Trending communities ranked by members + recent activity."""
+    """Trending communities ranked by members + recent activity. Rate limited: 30/min."""
     return await community_service.explore_communities(
         db, current_user=current_user, page=page, page_size=page_size,
     )

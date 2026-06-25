@@ -90,17 +90,13 @@ async def unified_search(
     author_ids = {p.author_id for p in posts_raw}
     community_ids = {p.community_id for p in posts_raw}
 
-    author_map: dict[UUID, User] = {}
-    for aid in author_ids:
-        u = await db.get(User, aid)
-        if u:
-            author_map[aid] = u
+    author_map = await user_repo.get_by_ids(author_ids) if author_ids else {}
 
     comm_map: dict[UUID, Community] = {}
-    for cid in community_ids:
-        c = await db.get(Community, cid)
-        if c:
-            comm_map[cid] = c
+    if community_ids:
+        stmt = select(Community).where(Community.id.in_(community_ids))
+        result = await db.execute(stmt)
+        comm_map = {c.id: c for c in result.scalars().all()}
 
     # Batch-load like and comment counts
     like_counts: dict[UUID, int] = {}

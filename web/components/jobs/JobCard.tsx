@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bookmark, Briefcase, MapPin, Users } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { JobApplyModal } from "@/components/jobs/JobApplyModal";
+
+const JobApplyModal = dynamic(() => import("@/components/jobs/JobApplyModal").then(m => m.JobApplyModal), { ssr: false });
 import type { JobPostResponse } from "@/lib/api/jobs";
 import { saveJob, unsaveJob } from "@/lib/api/jobs";
 import { compactNumber, formatRelativeTime } from "@/lib/utils";

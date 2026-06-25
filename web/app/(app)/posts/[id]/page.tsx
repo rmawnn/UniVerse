@@ -15,6 +15,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FeedPostCard } from "@/components/post/FeedPostCard";
+import { RichContent } from "@/components/post/RichContent";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { getPost } from "@/lib/api/posts";
 import { getComments, createComment, type CommentResponse } from "@/lib/api/posts";
@@ -297,7 +298,7 @@ function CommentRow({
             </span>
           </div>
           <p className="mt-1 text-pretty text-[14px] leading-[1.5]">
-            {comment.content}
+            <RichContent text={comment.content} />
           </p>
           {!isReply && (
             <div className="mt-1.5 flex items-center gap-3.5 text-[12px] text-fg-3">

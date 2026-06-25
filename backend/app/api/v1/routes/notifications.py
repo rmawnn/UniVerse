@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import RateLimiter
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.notification import NotificationMarkReadResponse, NotificationResponse
@@ -19,8 +20,9 @@ async def list_notifications(
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=60, window_seconds=60, prefix="notif:list")),
 ):
-    """List my notifications, newest first."""
+    """List my notifications, newest first. Rate limited: 60/min."""
     return await notification_service.list_notifications(
         db, current_user, page=page, page_size=page_size,
     )

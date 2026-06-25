@@ -75,8 +75,9 @@ async def search_messages(
     page_size: int = Query(50, ge=1, le=100),
     current_user: User = Depends(require_verified_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(RateLimiter(max_calls=20, window_seconds=60, prefix="msg:search")),
 ):
-    """Search messages in a conversation by content. Must be a participant."""
+    """Search messages in a conversation. Rate limited: 20/min."""
     return await message_service.search_messages(
         db, conversation_id, current_user, q, page=page, page_size=page_size,
     )

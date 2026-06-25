@@ -11,9 +11,11 @@ import {
   Share2,
   Check,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { cn, compactNumber } from "@/lib/utils";
 import { toggleLike, toggleRepost } from "@/lib/api/posts";
-import { ReportModal } from "./ReportModal";
+
+const ReportModal = dynamic(() => import("./ReportModal").then(m => m.ReportModal), { ssr: false });
 
 type ActionKind = "like" | "comment" | "repost" | "bookmark" | "share";
 

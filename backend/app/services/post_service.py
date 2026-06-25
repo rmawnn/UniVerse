@@ -283,8 +283,7 @@ async def _build_list_responses(
     polls: dict[UUID, PollResponse] = {}
     if poll_post_ids:
         uid = current_user.id if current_user else None
-        for pid in poll_post_ids:
-            polls[pid] = await _load_poll(db, pid, uid)
+        polls = await _load_polls_batch(db, poll_post_ids, uid)
 
     return [
         _build_response(
@@ -299,6 +298,63 @@ async def _build_list_responses(
         )
         for p in posts
     ]
+
+
+async def _load_polls_batch(
+    db: AsyncSession,
+    post_ids: list[UUID],
+    user_id: UUID | None,
+) -> dict[UUID, PollResponse]:
+    """Load polls for multiple posts in batch (2-3 queries instead of N*3)."""
+    all_options = (await db.execute(
+        select(PollOption)
+        .where(PollOption.post_id.in_(post_ids))
+        .order_by(PollOption.post_id, PollOption.position)
+    )).scalars().all()
+
+    vote_counts_rows = (await db.execute(
+        select(PollVote.post_id, PollVote.option_id, func.count())
+        .where(PollVote.post_id.in_(post_ids))
+        .group_by(PollVote.post_id, PollVote.option_id)
+    )).all()
+    vote_counts: dict[UUID, dict[UUID, int]] = {}
+    for pid, oid, cnt in vote_counts_rows:
+        vote_counts.setdefault(pid, {})[oid] = cnt
+
+    user_votes: dict[UUID, UUID] = {}
+    if user_id:
+        user_vote_rows = (await db.execute(
+            select(PollVote.post_id, PollVote.option_id)
+            .where(PollVote.post_id.in_(post_ids), PollVote.user_id == user_id)
+        )).all()
+        user_votes = {row[0]: row[1] for row in user_vote_rows}
+
+    options_by_post: dict[UUID, list[PollOption]] = {}
+    for o in all_options:
+        options_by_post.setdefault(o.post_id, []).append(o)
+
+    result: dict[UUID, PollResponse] = {}
+    for pid in post_ids:
+        opts = options_by_post.get(pid, [])
+        if not opts:
+            result[pid] = PollResponse()
+            continue
+        post_vote_counts = vote_counts.get(pid, {})
+        total = sum(post_vote_counts.values())
+        option_responses = []
+        for o in opts:
+            count = post_vote_counts.get(o.id, 0)
+            pct = round((count / total * 100) if total > 0 else 0, 1)
+            option_responses.append(PollOptionResponse(
+                id=o.id, label=o.label, position=o.position,
+                vote_count=count, pct=pct,
+            ))
+        result[pid] = PollResponse(
+            options=option_responses,
+            total_votes=total,
+            voted_option_id=user_votes.get(pid),
+        )
+    return result
 
 
 async def _load_poll(

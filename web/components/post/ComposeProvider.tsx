@@ -8,7 +8,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ComposeModal } from "./ComposeModal";
+import dynamic from "next/dynamic";
+
+const ComposeModal = dynamic(() => import("./ComposeModal").then(m => m.ComposeModal), {
+  ssr: false,
+});
 
 interface ComposeContextValue {
   isOpen: boolean;

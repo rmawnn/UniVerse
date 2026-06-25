@@ -10,7 +10,9 @@ import { Card } from "@/components/ui/Card";
 import { SectionHead } from "@/components/ui/SectionHead";
 import { CampusEventsWidget } from "@/components/widgets/CampusEventsWidget";
 import { TrendingWidget } from "@/components/widgets/TrendingWidget";
-import { CreateCommunityModal } from "@/components/community/CreateCommunityModal";
+import dynamic from "next/dynamic";
+
+const CreateCommunityModal = dynamic(() => import("@/components/community/CreateCommunityModal").then(m => m.CreateCommunityModal), { ssr: false });
 import {
   getJoinedCommunities,
   joinCommunity as joinCommunityApi,

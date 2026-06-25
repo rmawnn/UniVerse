@@ -31,7 +31,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProfileStat } from "@/components/profile/ProfileStat";
 import { FeedPostCard } from "@/components/post/FeedPostCard";
-import { ReportModal } from "@/components/post/ReportModal";
+import dynamic from "next/dynamic";
+
+const ReportModal = dynamic(() => import("@/components/post/ReportModal").then(m => m.ReportModal), { ssr: false });
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import {
   getProfileByUsername,

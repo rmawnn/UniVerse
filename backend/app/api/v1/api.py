@@ -42,6 +42,8 @@ from app.api.v1.routes.ai import router as ai_router
 from app.api.v1.routes.reposts import router as reposts_router
 from app.api.v1.routes.polls import router as polls_router
 from app.api.v1.routes.blocks import router as blocks_router
+from app.api.v1.routes.moderation import router as moderation_router
+from app.api.v1.routes.push import router as push_router
 
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 v1_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -68,3 +70,5 @@ v1_router.include_router(ai_router, tags=["AI"])
 v1_router.include_router(reposts_router, tags=["Reposts"])
 v1_router.include_router(polls_router, tags=["Polls"])
 v1_router.include_router(blocks_router, tags=["Blocks"])
+v1_router.include_router(moderation_router, tags=["Moderation"])
+v1_router.include_router(push_router, tags=["Push Notifications"])

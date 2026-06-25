@@ -85,6 +85,18 @@ async def notify(
         },
     })
 
+    # Web push notification (fire-and-forget)
+    try:
+        from app.services.push_service import send_push
+        url = f"/notifications"
+        if reference_id and type in ("like", "comment"):
+            url = f"/posts/{reference_id}"
+        elif reference_id and type == "follow":
+            url = f"/profile/{actor_data['username']}" if actor_data else "/notifications"
+        await send_push(db, user_id, "UniVerse", content, url)
+    except Exception:
+        pass
+
 
 # ── API-facing operations ───────────────────────────────────────
 
@@ -103,14 +115,9 @@ async def list_notifications(
     total = await repo.count_by_user(current_user.id)
     notifications = await repo.list_by_user(current_user.id, skip=skip, limit=page_size)
 
-    # Batch-load actors
     user_repo = UserRepository(db)
     actor_ids = {n.actor_id for n in notifications if n.actor_id}
-    actors: dict[UUID, User] = {}
-    for aid in actor_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            actors[aid] = user
+    actors = await user_repo.get_by_ids(actor_ids) if actor_ids else {}
 
     items = [
         _build_notification_response(n, actors.get(n.actor_id) if n.actor_id else None)

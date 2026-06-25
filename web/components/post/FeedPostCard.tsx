@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { CategoryBadge } from "./CategoryBadge";
 import { PostActions } from "./PostActions";
 import { PostMenu } from "./PostMenu";
+import { RichContent } from "./RichContent";
 import type { FeedPost, PollData } from "@/lib/api/feed";
 import { votePoll } from "@/lib/api/posts";
 import { cn } from "@/lib/utils";
@@ -197,7 +198,7 @@ export function FeedPostCard({ post, expanded }: FeedPostCardProps) {
                   expanded ? "text-[17px]" : "text-[15px]",
                 )}
               >
-                {post.content}
+                <RichContent text={post.content} />
               </p>
             </Link>
 

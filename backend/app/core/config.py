@@ -98,6 +98,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
+    # ── Web Push (VAPID) ──────────────────────────────────────────
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_CLAIMS_EMAIL: str = ""
+
     # ── Frontend ─────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"
 

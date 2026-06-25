@@ -2,9 +2,11 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Edit, Mail, MessageCircle, Search, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Chip } from "@/components/ui/Chip";
 import { ConversationRow } from "./ConversationRow";
-import { NewConversationModal } from "./NewConversationModal";
+
+const NewConversationModal = dynamic(() => import("./NewConversationModal").then(m => m.NewConversationModal), { ssr: false });
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { ConversationResponse } from "@/lib/api/conversations";
 

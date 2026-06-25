@@ -121,17 +121,12 @@ async def list_comments(
     for r in all_replies:
         replies_by_parent.setdefault(r.parent_comment_id, []).append(r)
 
-    # Batch-load all authors
     user_repo = UserRepository(db)
     all_author_ids = (
         {c.author_id for c in top_comments}
         | {r.author_id for r in all_replies}
     )
-    authors: dict[UUID, User] = {}
-    for aid in all_author_ids:
-        user = await user_repo.get_by_id(aid)
-        if user:
-            authors[aid] = user
+    authors = await user_repo.get_by_ids(all_author_ids) if all_author_ids else {}
 
     items = []
     for c in top_comments:

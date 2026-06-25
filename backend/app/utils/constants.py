@@ -19,7 +19,14 @@ class VerificationStatus(str, Enum):
 
 class CommunityRole(str, Enum):
     ADMIN = "admin"
+    MODERATOR = "moderator"
     MEMBER = "member"
+
+
+class ModerationAction(str, Enum):
+    BAN = "ban"
+    MUTE = "mute"
+    KICK = "kick"
 
 
 class PostType(str, Enum):

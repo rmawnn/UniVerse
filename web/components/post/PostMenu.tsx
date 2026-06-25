@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Flag, MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ReportModal } from "./ReportModal";
-import { EditPostModal } from "./EditPostModal";
+import dynamic from "next/dynamic";
 import { deletePost } from "@/lib/api/posts";
 import { useAuthStore } from "@/lib/stores/auth-store";
+
+const ReportModal = dynamic(() => import("./ReportModal").then(m => m.ReportModal), { ssr: false });
+const EditPostModal = dynamic(() => import("./EditPostModal").then(m => m.EditPostModal), { ssr: false });
 
 interface PostMenuProps {
   postId: string;

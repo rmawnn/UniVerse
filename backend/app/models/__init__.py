@@ -31,3 +31,5 @@ from app.models.repost import Repost  # noqa: F401
 from app.models.ai_usage_log import AIUsageLog  # noqa: F401
 from app.models.poll import PollOption, PollVote  # noqa: F401
 from app.models.user_block import UserBlock  # noqa: F401
+from app.models.community_moderation import CommunityModeration  # noqa: F401
+from app.models.push_subscription import PushSubscription  # noqa: F401
