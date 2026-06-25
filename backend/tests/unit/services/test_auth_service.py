@@ -18,7 +18,7 @@ def _make_login_request(identifier="user@testuni.edu", password="Test1234"):
 
 def _make_register_request(
     email="new@testuni.edu",
-    password="StrongPass1",
+    password="StrongPass1!",
     full_name="New User",
     username="newuser",
 ):
@@ -228,7 +228,7 @@ class TestRegisterSchema:
         from app.schemas.auth import RegisterRequest
         req = RegisterRequest(
             email="test@university.edu.tr",
-            password="StrongPass1",
+            password="StrongPass1!",
             full_name="Test User",
             username="testuser",
         )
@@ -266,7 +266,7 @@ class TestRegisterSchema:
         with pytest.raises(ValidationError) as exc_info:
             RegisterRequest(
                 email="test@uni.edu",
-                password="StrongPass1",
+                password="StrongPass1!",
                 full_name="Test",
                 username="bad user!",
             )

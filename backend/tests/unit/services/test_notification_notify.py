@@ -44,6 +44,7 @@ class TestNotify:
             patch("app.services.notification_service.NotificationRepository", return_value=mock_repo),
             patch("app.services.notification_service.UserRepository", return_value=mock_user_repo),
             patch("app.services.notification_service.ws_manager") as mock_ws,
+            patch("app.services.push_service.send_push", new_callable=AsyncMock),
         ):
             mock_ws.send_to_user = AsyncMock()
             await notify(
@@ -134,7 +135,7 @@ class TestListNotifications:
         mock_repo.list_by_user = AsyncMock(return_value=[notification])
 
         mock_user_repo = MagicMock()
-        mock_user_repo.get_by_id = AsyncMock(return_value=actor)
+        mock_user_repo.get_by_ids = AsyncMock(return_value={actor_id: actor})
 
         with (
             patch("app.services.notification_service.NotificationRepository", return_value=mock_repo),

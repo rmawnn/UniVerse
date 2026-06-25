@@ -40,7 +40,7 @@ class TestJoinCommunity:
         community_data, _ = community
 
         # Create a second verified user
-        password = "TestPassword123"
+        password = "TestPassword123!"
         email = f"joiner_{unique_suffix}@testuni.edu"
         uni_email = f"joiner_{unique_suffix}@{university.domain}"
 

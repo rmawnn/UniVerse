@@ -166,7 +166,7 @@ async def university(db: AsyncSession):
 @pytest.fixture
 async def registered_user(client: AsyncClient, unique_suffix: str):
     """Register a user via the API and return (user_data, password)."""
-    password = "TestPassword123"
+    password = "TestPassword123!"
     payload = {
         "email": f"user_{unique_suffix}@testuni.edu",
         "password": password,
@@ -203,7 +203,7 @@ async def verified_user_header(
 
     Registers, logs in, sends verification code, confirms it.
     """
-    password = "TestPassword123"
+    password = "TestPassword123!"
     email = f"vuser_{unique_suffix}@testuni.edu"
     username = f"vuser_{unique_suffix}"
     uni_email = f"student_{unique_suffix}@{university.domain}"
