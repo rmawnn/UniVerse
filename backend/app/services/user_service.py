@@ -11,6 +11,7 @@ from app.repositories.follow_repository import FollowRepository
 from app.repositories.university_repository import UniversityRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import PaginatedResponse
+from app.repositories.block_repository import BlockRepository
 from app.repositories.post_repository import PostRepository
 from app.repositories.comment_repository import CommentRepository
 from app.repositories.post_like_repository import PostLikeRepository
@@ -205,8 +206,11 @@ async def _build_public_profile(
     following_count = await follow_repo.count_following(user.id)
 
     is_following = False
+    is_blocked = False
     if current_user_id and current_user_id != user.id:
         is_following = await follow_repo.exists(current_user_id, user.id)
+        block_repo = BlockRepository(db)
+        is_blocked = await block_repo.exists(current_user_id, user.id)
 
     return PublicUserProfileResponse(
         id=user.id,
@@ -227,6 +231,7 @@ async def _build_public_profile(
         following_count=following_count,
         communities_count=len(community_summaries),
         is_following=is_following,
+        is_blocked=is_blocked,
         created_at=user.created_at,
     )
 
